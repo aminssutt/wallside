@@ -1,108 +1,155 @@
-# 🚗 Vehicle Assistant - Chatbot RAG Personnalisé
+# AurisTraining — Assistant documentaire intelligent pour véhicules
 
-Un chatbot intelligent qui crée un assistant personnalisé pour **n'importe quel véhicule** en analysant les manuels PDF uploadés par l'utilisateur.
+AurisTraining est une application full-stack qui transforme des manuels PDF (entretien, dépannage, fonctionnalités) en assistant conversationnel spécialisé par véhicule.
 
-## ✨ Fonctionnalités
+Objectif : permettre à un utilisateur d’obtenir des réponses contextualisées à partir de ses propres documents techniques, sans recherche manuelle dans des centaines de pages.
 
-- **Upload de PDFs** : Glissez-déposez vos manuels de véhicule
-- **Traitement automatique** : Extraction, découpage et indexation avec IA
-- **Chatbot personnalisé** : Assistant dédié à VOTRE véhicule
-- **Sessions isolées** : Chaque utilisateur a sa propre base de connaissances
-- **Interface moderne** : Design sombre et élégant
+## Aperçu du projet
 
-## 🚀 Flux utilisateur
+Le produit suit un flux simple et orienté usage :
 
-```
-1. 📝 Page d'accueil
-   └── Entrer le nom du véhicule
-   └── Uploader les PDFs (manuels, guides...)
+1. Création d’une session véhicule
+2. Upload de documents PDF
+3. Traitement des documents (extraction, chunking, indexation)
+4. Conversation avec un chatbot RAG dédié à la session
 
-2. ⏳ Page de traitement
-   └── Barre de progression en temps réel
-   └── Extraction → Découpage → Indexation
+## Problème traité
 
-3. 💬 Page Chatbot
-   └── Assistant personnalisé "Mon [Véhicule]"
-   └── Réponses basées sur VOS documents
-```
+Les manuels techniques sont longs, peu ergonomiques à consulter et difficiles à exploiter en situation réelle (panne, maintenance, question précise).
 
-## 🏗️ Architecture
+## Solution apportée
 
-```
-Auris/
-├── backend/                 # API Flask
-│   ├── api.py               # Endpoints REST
-│   ├── src/
-│   │   ├── session_manager.py   # Gestion des sessions
-│   │   ├── pdf_processor.py     # Traitement des PDFs
-│   │   ├── session_chatbot.py   # Chatbot par session
-│   │   ├── vector_store.py      # ChromaDB
-│   │   └── config.py
-│   └── data/sessions/       # Données par session
-│
-└── frontend/                # React + Vite
-    └── src/pages/
-        ├── UploadPage.jsx       # Upload des PDFs
-        ├── ProcessingPage.jsx   # Progression
-        └── ChatPage.jsx         # Interface chat
-```
+Le backend construit une base de connaissances vectorielle à partir des PDFs uploadés, puis expose une API de chat qui récupère les passages pertinents avant génération de réponse.
 
-## 🔧 Installation locale
+## Stack technique
 
 ### Backend
+- Python
+- Flask
+- LangChain
+- ChromaDB
+- Google Gemini
+- sentence-transformers
+
+### Frontend
+- React
+- Vite
+- React Router
+- ESLint
+
+## Fonctionnalités
+
+- Sessions isolées par véhicule
+- Upload de plusieurs PDFs
+- Traitement asynchrone avec suivi de statut
+- Chat contextuel basé sur les documents de la session
+- API REST claire pour l’orchestration frontend/backend
+
+## Architecture
+
+```text
+AurisTraining/
+├── backend/
+│   ├── api.py                  # API Flask principale
+│   ├── main.py                 # Point d’entrée alternatif
+│   ├── requirements.txt
+│   ├── src/
+│   │   ├── config.py
+│   │   ├── session_manager.py
+│   │   ├── pdf_processor.py
+│   │   ├── session_chatbot.py
+│   │   ├── chatbot.py
+│   │   ├── vector_store.py
+│   │   └── pdf_loader.py
+│   └── test_*.py
+└── frontend/
+    ├── package.json
+    ├── src/
+    │   ├── pages/
+    │   │   ├── UploadPage.jsx
+    │   │   ├── ProcessingPage.jsx
+    │   │   └── ChatPage.jsx
+    │   ├── App.jsx
+    │   └── main.jsx
+    └── vite.config.js
+```
+
+## Installation
+
+### Prérequis
+- Python 3.10+
+- Node.js 18+
+- npm 9+
+- Une clé `GOOGLE_API_KEY`
+
+### 1) Backend
 
 ```bash
 cd backend
-python -m venv venv
-venv\Scripts\activate  # Windows
+python -m venv .venv
+source .venv/bin/activate  # Linux/macOS
+# .venv\Scripts\activate    # Windows
 pip install -r requirements.txt
-
-# Configurer l'API key
 cp .env.example .env
-# Éditer .env avec votre GOOGLE_API_KEY
+```
 
+Éditer `.env` et renseigner au minimum :
+
+```env
+GOOGLE_API_KEY=...
+FRONTEND_URL=http://localhost:5173
+```
+
+Lancer l’API :
+
+```bash
 python api.py
 ```
 
-### Frontend
+### 2) Frontend
 
 ```bash
 cd frontend
 npm install
+cp .env.example .env
 npm run dev
 ```
 
-## 🌐 Déploiement
+## Usage
 
-### Backend (Render)
-- **Root Directory** : `backend`
-- **Start Command** : `gunicorn api:app --bind 0.0.0.0:$PORT`
-- **Variables** : `GOOGLE_API_KEY`, `FRONTEND_URL`
+1. Ouvrir l’interface frontend.
+2. Créer une session en renseignant le véhicule.
+3. Uploader un ou plusieurs manuels PDF.
+4. Lancer le traitement.
+5. Poser des questions techniques dans le chat.
 
-### Frontend (Vercel)
-- **Root Directory** : `frontend`
-- **Variable** : `VITE_API_URL` (URL de l'API Render)
+## Endpoints principaux
 
-## 📡 API Endpoints
+- `POST /api/session/create`
+- `POST /api/session/{id}/upload`
+- `POST /api/session/{id}/process`
+- `GET /api/session/{id}/status`
+- `POST /api/session/{id}/chat`
+- `GET /api/health`
 
-| Méthode | Endpoint | Description |
-|---------|----------|-------------|
-| POST | `/api/session/create` | Créer une session |
-| POST | `/api/session/{id}/upload` | Uploader un PDF |
-| POST | `/api/session/{id}/process` | Lancer le traitement |
-| GET | `/api/session/{id}/status` | Statut de la session |
-| POST | `/api/session/{id}/chat` | Envoyer un message |
-| GET | `/api/health` | Santé de l'API |
+## Ce que ce projet démontre
 
-## 🔒 Sécurité
+- Conception d’un pipeline RAG de bout en bout
+- Structuration d’une API Flask orientée produit
+- Intégration frontend/backend avec gestion de flux utilisateur
+- Organisation modulaire du code (traitement, session, vector store)
+- Prise en compte des environnements de déploiement (Render/Vercel)
 
-- Sessions temporaires (non persistantes)
-- Données isolées par utilisateur
-- Pas de stockage permanent des PDFs
-- `.env` jamais commité
+## Axes d’amélioration
 
-## 🛠️ Technologies
+- Standardiser un seul point d’entrée backend (`api.py` ou `main.py`)
+- Ajouter des tests automatisés backend exécutables en CI
+- Ajouter des tests frontend (Vitest/RTL)
+- Renommer certains fichiers backend pour expliciter les responsabilités (ex: `session_chatbot.py` → `session_rag_service.py`)
+- Centraliser les scripts de dev dans un `Makefile` racine
 
-- **Backend** : Python, Flask, LangChain, ChromaDB, Google Gemini
-- **Frontend** : React 18, Vite, React Router
-- **Embeddings** : HuggingFace sentence-transformers
+## Auteur
+
+**Amine S.**
+
+Projet portfolio orienté software craftsmanship : lisibilité, modularité et documentation opérationnelle.
