@@ -20,20 +20,33 @@ Permet d'obtenir des reponses contextualisees a partir de documents techniques, 
 | **Frontend** | React 19, Vite, React Router, Framer Motion |
 | **Deploiement** | Render (backend), Vercel (frontend) |
 
-## Architecture
+## Structure du depot
+
+```
+AurisTraining/
+├── backend/                 # API Flask + pipeline RAG
+├── frontend/                # Application React (interface utilisateur)
+├── manuel/                  # Base de manuels PDF par vehicule
+├── render.yaml              # Orchestration backend/frontend pour Render
+├── start-dev.cmd            # Demarrage local (Windows CMD)
+└── start-dev.ps1            # Demarrage local (PowerShell)
+```
+
+## Architecture applicative
 
 ```
 backend/
 ├── api.py                  # API Flask (point d'entree)
+├── add_manual.py           # Ajout manuel de nouveaux guides
+├── index_manuals.py        # Reindexation locale des manuels
 ├── requirements.txt
 ├── render.yaml             # Config deploiement Render
 └── src/
     ├── config.py           # Configuration & variables d'env
-    ├── session_manager.py  # Gestion des sessions utilisateur
-    ├── pdf_processor.py    # Pipeline : extraction → chunking → indexation
+    ├── guide_manager.py    # Gestion des guides par vehicule
     ├── text_chunker.py     # Chunking intelligent par sections
     ├── vector_store.py     # FAISS vector store
-    └── session_chatbot.py  # RAG chatbot avec recherche hybride
+    └── guide_chatbot.py    # RAG chatbot avec recherche hybride
 
 frontend/
 ├── vercel.json             # Config deploiement Vercel
@@ -41,10 +54,13 @@ frontend/
     ├── App.jsx
     └── pages/
         ├── LandingPage.jsx
-        ├── UploadPage.jsx
-        ├── ProcessingPage.jsx
+        ├── GuidesPage.jsx
         └── ChatPage.jsx
 ```
+
+## Roadmap
+
+- Elargir progressivement le catalogue de vehicules avec davantage de voitures et leurs manuels associes.
 
 ## Installation
 
@@ -96,4 +112,3 @@ Variable d'environnement Vercel : `VITE_API_URL=https://your-app.onrender.com/ap
 ## Auteur
 
 **Amine S.**
-
