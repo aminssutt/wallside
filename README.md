@@ -18,9 +18,9 @@ Permet d'obtenir des reponses contextualisees a partir de documents techniques, 
 |--------|-------------|
 | **Backend** | Python, Flask, LangChain, FAISS, BM25, Google Gemini |
 | **Frontend** | React 19, Vite, React Router, Framer Motion |
-| **Deploiement** | Render (backend), Vercel (frontend) |
+| **Déploiement** | Render (backend), Vercel (frontend) |
 
-## Structure du depot
+## Structure du dépôt
 
 ```
 AurisTraining/
@@ -28,8 +28,8 @@ AurisTraining/
 ├── frontend/                # Application React (interface utilisateur)
 ├── manuel/                  # Base de manuels PDF par vehicule
 ├── render.yaml              # Orchestration backend/frontend pour Render
-├── start-dev.cmd            # Demarrage local (Windows CMD)
-└── start-dev.ps1            # Demarrage local (PowerShell)
+├── start-dev.cmd            # Démarrage local (Windows CMD)
+└── start-dev.ps1            # Démarrage local (PowerShell)
 ```
 
 ## Architecture applicative
@@ -37,13 +37,13 @@ AurisTraining/
 ```
 backend/
 ├── api.py                  # API Flask (point d'entree)
-├── add_manual.py           # Ajout manuel de nouveaux guides
+├── add_manual.py           # Script d'ajout de nouveaux guides
 ├── index_manuals.py        # Reindexation locale des manuels
 ├── requirements.txt
-├── render.yaml             # Config deploiement Render
+├── render.yaml             # Config déploiement Render
 └── src/
     ├── config.py           # Configuration & variables d'env
-    ├── guide_manager.py    # Gestion des guides par vehicule
+    ├── guide_manager.py    # Gestion des guides par véhicule
     ├── text_chunker.py     # Chunking intelligent par sections
     ├── vector_store.py     # FAISS vector store
     └── guide_chatbot.py    # RAG chatbot avec recherche hybride
@@ -60,7 +60,7 @@ frontend/
 
 ## Roadmap
 
-- Elargir progressivement le catalogue de vehicules avec davantage de voitures et leurs manuels associes.
+- Élargir progressivement le catalogue de véhicules avec davantage de voitures et leurs manuels associés.
 
 ## Installation
 
