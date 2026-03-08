@@ -1,16 +1,35 @@
 :root {
-  --bg-dark: #1a1a1a;
-  --bg-medium: #2d2d2d;
-  --bg-light: #3d3d3d;
-  --bg-lighter: #4d4d4d;
-  --text-primary: #ffffff;
-  --text-secondary: #b0b0b0;
-  --text-muted: #808080;
-  --accent: #6b7280;
-  --accent-hover: #9ca3af;
-  --border: #404040;
-  --success: #4ade80;
-  --error: #f87171;
+  /* Automotive studio palette sampled from render background */
+  --bg-primary: #080808;
+  --bg-secondary: #101114;
+  --bg-card: #171a1e;
+  --bg-elevated: #1f2328;
+  --bg-input: #1b1f24;
+
+  /* Metallic accent */
+  --accent: #7f8b99;
+  --accent-light: #98a6b6;
+  --accent-dark: #68727f;
+  --accent-glow: rgba(148, 159, 171, 0.26);
+
+  /* Chrome/Silver */
+  --chrome: #b8bec6;
+  --chrome-dim: #7e8792;
+  --chrome-bright: #e2e7ed;
+
+  /* Text */
+  --text-primary: #e9edf2;
+  --text-secondary: #b2bac4;
+  --text-muted: #7e8791;
+
+  /* Borders */
+  --border: rgba(220, 227, 235, 0.1);
+  --border-hover: rgba(220, 227, 235, 0.2);
+
+  /* Status */
+  --success: #22c55e;
+  --error: #ef4444;
+  --warning: #f59e0b;
 }
 
 * {
@@ -19,15 +38,42 @@
   box-sizing: border-box;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background-color: var(--bg-dark);
+  font-family: 'Manrope', sans-serif;
+  background-color: var(--bg-primary);
   color: var(--text-primary);
   min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
 }
 
 #root {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+::selection {
+  background: var(--accent-glow);
+  color: #fff;
 }

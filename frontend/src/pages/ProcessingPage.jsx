@@ -1,8 +1,16 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { motion as Motion } from 'framer-motion'
 import './ProcessingPage.css'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5002/api'
+
+const steps = [
+  { key: 'create', label: 'Session' },
+  { key: 'extract', label: 'Extract' },
+  { key: 'index', label: 'Index' },
+  { key: 'ready', label: 'Ready' },
+]
 
 function ProcessingPage() {
   const { sessionId } = useParams()
@@ -11,171 +19,170 @@ function ProcessingPage() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    const checkStatus = async () => {
-      try {
-        const res = await fetch(`${API_URL}/session/${sessionId}/status`)
-        const data = await res.json()
-        
-        if (!data.success) {
-          setError(data.error)
-          return
-        }
-        
-        setSession(data.session)
-        
-        // Si prêt, rediriger vers le chat
-        if (data.session.status === 'ready') {
-          setTimeout(() => {
-            navigate(`/chat/${sessionId}`)
-          }, 1000)
-        }
-        
-        // Si erreur, arrêter le polling
-        if (data.session.status === 'error') {
-          setError(data.session.error || 'Une erreur est survenue')
-          return
-        }
-        
-      } catch (err) {
-        setError('Impossible de contacter le serveur')
+    const previousBodyOverflow = document.body.style.overflow
+    const previousHtmlOverflow = document.documentElement.style.overflow
+    document.body.style.overflow = 'hidden'
+    document.documentElement.style.overflow = 'hidden'
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow
+      document.documentElement.style.overflow = previousHtmlOverflow
+    }
+  }, [])
+
+  useEffect(() => {
+    let intervalId = null
+
+    const stopPolling = () => {
+      if (intervalId) {
+        clearInterval(intervalId)
+        intervalId = null
       }
     }
 
-    // Vérifier le statut immédiatement
-    checkStatus()
-    
-    // Puis toutes les secondes
-    const interval = setInterval(checkStatus, 1000)
-    
-    return () => clearInterval(interval)
-  }, [sessionId, navigate])
+    const checkStatus = async () => {
+      try {
+        const res = await fetch(`${API_URL}/session/${sessionId}/status`)
+        if (res.status === 404) {
+          setError('Session not found. It may have expired or the backend restarted.')
+          stopPolling()
+          return
+        }
 
-  const getStepIcon = (step) => {
-    const icons = {
-      'initialization': '🔧',
-      'listing': '📋',
-      'extraction': '📖',
-      'extraction_complete': '✅',
-      'chunking': '✂️',
-      'chunking_complete': '✅',
-      'indexing': '🧠',
-      'complete': '🎉'
-    }
-    return icons[step] || '⏳'
-  }
+        const data = await res.json()
+        if (!data.success) {
+          setError(data.error || 'Failed to retrieve session status')
+          stopPolling()
+          return
+        }
 
-  const getStepName = (step) => {
-    const names = {
-      'initialization': 'Initialisation',
-      'listing': 'Analyse des fichiers',
-      'extraction': 'Extraction du texte',
-      'extraction_complete': 'Extraction terminée',
-      'chunking': 'Découpage du texte',
-      'chunking_complete': 'Découpage terminé',
-      'indexing': 'Indexation (IA)',
-      'complete': 'Terminé !'
+        setSession(data.session)
+
+        if (data.session.status === 'error') {
+          setError(data.session.error || 'An error happened during processing')
+          stopPolling()
+        }
+
+        if (data.session.status === 'ready') {
+          stopPolling()
+        }
+      } catch {
+        setError('Unable to contact backend server')
+        stopPolling()
+      }
     }
-    return names[step] || step
-  }
+
+    void checkStatus()
+    intervalId = setInterval(() => {
+      void checkStatus()
+    }, 1000)
+
+    return () => {
+      stopPolling()
+    }
+  }, [sessionId])
+
+  const progress = session?.progress || 0
+  const isReady = session?.status === 'ready'
+
+  const activeStepIndex = useMemo(() => {
+    if (progress >= 100) return 3
+    if (progress >= 65) return 2
+    if (progress >= 25) return 1
+    return 0
+  }, [progress])
 
   if (error) {
     return (
-      <div className="processing-page">
-        <div className="processing-container error-state">
-          <div className="error-icon">❌</div>
-          <h2>Erreur</h2>
+      <main className="processing-page">
+        <section className="processing-card processing-card--error">
+          <img src="/logo-260.webp" alt="CC" className="processing-logo" />
+          <h2>Processing error</h2>
           <p>{error}</p>
-          <button onClick={() => navigate('/')} className="back-button">
-            ← Retour à l'accueil
+          <button type="button" className="processing-btn" onClick={() => navigate('/start')}>
+            Back to upload
           </button>
-        </div>
-      </div>
+        </section>
+      </main>
     )
   }
 
   if (!session) {
     return (
-      <div className="processing-page">
-        <div className="processing-container">
-          <div className="loading-spinner"></div>
-          <p>Chargement...</p>
-        </div>
-      </div>
+      <main className="processing-page">
+        <section className="processing-card">
+          <img src="/logo-260.webp" alt="CC" className="processing-logo" />
+          <div className="orbital-loader" aria-hidden="true">
+            <div className="orbit orbit-a" />
+            <div className="orbit orbit-b" />
+            <div className="orbit orbit-c" />
+            <div className="orbit-core" />
+          </div>
+          <h2>Connecting to your workspace</h2>
+        </section>
+      </main>
     )
   }
 
-  const isReady = session.status === 'ready'
-
   return (
-    <div className="processing-page">
-      <div className="processing-container">
-        <div className="vehicle-badge">
-          🚗 {session.vehicle_name}
-        </div>
+    <main className="processing-page">
+      <section className="processing-card">
+        <img src="/logo-260.webp" alt="CC" className="processing-logo" />
 
-        <div className="progress-section">
-          <div className="progress-header">
-            <span className="step-icon">{getStepIcon(session.current_step)}</span>
-            <h2>{isReady ? 'Votre assistant est prêt !' : 'Préparation en cours...'}</h2>
-          </div>
-
-          <div className="progress-bar-container">
-            <div 
-              className="progress-bar"
-              style={{ width: `${session.progress}%` }}
-            ></div>
-          </div>
-
-          <div className="progress-info">
-            <span className="progress-percent">{session.progress}%</span>
-            <span className="progress-message">{session.message}</span>
-          </div>
-
-          {session.total_pages > 0 && (
-            <div className="pages-info">
-              📄 {session.processed_pages} / {session.total_pages} pages traitées
+        {!isReady ? (
+          <>
+            <div className="orbital-loader" aria-hidden="true">
+              <div className="orbit orbit-a" />
+              <div className="orbit orbit-b" />
+              <div className="orbit orbit-c" />
+              <div className="orbit-core">{progress}%</div>
             </div>
-          )}
-        </div>
 
-        <div className="steps-timeline">
-          <div className={`step ${session.progress >= 10 ? 'done' : session.progress > 0 ? 'active' : ''}`}>
-            <div className="step-dot"></div>
-            <span>Initialisation</span>
-          </div>
-          <div className={`step ${session.progress >= 50 ? 'done' : session.progress > 10 ? 'active' : ''}`}>
-            <div className="step-dot"></div>
-            <span>Extraction</span>
-          </div>
-          <div className={`step ${session.progress >= 70 ? 'done' : session.progress > 50 ? 'active' : ''}`}>
-            <div className="step-dot"></div>
-            <span>Découpage</span>
-          </div>
-          <div className={`step ${session.progress >= 95 ? 'done' : session.progress > 70 ? 'active' : ''}`}>
-            <div className="step-dot"></div>
-            <span>Indexation</span>
-          </div>
-          <div className={`step ${session.progress >= 100 ? 'done' : ''}`}>
-            <div className="step-dot"></div>
-            <span>Prêt</span>
-          </div>
-        </div>
+            <h2>Generating your assistant</h2>
+            <p className="processing-copy">{session.message}</p>
 
-        {isReady && (
-          <button 
-            className="access-button"
-            onClick={() => navigate(`/chat/${sessionId}`)}
+            <div className="processing-bar">
+              <Motion.div
+                className="processing-bar-fill"
+                initial={{ width: 0 }}
+                animate={{ width: `${progress}%` }}
+                transition={{ duration: 0.4, ease: 'easeOut' }}
+              />
+            </div>
+
+            <div className="processing-steps">
+              {steps.map((step, index) => (
+                <div
+                  key={step.key}
+                  className={`processing-step ${index <= activeStepIndex ? 'is-active' : ''} ${index < activeStepIndex ? 'is-done' : ''}`}
+                >
+                  <span>{index + 1}</span>
+                  <p>{step.label}</p>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : (
+          <Motion.div
+            className="ready-state"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45 }}
           >
-            🚀 Accéder à mon chatbot
-          </button>
+            <div className="ready-icon">&#10003;</div>
+            <h2>Your assistant is ready</h2>
+            <p>
+              Everything is processed for <strong>{session.vehicle_name}</strong>. You can now access the chat.
+            </p>
+            <button type="button" className="processing-btn" onClick={() => navigate(`/chat/${sessionId}`)}>
+              Access chat now
+            </button>
+          </Motion.div>
         )}
-
-        <div className="processing-footer">
-          <p>💡 L'indexation crée une base de connaissances intelligente de vos documents</p>
-        </div>
-      </div>
-    </div>
+      </section>
+    </main>
   )
 }
 
 export default ProcessingPage
+

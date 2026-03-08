@@ -1,5 +1,5 @@
 {
-  "name": "auris-chatbot-frontend",
+  "name": "car-chat-cc-frontend",
   "private": true,
   "version": "1.0.0",
   "type": "module",
@@ -11,6 +11,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "framer-motion": "^12.35.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.10.1"

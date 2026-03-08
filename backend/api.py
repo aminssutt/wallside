@@ -316,7 +316,14 @@ def get_suggestions():
 
 
 if __name__ == '__main__':
-    print("\n🚀 API Vehicle Chatbot v2.0")
-    print("📁 Sessions stockées dans: data/sessions/")
-    print("🌐 Serveur démarré sur http://localhost:5000\n")
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    api_key = os.getenv("GOOGLE_API_KEY", "")
+    if not api_key or api_key == "your_google_api_key_here":
+        print("\n WARNING: GOOGLE_API_KEY is not set or invalid!")
+        print(" Create a .env file with: GOOGLE_API_KEY=your_key")
+        print(" Get a key at: https://aistudio.google.com/app/apikey\n")
+
+    port = int(os.getenv("PORT", 5002))
+    print("\n API Vehicle Chatbot v2.0")
+    print(" Sessions stockees dans: data/sessions/")
+    print(f" Serveur demarre sur http://localhost:{port}\n")
+    app.run(host='0.0.0.0', port=port, debug=True, use_reloader=False)

@@ -2,14 +2,16 @@
 langchain>=0.3.0
 langchain-google-genai>=2.0.0
 langchain-community>=0.3.0
-langchain-chroma>=0.1.0
 langchain-text-splitters>=0.3.0
 
 # PDF Processing
 pypdf>=5.0.0
 
 # Vector Store
-chromadb>=0.5.0
+faiss-cpu>=1.7.0
+
+# BM25 lexical search
+rank-bm25>=0.2.2
 
 # Google AI
 google-generativeai>=0.8.0
@@ -21,8 +23,5 @@ python-dotenv>=1.0.0
 flask>=3.0.0
 flask-cors>=4.0.0
 
-# Server WSGI pour production (Render)
+# Server WSGI pour production
 gunicorn>=21.0.0
-
-# Embeddings
-sentence-transformers>=2.2.0
