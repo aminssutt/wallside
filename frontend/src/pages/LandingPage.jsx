@@ -33,6 +33,8 @@ function LandingPage() {
   const navigate = useNavigate()
   const [launching, setLaunching] = useState(false)
   const [lang, setLang] = useAppLanguage()
+  const [langOpen, setLangOpen] = useState(false)
+  const langDropdownRef = useRef(null)
 
   const collisionCanvasRef = useRef(null)
   const collisionFramesRef = useRef(Array(COLLISION_FRAMES).fill(null))
@@ -42,6 +44,8 @@ function LandingPage() {
     () => Array.from({ length: COLLISION_FRAMES }, (_, idx) => framePath(idx + 1)),
     []
   )
+
+  const currentLang = LANGUAGES.find((entry) => entry.code === lang) || LANGUAGES[0]
 
   const drawCollisionFrame = useCallback((frameIndex) => {
     const canvas = collisionCanvasRef.current
@@ -139,6 +143,32 @@ function LandingPage() {
     }
   }, [drawCollisionFrame])
 
+  useEffect(() => {
+    if (!langOpen) {
+      return undefined
+    }
+
+    const handleOutsideClick = (event) => {
+      if (langDropdownRef.current && !langDropdownRef.current.contains(event.target)) {
+        setLangOpen(false)
+      }
+    }
+
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        setLangOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleOutsideClick)
+    document.addEventListener('keydown', handleEscape)
+
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick)
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [langOpen])
+
   const launchGuides = () => {
     if (launching) {
       return
@@ -150,20 +180,52 @@ function LandingPage() {
     }, 680)
   }
 
+  const handleLangSelect = (nextLang) => {
+    setLang(nextLang)
+    setLangOpen(false)
+  }
+
   return (
     <main className="saas-page">
       <section className="saas-hero">
-        <div className="saas-lang-switcher" role="group" aria-label="Language selector">
-          {LANGUAGES.map((entry) => (
+        <div className="saas-topbar">
+          <div className="saas-lang-dropdown" ref={langDropdownRef}>
             <button
-              key={entry.code}
               type="button"
-              className={`saas-lang-btn${entry.code === lang ? ' saas-lang-btn--active' : ''}`}
-              onClick={() => setLang(entry.code)}
+              className="saas-lang-trigger"
+              onClick={() => setLangOpen((previous) => !previous)}
+              aria-expanded={langOpen}
+              aria-haspopup="menu"
             >
-              {entry.label}
+              {currentLang.label}
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
             </button>
-          ))}
+
+            <AnimatePresence>
+              {langOpen && (
+                <Motion.div
+                  className="saas-lang-menu"
+                  initial={{ opacity: 0, y: -6, scale: 0.96 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -6, scale: 0.96 }}
+                  transition={{ duration: 0.16 }}
+                >
+                  {LANGUAGES.map((entry) => (
+                    <button
+                      key={entry.code}
+                      type="button"
+                      className={`saas-lang-item${entry.code === lang ? ' saas-lang-item--active' : ''}`}
+                      onClick={() => handleLangSelect(entry.code)}
+                    >
+                      {entry.label}
+                    </button>
+                  ))}
+                </Motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
 
         <Motion.div
@@ -175,30 +237,30 @@ function LandingPage() {
           <canvas ref={collisionCanvasRef} className="hero-collision-canvas" />
         </Motion.div>
 
-        <Motion.p
-          className="saas-subtitle"
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15, duration: 0.6 }}
-        >
-          {t.landing.subtitle}
-        </Motion.p>
-
         <Motion.div
-          className="saas-actions"
+          className="hero-main-content"
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.25, duration: 0.55 }}
+          transition={{ delay: 0.18, duration: 0.58 }}
         >
-          <Motion.button
-            type="button"
-            className="saas-btn saas-btn--primary"
-            onClick={launchGuides}
-            whileHover={{ y: -2, scale: 1.01 }}
-            whileTap={{ scale: 0.98 }}
+          <p className="saas-subtitle">{t.landing.subtitle}</p>
+
+          <Motion.div
+            className="saas-actions"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3, duration: 0.5 }}
           >
-            {t.landing.accessChat}
-          </Motion.button>
+            <Motion.button
+              type="button"
+              className="saas-btn saas-btn--primary"
+              onClick={launchGuides}
+              whileHover={{ y: -2, scale: 1.01 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              {t.landing.accessChat}
+            </Motion.button>
+          </Motion.div>
         </Motion.div>
       </section>
 
