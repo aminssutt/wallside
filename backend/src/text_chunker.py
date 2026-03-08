@@ -61,16 +61,16 @@ def split_documents(
     chunk_overlap: int,
 ) -> List[Document]:
     """
-    Section-aware chunker with junk filtering.
-    1. Merge consecutive pages into one big text per PDF.
+    Section-aware chunker with junk filtering and precise page tracking.
+    1. Merge consecutive pages into one text per PDF, tracking page offsets.
     2. Detect section headings and split at boundaries.
     3. If a section is bigger than chunk_size, sub-split with overlap.
-    4. Filter out tiny / junk chunks.
+    4. Map each chunk back to exact source pages via character offsets.
     """
     if chunk_size <= 0:
         raise ValueError("chunk_size must be > 0")
 
-    # Group pages by source file to merge
+    # Group pages by source file
     file_groups: dict[str, list[Document]] = {}
     for doc in documents:
         key = doc.metadata.get("source_file", "unknown")
@@ -79,55 +79,95 @@ def split_documents(
     chunks: List[Document] = []
 
     for source_file, docs in file_groups.items():
-        # Sort by page number
         docs.sort(key=lambda d: d.metadata.get("page", 0))
 
-        # Filter junk pages and merge remaining text
+        # Merge text while recording (start_offset, end_offset, page_num)
         merged_text = ""
-        kept_pages = []
+        page_spans: List[tuple] = []  # (char_start, char_end, page_number)
+
         for doc in docs:
             text = (doc.page_content or "").strip()
             if not text or is_junk_page(text):
                 continue
+            page_num = doc.metadata.get("page", 0)
+            start = len(merged_text)
             merged_text += text + "\n\n"
-            kept_pages.append(doc.metadata.get("page", 0))
+            end = len(merged_text)
+            page_spans.append((start, end, page_num))
 
         if not merged_text.strip():
             continue
 
-        first_page = kept_pages[0] if kept_pages else 1
-        last_page = kept_pages[-1] if kept_pages else 1
-
         # Find section boundaries
         breaks = _find_section_breaks(merged_text)
-        # Add start/end sentinel
         if not breaks or breaks[0] != 0:
             breaks.insert(0, 0)
         breaks.append(len(merged_text))
 
-        # Extract sections
-        sections: List[str] = []
+        # Extract sections with their char ranges
+        sections: List[tuple] = []  # (text, start_offset, end_offset)
         for i in range(len(breaks) - 1):
-            section = merged_text[breaks[i]:breaks[i + 1]].strip()
-            if section:
-                sections.append(section)
+            sec_start = breaks[i]
+            sec_end = breaks[i + 1]
+            section_text = merged_text[sec_start:sec_end].strip()
+            if section_text:
+                sections.append((section_text, sec_start, sec_end))
 
-        # Sub-split large sections, keep small ones intact
+        # Sub-split and map pages
         chunk_index = 0
-        for section in sections:
-            sub_chunks = _subsplit(section, chunk_size, chunk_overlap)
+        for section_text, sec_start, sec_end in sections:
+            sub_chunks = _subsplit(section_text, chunk_size, chunk_overlap)
+            # Track offset within the section
+            offset_in_section = 0
             for sc in sub_chunks:
                 if len(sc) < MIN_CHUNK_CHARS:
+                    offset_in_section += len(sc)
                     continue
+
+                # Find where this sub-chunk sits in the merged text
+                sc_pos = section_text.find(sc, offset_in_section)
+                if sc_pos < 0:
+                    sc_pos = offset_in_section
+                chunk_start = sec_start + sc_pos
+                chunk_end = chunk_start + len(sc)
+                offset_in_section = sc_pos + len(sc)
+
+                # Determine which pages this chunk spans
+                chunk_pages = _pages_for_range(chunk_start, chunk_end, page_spans)
+
                 metadata = {
                     "source_file": source_file,
-                    "page": f"{first_page}-{last_page}",
+                    "page": _format_pages(chunk_pages),
                     "chunk_index": chunk_index,
                 }
                 chunks.append(Document(page_content=sc, metadata=metadata))
                 chunk_index += 1
 
     return chunks
+
+
+def _pages_for_range(
+    start: int, end: int, page_spans: List[tuple]
+) -> List[int]:
+    """Return sorted unique page numbers that overlap with [start, end)."""
+    pages = []
+    for ps_start, ps_end, page_num in page_spans:
+        # Check overlap: chunk [start, end) vs page [ps_start, ps_end)
+        if ps_start < end and ps_end > start:
+            pages.append(page_num)
+    return sorted(set(pages)) if pages else []
+
+
+def _format_pages(pages: List[int]) -> str:
+    """Format page list into compact string: '12' or '12-14' or '12, 15, 18'."""
+    if not pages:
+        return "?"
+    if len(pages) == 1:
+        return str(pages[0])
+    # Check if consecutive
+    if pages[-1] - pages[0] == len(pages) - 1:
+        return f"{pages[0]}-{pages[-1]}"
+    return ", ".join(str(p) for p in pages)
 
 
 def _subsplit(text: str, chunk_size: int, overlap: int) -> List[str]:
