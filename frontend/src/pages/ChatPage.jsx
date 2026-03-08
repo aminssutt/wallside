@@ -2,13 +2,12 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion as Motion, AnimatePresence } from 'framer-motion'
 import { formatText, LANGUAGES, UI_TEXT, useAppLanguage } from '../i18n'
+import { API_URL } from '../api'
 import './ChatPage.css'
 import wrenchIcon from '../assets/icons/wrench.svg'
 import dashboardIcon from '../assets/icons/dashboard.svg'
 import navigationIcon from '../assets/icons/navigation.svg'
 import infotainmentIcon from '../assets/icons/infotainment.svg'
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5002/api'
 
 const QUICK_ICONS = [wrenchIcon, dashboardIcon, navigationIcon]
 
