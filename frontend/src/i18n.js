@@ -3,9 +3,9 @@ import { useEffect, useState } from 'react'
 export const LANGUAGE_STORAGE_KEY = 'cc_lang'
 
 export const LANGUAGES = [
-  { code: 'fr', label: 'FR' },
-  { code: 'en', label: 'EN' },
-  { code: 'ko', label: 'KO' },
+  { code: 'fr', label: 'FR', flag: '\uD83C\uDDEB\uD83C\uDDF7' },
+  { code: 'en', label: 'EN', flag: '\uD83C\uDDEC\uD83C\uDDE7' },
+  { code: 'ko', label: 'KO', flag: '\uD83C\uDDF0\uD83C\uDDF7' },
 ]
 
 export const UI_TEXT = {

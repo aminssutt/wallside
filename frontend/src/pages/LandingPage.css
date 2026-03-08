@@ -96,6 +96,9 @@
   padding: 8px 10px;
   cursor: pointer;
   text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .saas-lang-item:hover {
@@ -134,7 +137,7 @@
   flex-direction: column;
   align-items: center;
   gap: clamp(8px, 1.5vh, 16px);
-  margin-top: clamp(0px, 0.8vh, 10px);
+  margin-top: clamp(-4px, 0.4vh, 6px);
 }
 
 .saas-subtitle {
@@ -308,11 +311,11 @@
 
 @media (max-width: 980px) {
   .saas-page {
-    height: auto;
+    height: 100vh;
+    height: 100dvh;
     min-height: 100dvh;
-    overflow-x: hidden;
-    overflow-y: auto;
-    grid-template-rows: auto auto auto;
+    overflow: hidden;
+    grid-template-rows: minmax(0, 1fr) auto auto;
   }
 
   .saas-hero {
@@ -322,17 +325,35 @@
   }
 
   .hero-main-content {
-    align-self: start;
+    align-self: center;
     width: 100%;
     max-width: 640px;
-    margin-top: 0;
-    gap: 12px;
+    margin-top: -8px;
+    gap: 10px;
   }
 
   .saas-overview {
-    grid-template-columns: 1fr;
-    gap: 10px;
-    padding: 0 16px 14px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    padding: 0 12px 10px;
+  }
+
+  .overview-card {
+    padding: 8px 8px;
+  }
+
+  .overview-card h2 {
+    font-size: 0.68rem;
+    margin-bottom: 4px;
+  }
+
+  .overview-card p {
+    font-size: 0.64rem;
+    line-height: 1.22;
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 
   .saas-footer {
@@ -366,7 +387,7 @@
   }
 
   .hero-collision-wrap {
-    width: min(470px, 94vw);
+    width: min(420px, 90vw);
     margin-top: -2px;
   }
 
@@ -380,7 +401,7 @@
 
   .saas-subtitle {
     max-width: 92vw;
-    font-size: 0.9rem;
+    font-size: 0.82rem;
   }
 
   .saas-actions {
@@ -389,9 +410,9 @@
   }
 
   .saas-btn {
-    width: min(320px, 100%);
+    width: min(280px, 100%);
     text-align: center;
-    padding: 11px 16px;
+    padding: 10px 14px;
   }
 
   .overview-card {
@@ -406,7 +427,7 @@
 
   .saas-hero {
     padding: 10px 12px 8px;
-    gap: 8px;
+    gap: 6px;
   }
 
   .saas-lang-trigger {
@@ -415,33 +436,35 @@
   }
 
   .hero-collision-wrap {
-    width: 96vw;
+    width: 84vw;
   }
 
   .saas-subtitle {
-    font-size: 0.84rem;
-    line-height: 1.45;
+    font-size: 0.76rem;
+    line-height: 1.35;
   }
 
   .saas-btn {
-    font-size: 0.76rem;
+    font-size: 0.72rem;
     letter-spacing: 0.04em;
   }
 
   .saas-overview {
-    padding: 0 12px 12px;
+    padding: 0 10px 8px;
+    gap: 6px;
   }
 
   .overview-card h2 {
-    font-size: 0.8rem;
+    font-size: 0.62rem;
   }
 
   .overview-card p {
-    font-size: 0.78rem;
+    font-size: 0.58rem;
   }
 
   .saas-footer {
-    padding: 10px 12px 14px;
+    padding: 8px 10px 10px;
+    gap: 8px;
   }
 
   .saas-footer-brand {
@@ -454,7 +477,7 @@
   }
 
   .social-link {
-    font-size: 0.6rem;
-    padding: 6px 9px;
+    font-size: 0.56rem;
+    padding: 5px 8px;
   }
 }

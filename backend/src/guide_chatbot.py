@@ -396,6 +396,7 @@ Regles:
 4) Reponse concise: 80 a 130 mots max.
 5) Pas de markdown (pas de ###, **, ```, etc.). Texte brut uniquement.
 6) N'ajoute pas de section "Sources" (elle sera ajoutee automatiquement).
+7) Orthographe, grammaire et ponctuation impeccables. Utilise des phrases claires et naturelles.
 
 Contexte:
 {context}
