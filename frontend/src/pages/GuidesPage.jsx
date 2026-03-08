@@ -2,9 +2,8 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion as Motion, AnimatePresence } from 'framer-motion'
 import { formatText, LANGUAGES, UI_TEXT, useAppLanguage } from '../i18n'
+import { API_URL } from '../api'
 import './GuidesPage.css'
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5002/api'
 
 const pageVariants = {
   initial: { opacity: 0 },
