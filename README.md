@@ -1,155 +1,99 @@
-# AurisTraining — Assistant documentaire intelligent pour véhicules
+﻿# Car Chat : CC — Assistant documentaire intelligent pour vehicules
 
-AurisTraining est une application full-stack qui transforme des manuels PDF (entretien, dépannage, fonctionnalités) en assistant conversationnel spécialisé par véhicule.
+Application full-stack qui transforme des manuels PDF (entretien, depannage, fonctionnalites) en assistant conversationnel specialise par vehicule.
 
-Objectif : permettre à un utilisateur d’obtenir des réponses contextualisées à partir de ses propres documents techniques, sans recherche manuelle dans des centaines de pages.
+Permet d'obtenir des reponses contextualisees a partir de documents techniques, sans recherche manuelle dans des centaines de pages.
 
-## Aperçu du projet
+## Fonctionnalites
 
-Le produit suit un flux simple et orienté usage :
-
-1. Création d’une session véhicule
-2. Upload de documents PDF
-3. Traitement des documents (extraction, chunking, indexation)
-4. Conversation avec un chatbot RAG dédié à la session
-
-## Problème traité
-
-Les manuels techniques sont longs, peu ergonomiques à consulter et difficiles à exploiter en situation réelle (panne, maintenance, question précise).
-
-## Solution apportée
-
-Le backend construit une base de connaissances vectorielle à partir des PDFs uploadés, puis expose une API de chat qui récupère les passages pertinents avant génération de réponse.
+- **Sessions isolees** par vehicule avec upload multi-PDF
+- **Pipeline RAG optimise** : extraction parallele, chunking intelligent par sections, filtrage des pages inutiles
+- **Recherche hybride** : FAISS (semantique) + BM25 (lexicale) pour une meilleure pertinence
+- **Traitement asynchrone** avec suivi de progression en temps reel
+- **Chat contextuel** base uniquement sur les documents de la session
 
 ## Stack technique
 
-### Backend
-- Python
-- Flask
-- LangChain
-- ChromaDB
-- Google Gemini
-- sentence-transformers
-
-### Frontend
-- React
-- Vite
-- React Router
-- ESLint
-
-## Fonctionnalités
-
-- Sessions isolées par véhicule
-- Upload de plusieurs PDFs
-- Traitement asynchrone avec suivi de statut
-- Chat contextuel basé sur les documents de la session
-- API REST claire pour l’orchestration frontend/backend
+| Couche | Technologies |
+|--------|-------------|
+| **Backend** | Python, Flask, LangChain, FAISS, BM25, Google Gemini |
+| **Frontend** | React 19, Vite, React Router, Framer Motion |
+| **Deploiement** | Render (backend), Vercel (frontend) |
 
 ## Architecture
 
-```text
-AurisTraining/
-├── backend/
-│   ├── api.py                  # API Flask principale
-│   ├── main.py                 # Point d’entrée alternatif
-│   ├── requirements.txt
-│   ├── src/
-│   │   ├── config.py
-│   │   ├── session_manager.py
-│   │   ├── pdf_processor.py
-│   │   ├── session_chatbot.py
-│   │   ├── chatbot.py
-│   │   ├── vector_store.py
-│   │   └── pdf_loader.py
-│   └── test_*.py
-└── frontend/
-    ├── package.json
-    ├── src/
-    │   ├── pages/
-    │   │   ├── UploadPage.jsx
-    │   │   ├── ProcessingPage.jsx
-    │   │   └── ChatPage.jsx
-    │   ├── App.jsx
-    │   └── main.jsx
-    └── vite.config.js
+```
+backend/
+├── api.py                  # API Flask (point d'entree)
+├── requirements.txt
+├── render.yaml             # Config deploiement Render
+└── src/
+    ├── config.py           # Configuration & variables d'env
+    ├── session_manager.py  # Gestion des sessions utilisateur
+    ├── pdf_processor.py    # Pipeline : extraction → chunking → indexation
+    ├── text_chunker.py     # Chunking intelligent par sections
+    ├── vector_store.py     # FAISS vector store
+    └── session_chatbot.py  # RAG chatbot avec recherche hybride
+
+frontend/
+├── vercel.json             # Config deploiement Vercel
+└── src/
+    ├── App.jsx
+    └── pages/
+        ├── LandingPage.jsx
+        ├── UploadPage.jsx
+        ├── ProcessingPage.jsx
+        └── ChatPage.jsx
 ```
 
 ## Installation
 
-### Prérequis
+### Prerequis
 - Python 3.10+
 - Node.js 18+
-- npm 9+
-- Une clé `GOOGLE_API_KEY`
+- Cle API Google Gemini ([obtenir ici](https://aistudio.google.com/app/apikey))
 
-### 1) Backend
+### Backend
 
 ```bash
 cd backend
 python -m venv .venv
-source .venv/bin/activate  # Linux/macOS
+source .venv/bin/activate   # Linux/macOS
 # .venv\Scripts\activate    # Windows
 pip install -r requirements.txt
-cp .env.example .env
-```
-
-Éditer `.env` et renseigner au minimum :
-
-```env
-GOOGLE_API_KEY=...
-FRONTEND_URL=http://localhost:5173
-```
-
-Lancer l’API :
-
-```bash
+cp .env.example .env        # Editer et ajouter GOOGLE_API_KEY
 python api.py
 ```
 
-### 2) Frontend
+### Frontend
 
 ```bash
 cd frontend
 npm install
-cp .env.example .env
 npm run dev
 ```
 
-## Usage
+L'API tourne sur `http://localhost:5002`, le frontend sur `http://localhost:5173`.
 
-1. Ouvrir l’interface frontend.
-2. Créer une session en renseignant le véhicule.
-3. Uploader un ou plusieurs manuels PDF.
-4. Lancer le traitement.
-5. Poser des questions techniques dans le chat.
+## Endpoints API
 
-## Endpoints principaux
+| Methode | Route | Description |
+|---------|-------|-------------|
+| `POST` | `/api/session/create` | Creer une session vehicule |
+| `POST` | `/api/session/{id}/upload` | Uploader un PDF |
+| `POST` | `/api/session/{id}/process` | Lancer le traitement |
+| `GET` | `/api/session/{id}/status` | Statut de la session |
+| `POST` | `/api/session/{id}/chat` | Poser une question |
+| `GET` | `/api/health` | Verification de sante |
 
-- `POST /api/session/create`
-- `POST /api/session/{id}/upload`
-- `POST /api/session/{id}/process`
-- `GET /api/session/{id}/status`
-- `POST /api/session/{id}/chat`
-- `GET /api/health`
+## Deploiement
 
-## Ce que ce projet démontre
+- **Backend** → [Render](https://render.com) (Free tier, config dans `render.yaml`)
+- **Frontend** → [Vercel](https://vercel.com) (Free tier, config dans `vercel.json`)
 
-- Conception d’un pipeline RAG de bout en bout
-- Structuration d’une API Flask orientée produit
-- Intégration frontend/backend avec gestion de flux utilisateur
-- Organisation modulaire du code (traitement, session, vector store)
-- Prise en compte des environnements de déploiement (Render/Vercel)
-
-## Axes d’amélioration
-
-- Standardiser un seul point d’entrée backend (`api.py` ou `main.py`)
-- Ajouter des tests automatisés backend exécutables en CI
-- Ajouter des tests frontend (Vitest/RTL)
-- Renommer certains fichiers backend pour expliciter les responsabilités (ex: `session_chatbot.py` → `session_rag_service.py`)
-- Centraliser les scripts de dev dans un `Makefile` racine
+Variable d'environnement Vercel : `VITE_API_URL=https://your-app.onrender.com/api`
 
 ## Auteur
 
 **Amine S.**
 
-Projet portfolio orienté software craftsmanship : lisibilité, modularité et documentation opérationnelle.
