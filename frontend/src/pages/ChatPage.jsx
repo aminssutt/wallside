@@ -1,25 +1,22 @@
-import { useState, useRef, useEffect } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion as Motion, AnimatePresence } from 'framer-motion'
+import { formatText, LANGUAGES, UI_TEXT, useAppLanguage } from '../i18n'
 import './ChatPage.css'
-import navigationIcon from '../assets/icons/navigation.svg'
-import infotainmentIcon from '../assets/icons/infotainment.svg'
 import wrenchIcon from '../assets/icons/wrench.svg'
 import dashboardIcon from '../assets/icons/dashboard.svg'
+import navigationIcon from '../assets/icons/navigation.svg'
+import infotainmentIcon from '../assets/icons/infotainment.svg'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5002/api'
+
+const QUICK_ICONS = [wrenchIcon, dashboardIcon, navigationIcon]
 
 const pageVariants = {
   initial: { opacity: 0 },
   animate: { opacity: 1, transition: { duration: 0.35 } },
   exit: { opacity: 0, transition: { duration: 0.25 } },
 }
-
-const quickQuestions = [
-  { text: 'Comment faire la vidange ?', icon: wrenchIcon },
-  { text: "Quels sont les intervalles d'entretien ?", icon: dashboardIcon },
-  { text: 'Ou se trouve le filtre a air ?', icon: navigationIcon },
-]
 
 const formatInline = (text) => {
   const segments = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g)
@@ -38,11 +35,7 @@ const formatInline = (text) => {
 
 const normalizeAssistantText = (rawText) => {
   const clean = (rawText || '').trim()
-  return clean
-    .replace(/^📖\s*/, '')
-    .replace(/^🌐\s*/i, '')
-    .replace(/^💡\s*/i, '')
-    .trim()
+  return clean.replace(/^[^\p{L}\p{N}]+/u, '').trim()
 }
 
 const limitAssistantText = (text, maxChars = 980) => {
@@ -52,7 +45,7 @@ const limitAssistantText = (text, maxChars = 980) => {
 
   const clipped = text.slice(0, maxChars).trim()
   const safe = clipped.lastIndexOf(' ') > 50 ? clipped.slice(0, clipped.lastIndexOf(' ')) : clipped
-  return `${safe}\n\n_Resume pour garder une reponse lisible._`
+  return `${safe}...`
 }
 
 function RichBotMessage({ text }) {
@@ -151,15 +144,25 @@ function RichBotMessage({ text }) {
 }
 
 function ChatPage() {
-  const { sessionId } = useParams()
+  const { slug } = useParams()
   const navigate = useNavigate()
-  const [session, setSession] = useState(null)
+  const [lang, setLang] = useAppLanguage()
+  const [guide, setGuide] = useState(null)
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [errorKey, setErrorKey] = useState('')
+  const [langOpen, setLangOpen] = useState(false)
   const chatContainerRef = useRef(null)
   const inputRef = useRef(null)
+  const t = UI_TEXT[lang] || UI_TEXT.fr
+
+  const quickQuestions = useMemo(() => {
+    return (t.chat.quickQuestions || []).map((text, index) => ({
+      text,
+      icon: QUICK_ICONS[index % QUICK_ICONS.length],
+    }))
+  }, [t])
 
   useEffect(() => {
     const previousBodyOverflow = document.body.style.overflow
@@ -174,28 +177,22 @@ function ChatPage() {
   }, [])
 
   useEffect(() => {
-    const loadSession = async () => {
+    const loadGuide = async () => {
       try {
-        const res = await fetch(`${API_URL}/session/${sessionId}/status`)
+        const res = await fetch(`${API_URL}/guides/${slug}`)
         const data = await res.json()
         if (!data.success) {
-          setError('Session introuvable')
+          setErrorKey('guideNotFound')
           return
         }
-
-        if (data.session.status !== 'ready') {
-          navigate(`/processing/${sessionId}`)
-          return
-        }
-
-        setSession(data.session)
+        setGuide(data.guide)
       } catch {
-        setError('Impossible de charger la session')
+        setErrorKey('guideLoadError')
       }
     }
 
-    void loadSession()
-  }, [sessionId, navigate])
+    void loadGuide()
+  }, [slug])
 
   useEffect(() => {
     if (chatContainerRef.current) {
@@ -212,10 +209,10 @@ function ChatPage() {
     setIsLoading(true)
 
     try {
-      const response = await fetch(`${API_URL}/session/${sessionId}/chat`, {
+      const response = await fetch(`${API_URL}/guides/${slug}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({ message: text, lang }),
       })
       const data = await response.json()
 
@@ -223,10 +220,11 @@ function ChatPage() {
         const cleaned = limitAssistantText(normalizeAssistantText(data.response || ''))
         setMessages((previous) => [...previous, { type: 'bot', content: cleaned }])
       } else {
-        setMessages((previous) => [...previous, { type: 'bot', content: `### Erreur\n${data.error || 'Reponse indisponible'}` }])
+        const fallback = (data.error || '').trim() || t.chat.unavailable
+        setMessages((previous) => [...previous, { type: 'bot', content: fallback }])
       }
     } catch {
-      setMessages((previous) => [...previous, { type: 'bot', content: '### Erreur\nConnexion serveur indisponible.' }])
+      setMessages((previous) => [...previous, { type: 'bot', content: t.chat.serverUnavailable }])
     } finally {
       setIsLoading(false)
       inputRef.current?.focus()
@@ -240,7 +238,7 @@ function ChatPage() {
     }
   }
 
-  if (error) {
+  if (errorKey) {
     return (
       <Motion.div className="chat-page" variants={pageVariants} initial="initial" animate="animate" exit="exit">
         <div className="chat-empty-state">
@@ -249,19 +247,19 @@ function ChatPage() {
             <line x1="15" y1="9" x2="9" y2="15" />
             <line x1="9" y1="9" x2="15" y2="15" />
           </svg>
-          <h2>{error}</h2>
-          <button className="btn-secondary" onClick={() => navigate('/')}>Retour accueil</button>
+          <h2>{t.chat[errorKey] || t.chat.guideLoadError}</h2>
+          <button className="btn-secondary" onClick={() => navigate('/guides')}>{t.chat.guides}</button>
         </div>
       </Motion.div>
     )
   }
 
-  if (!session) {
+  if (!guide) {
     return (
       <Motion.div className="chat-page" variants={pageVariants} initial="initial" animate="animate" exit="exit">
         <div className="chat-empty-state">
           <div className="loader-ring" />
-          <p>Chargement du chat...</p>
+          <p>{t.chat.loadingChat}</p>
         </div>
       </Motion.div>
     )
@@ -274,19 +272,62 @@ function ChatPage() {
           <img src="/logo-84.webp" alt="CC" width="42" height="42" loading="lazy" />
           <div>
             <p>Car Chat : CC</p>
-            <span>{session.vehicle_name}</span>
+            <span>{guide.name}</span>
           </div>
         </div>
 
-        <Motion.button
-          type="button"
-          className="chat-home-btn"
-          onClick={() => navigate('/')}
-          whileHover={{ y: -1 }}
-          whileTap={{ scale: 0.98 }}
-        >
-          Return home
-        </Motion.button>
+        <div className="chat-header-right">
+          <div className="lang-switcher">
+            <Motion.button
+              type="button"
+              className="lang-toggle"
+              onClick={() => setLangOpen((prev) => !prev)}
+              whileHover={{ y: -1 }}
+              whileTap={{ scale: 0.96 }}
+            >
+              {LANGUAGES.find((entry) => entry.code === lang)?.label}
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </Motion.button>
+
+            <AnimatePresence>
+              {langOpen && (
+                <Motion.div
+                  className="lang-dropdown"
+                  initial={{ opacity: 0, y: -6, scale: 0.96 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -6, scale: 0.96 }}
+                  transition={{ duration: 0.18 }}
+                >
+                  {LANGUAGES.map((entry) => (
+                    <button
+                      key={entry.code}
+                      type="button"
+                      className={`lang-option${entry.code === lang ? ' lang-option--active' : ''}`}
+                      onClick={() => {
+                        setLang(entry.code)
+                        setLangOpen(false)
+                      }}
+                    >
+                      <span>{entry.label}</span>
+                    </button>
+                  ))}
+                </Motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <Motion.button
+            type="button"
+            className="chat-home-btn"
+            onClick={() => navigate('/guides')}
+            whileHover={{ y: -1 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            {t.chat.guides}
+          </Motion.button>
+        </div>
       </header>
 
       <main className="chat-body" ref={chatContainerRef}>
@@ -302,11 +343,8 @@ function ChatPage() {
               <div className="chat-welcome-icon">
                 <img src={navigationIcon} alt="" loading="lazy" />
               </div>
-              <h2>Ask your first question</h2>
-              <p>
-                Your assistant is ready for <strong>{session.vehicle_name}</strong>.
-                Ask maintenance, warning lights, usage or specification questions.
-              </p>
+              <h2>{t.chat.askFirst}</h2>
+              <p>{formatText(t.chat.askFirstDesc, { vehicle: guide.name })}</p>
 
               <div className="chat-suggestions">
                 {quickQuestions.map((item, index) => (
@@ -385,7 +423,7 @@ function ChatPage() {
             value={input}
             onChange={(event) => setInput(event.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={`Question about ${session.vehicle_name}...`}
+            placeholder={formatText(t.chat.placeholder, { vehicle: guide.name })}
             disabled={isLoading}
           />
           <Motion.button
@@ -394,6 +432,8 @@ function ChatPage() {
             disabled={!input.trim() || isLoading}
             whileHover={{ scale: 1.04 }}
             whileTap={{ scale: 0.95 }}
+            title={t.chat.send}
+            aria-label={t.chat.send}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="22" y1="2" x2="11" y2="13" />

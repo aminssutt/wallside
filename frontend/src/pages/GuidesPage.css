@@ -1,0 +1,391 @@
+.guides-page {
+  min-height: 100vh;
+  position: relative;
+  overflow: hidden;
+  color: #e7eaee;
+  background:
+    radial-gradient(140% 110% at 50% -18%, #3b4047 0%, #23262b 34%, #121315 68%, #080808 100%),
+    linear-gradient(180deg, #1c1f23 0%, #0b0b0c 100%);
+}
+
+.guides-grid-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    linear-gradient(rgba(198, 204, 211, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(198, 204, 211, 0.04) 1px, transparent 1px);
+  background-size: 76px 76px;
+  mask-image: radial-gradient(circle at 50% 18%, black 44%, transparent 88%);
+}
+
+.guides-light-bloom {
+  position: fixed;
+  top: -34%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(860px, 92vw);
+  height: min(860px, 92vw);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(143, 154, 168, 0.16) 0%, rgba(143, 154, 168, 0.05) 34%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.guides-header,
+.guides-content {
+  position: relative;
+  z-index: 1;
+}
+
+.guides-header {
+  padding: 22px 24px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.guides-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(214, 221, 229, 0.2);
+  background: rgba(28, 33, 39, 0.64);
+  color: rgba(220, 227, 235, 0.88);
+  font-size: 0.8rem;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.guides-lang-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 999px;
+  border: 1px solid rgba(214, 221, 229, 0.2);
+  background: rgba(28, 33, 39, 0.64);
+  backdrop-filter: blur(10px);
+}
+
+.guides-lang-btn {
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(214, 221, 229, 0.82);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.guides-lang-btn--active {
+  color: #f3f8fd;
+  background: linear-gradient(130deg, #737c86 0%, #525a64 46%, #3a4149 100%);
+  border: 1px solid rgba(255, 255, 255, 0.26);
+}
+
+.guides-content {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 24px 58px;
+}
+
+.guides-intro {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.guides-intro h1 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: clamp(1.4rem, 2.7vw, 2.25rem);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #f2f6fb;
+  margin-bottom: 12px;
+}
+
+.guides-intro p {
+  font-size: 1rem;
+  color: rgba(210, 217, 225, 0.84);
+}
+
+.guides-state-block {
+  text-align: center;
+  padding: 34px 0;
+  color: rgba(210, 217, 225, 0.82);
+}
+
+.guides-state-block--error button {
+  margin-top: 12px;
+  padding: 9px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(214, 221, 229, 0.24);
+  background: rgba(44, 50, 58, 0.7);
+  color: #eaf0f7;
+  cursor: pointer;
+}
+
+.guides-state-hint {
+  margin-top: 8px;
+  font-size: 0.85rem;
+  color: rgba(183, 192, 201, 0.66);
+}
+
+.loader-ring {
+  width: 36px;
+  height: 36px;
+  border: 3px solid rgba(210, 217, 225, 0.18);
+  border-top-color: #e4ebf2;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 12px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.guides-rail {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 18px;
+}
+
+.guide-teaser {
+  border-radius: 18px;
+  overflow: hidden;
+  cursor: pointer;
+  background:
+    linear-gradient(165deg, rgba(84, 92, 102, 0.44), rgba(34, 38, 44, 0.62));
+  border: 1px solid rgba(216, 223, 230, 0.2);
+  box-shadow: 0 22px 38px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+}
+
+.guide-teaser-image {
+  position: relative;
+  width: 100%;
+  height: 200px;
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  background: rgba(18, 20, 24, 0.56);
+  overflow: hidden;
+}
+
+.guide-teaser-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center center;
+  display: block;
+}
+
+.guide-teaser-metal {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0%, transparent 45%, rgba(0, 0, 0, 0.16) 100%);
+}
+
+.guide-teaser-placeholder {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 2rem;
+  color: rgba(189, 198, 208, 0.58);
+}
+
+.guide-teaser-body {
+  padding: 15px 16px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.guide-teaser-body h3 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.84rem;
+  line-height: 1.4;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #f1f6fb;
+}
+
+.guide-teaser-body span {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: rgba(200, 210, 220, 0.82);
+  border: 1px solid rgba(214, 221, 229, 0.2);
+  border-radius: 999px;
+  padding: 5px 9px;
+  white-space: nowrap;
+}
+
+.guide-confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  background: rgba(4, 6, 9, 0.8);
+  backdrop-filter: blur(12px);
+  padding: 20px;
+}
+
+.guide-confirm-popup {
+  width: min(520px, 95vw);
+  border-radius: 20px;
+  background:
+    linear-gradient(165deg, rgba(88, 97, 108, 0.54), rgba(25, 29, 35, 0.88)),
+    linear-gradient(320deg, rgba(224, 231, 239, 0.08), rgba(224, 231, 239, 0));
+  border: 1px solid rgba(220, 227, 235, 0.26);
+  box-shadow: 0 34px 66px rgba(0, 0, 0, 0.42);
+  padding: 18px;
+}
+
+.guide-confirm-top h2 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1rem;
+  color: #f4f8fd;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.guide-confirm-top p {
+  margin-top: 10px;
+  color: rgba(214, 222, 231, 0.9);
+  line-height: 1.6;
+}
+
+.guide-confirm-card {
+  margin-top: 14px;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(214, 221, 229, 0.2);
+  background: rgba(16, 20, 25, 0.56);
+}
+
+.guide-confirm-card img {
+  width: 100%;
+  aspect-ratio: 16 / 8;
+  object-fit: contain;
+  object-position: center center;
+  background: rgba(16, 20, 25, 0.65);
+  display: block;
+}
+
+.guide-confirm-card span {
+  display: block;
+  padding: 10px 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.75rem;
+  color: #eaf0f7;
+}
+
+.guide-confirm-actions {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.guide-confirm-cancel {
+  border-radius: 10px;
+  border: 1px solid rgba(214, 221, 229, 0.22);
+  background: rgba(35, 40, 46, 0.76);
+  color: rgba(222, 229, 236, 0.88);
+  padding: 10px 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.7rem;
+  cursor: pointer;
+}
+
+.guide-confirm-accept {
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: linear-gradient(130deg, #737c86 0%, #525a64 46%, #3a4149 100%);
+  color: #f2f7fd;
+  padding: 11px 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.76rem;
+  cursor: pointer;
+}
+
+.guides-transition-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: rgba(7, 8, 10, 0.85);
+  backdrop-filter: blur(8px);
+}
+
+.guides-transition-overlay p {
+  color: #ebf0f6;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-size: 0.84rem;
+}
+
+@media (max-width: 920px) {
+  .guide-confirm-popup {
+    width: min(560px, 95vw);
+  }
+}
+
+@media (max-width: 700px) {
+  .guides-header {
+    padding: 16px 12px 6px;
+    align-items: flex-start;
+  }
+
+  .guides-content {
+    padding: 0 12px 34px;
+  }
+
+  .guides-rail {
+    grid-template-columns: 1fr;
+  }
+
+  .guide-confirm-backdrop {
+    padding: 12px;
+  }
+
+  .guide-confirm-popup {
+    padding: 12px;
+  }
+
+  .guide-confirm-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .guide-confirm-cancel,
+  .guide-confirm-accept {
+    width: 100%;
+  }
+}
