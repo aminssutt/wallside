@@ -284,6 +284,7 @@ function ChatPage() {
               whileHover={{ y: -1 }}
               whileTap={{ scale: 0.96 }}
             >
+              <span>{LANGUAGES.find((entry) => entry.code === lang)?.flag}</span>
               {LANGUAGES.find((entry) => entry.code === lang)?.label}
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <polyline points="6 9 12 15 18 9" />
@@ -309,6 +310,7 @@ function ChatPage() {
                         setLangOpen(false)
                       }}
                     >
+                      <span>{entry.flag}</span>
                       <span>{entry.label}</span>
                     </button>
                   ))}

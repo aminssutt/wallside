@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion as Motion, AnimatePresence } from 'framer-motion'
 import { formatText, LANGUAGES, UI_TEXT, useAppLanguage } from '../i18n'
@@ -29,7 +29,10 @@ function GuidesPage() {
   const [errorKey, setErrorKey] = useState('')
   const [pendingGuide, setPendingGuide] = useState(null)
   const [launchingSlug, setLaunchingSlug] = useState(null)
+  const [langOpen, setLangOpen] = useState(false)
+  const langDropdownRef = useRef(null)
   const t = UI_TEXT[lang] || UI_TEXT.fr
+  const currentLang = LANGUAGES.find((entry) => entry.code === lang) || LANGUAGES[0]
 
   useEffect(() => {
     const fetchGuides = async () => {
@@ -53,6 +56,32 @@ function GuidesPage() {
     void fetchGuides()
   }, [])
 
+  useEffect(() => {
+    if (!langOpen) {
+      return undefined
+    }
+
+    const handleOutsideClick = (event) => {
+      if (langDropdownRef.current && !langDropdownRef.current.contains(event.target)) {
+        setLangOpen(false)
+      }
+    }
+
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        setLangOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleOutsideClick)
+    document.addEventListener('keydown', handleEscape)
+
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick)
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [langOpen])
+
   const openConfirmPopup = (guide) => {
     setPendingGuide(guide)
   }
@@ -67,6 +96,11 @@ function GuidesPage() {
     window.setTimeout(() => {
       navigate(`/chat/${slug}`)
     }, 520)
+  }
+
+  const handleLangSelect = (nextLang) => {
+    setLang(nextLang)
+    setLangOpen(false)
   }
 
   return (
@@ -93,17 +127,44 @@ function GuidesPage() {
           {t.guides.home}
         </Motion.button>
 
-        <div className="guides-lang-switcher" role="group" aria-label="Language selector">
-          {LANGUAGES.map((entry) => (
-            <button
-              key={entry.code}
-              type="button"
-              className={`guides-lang-btn${entry.code === lang ? ' guides-lang-btn--active' : ''}`}
-              onClick={() => setLang(entry.code)}
-            >
-              {entry.label}
-            </button>
-          ))}
+        <div className="guides-lang-dropdown" ref={langDropdownRef}>
+          <button
+            type="button"
+            className="guides-lang-trigger"
+            onClick={() => setLangOpen((previous) => !previous)}
+            aria-expanded={langOpen}
+            aria-haspopup="menu"
+          >
+            <span>{currentLang.flag}</span>
+            {currentLang.label}
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+
+          <AnimatePresence>
+            {langOpen && (
+              <Motion.div
+                className="guides-lang-menu"
+                initial={{ opacity: 0, y: -6, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -6, scale: 0.96 }}
+                transition={{ duration: 0.16 }}
+              >
+                {LANGUAGES.map((entry) => (
+                  <button
+                    key={entry.code}
+                    type="button"
+                    className={`guides-lang-item${entry.code === lang ? ' guides-lang-item--active' : ''}`}
+                    onClick={() => handleLangSelect(entry.code)}
+                  >
+                    <span>{entry.flag}</span>
+                    {entry.label}
+                  </button>
+                ))}
+              </Motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </header>
 

@@ -197,6 +197,7 @@ function LandingPage() {
               aria-expanded={langOpen}
               aria-haspopup="menu"
             >
+              <span>{currentLang.flag}</span>
               {currentLang.label}
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
                 <polyline points="6 9 12 15 18 9" />
@@ -219,6 +220,7 @@ function LandingPage() {
                       className={`saas-lang-item${entry.code === lang ? ' saas-lang-item--active' : ''}`}
                       onClick={() => handleLangSelect(entry.code)}
                     >
+                      <span>{entry.flag}</span>
                       {entry.label}
                     </button>
                   ))}
