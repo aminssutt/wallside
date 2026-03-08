@@ -1,5 +1,5 @@
 # ================================
-# Fichiers sensibles
+# Sensitive files
 # ================================
 .env
 .env.local
@@ -8,9 +8,13 @@ secrets.json
 credentials.json
 
 # ================================
-# Données / Sessions utilisateur
+# Data / user sessions
 # ================================
-backend/data/
+backend/data/*
+!backend/data/guides/
+!backend/data/guides/**
+
+# Keep manual PDFs out of git (car images are allowed)
 *.pdf
 
 # ================================
@@ -33,14 +37,20 @@ htmlcov/
 *.log
 
 # ================================
-# Vector stores
+# Vector stores (global)
 # ================================
 vector_store/
 *.faiss
 *.pkl
 
+# Keep pre-indexed deploy guides tracked
+!backend/data/guides/**/vector_store/
+!backend/data/guides/**/vector_store/**
+!backend/data/guides/**/*.faiss
+!backend/data/guides/**/*.pkl
+
 # ================================
-# Node.js / React / Vite
+# Node / React / Vite
 # ================================
 node_modules/
 frontend/dist/
@@ -48,7 +58,7 @@ frontend/build/
 .vite/
 
 # ================================
-# IDE / Éditeurs
+# IDE
 # ================================
 .vscode/
 .idea/
@@ -62,7 +72,7 @@ frontend/build/
 Thumbs.db
 
 # ================================
-# Deployments
+# Deploy
 # ================================
 .vercel
 

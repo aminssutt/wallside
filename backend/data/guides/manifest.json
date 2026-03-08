@@ -1,0 +1,17 @@
+[
+  {
+    "slug": "clio-4",
+    "name": "Clio 4",
+    "image": "clio 4.png"
+  },
+  {
+    "slug": "tesla-model-y",
+    "name": "Tesla Model Y",
+    "image": "tesla model Y.png"
+  },
+  {
+    "slug": "toyota-auris-hybride-2015",
+    "name": "Toyota Auris Hybride 2015",
+    "image": "toyota auris hybride 2015.png"
+  }
+]

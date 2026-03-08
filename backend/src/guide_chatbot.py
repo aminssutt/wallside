@@ -1,5 +1,7 @@
 """
-Session-scoped RAG chatbot with hybrid retrieval (FAISS + BM25).
+Guide-scoped RAG chatbot with hybrid retrieval (FAISS + BM25).
+Works with pre-indexed guides instead of user sessions.
+Supports multilingual responses (French, English, Korean).
 """
 from typing import Optional, List, Tuple
 import pickle
@@ -12,8 +14,70 @@ from langchain_community.vectorstores import FAISS
 
 from .config import GOOGLE_API_KEY, LLM_MODEL, TOP_K_RESULTS
 from .vector_store import get_embeddings
-from .session_manager import session_manager
+from .guide_manager import guide_manager, Guide
 
+
+MAX_RESPONSE_CHARS = 900
+MAX_RESPONSE_LINES = 14
+
+LANGUAGE_PATTERNS = {
+    "ko": re.compile(r"[\uac00-\ud7af\u1100-\u11ff\u3130-\u318f]"),
+    "en": re.compile(
+        r"\b(?:what|how|where|when|why|which|can|does|is|are|do|the|"
+        r"this|that|my|your|please|help|tell|explain|show)\b",
+        re.IGNORECASE,
+    ),
+}
+
+
+def detect_language(text: str) -> str:
+    """Detect input language: 'fr', 'en', or 'ko'."""
+    if LANGUAGE_PATTERNS["ko"].search(text):
+        return "ko"
+    en_matches = len(LANGUAGE_PATTERNS["en"].findall(text))
+    if en_matches >= 2:
+        return "en"
+    return "fr"
+
+
+LANG_INSTRUCTIONS = {
+    "fr": "Reponds en francais.",
+    "en": "Answer in English.",
+    "ko": "한국어로 답변하세요.",
+}
+
+LANG_OFF_TOPIC = {
+    "fr": (
+        "Question hors sujet:\n"
+        "Je suis specialise pour le vehicule {vehicle}.\n\n"
+        "Exemples utiles:\n"
+        "- Comment fonctionne le systeme de freinage ?\n"
+        "- Quelle est la pression recommandee des pneus ?\n"
+        "- Que signifie le voyant moteur ?\n\n"
+        "Sources:\n"
+        "- Aucune page precise du manuel retrouvee pour cette question (reponse generale)."
+    ),
+    "en": (
+        "Off-topic question:\n"
+        "I am specialized for the {vehicle}.\n\n"
+        "Useful examples:\n"
+        "- How does the braking system work?\n"
+        "- What is the recommended tire pressure?\n"
+        "- What does the engine warning light mean?\n\n"
+        "Sources:\n"
+        "- No specific manual page found for this question (general response)."
+    ),
+    "ko": (
+        "주제와 관련 없는 질문:\n"
+        "{vehicle} 전문 어시스턴트입니다.\n\n"
+        "유용한 질문 예시:\n"
+        "- 브레이크 시스템은 어떻게 작동하나요?\n"
+        "- 권장 타이어 공기압은 얼마인가요?\n"
+        "- 엔진 경고등은 무엇을 의미하나요?\n\n"
+        "Sources:\n"
+        "- 이 질문에 대한 매뉴얼 페이지를 찾을 수 없습니다 (일반 응답)."
+    ),
+}
 
 VEHICLE_KEYWORDS = [
     "voiture", "vehicule", "automobile", "car", "vehicle",
@@ -22,24 +86,81 @@ VEHICLE_KEYWORDS = [
     "manuel", "manual", "toyota", "auris", "hybride", "hybrid",
     "voyant", "diagnostic", "direction", "steering", "huile", "oil",
     "climatisation", "air conditioning", "carburant", "fuel",
+    "clio", "renault", "demarrage", "demarrer", "start",
+    # Korean car terms
+    "자동차", "엔진", "브레이크", "타이어", "정비", "경고등",
 ]
 
 NON_VEHICLE_KEYWORDS = [
     "recette", "cuisine", "gateau", "pizza", "soupe",
     "meteo", "pluie", "neige", "president", "election",
     "football", "basket", "film", "musique", "hopital",
-    "chien", "chat",
 ]
 
-MAX_RESPONSE_CHARS = 900
-MAX_RESPONSE_LINES = 14
+LANG_QUESTION_PATTERNS = re.compile(
+    r"(?:parle|parler|speak|talk|answer|respond|repondre|reponds)"
+    r".*(?:anglais|english|francais|french|coreen|korean|langue|language)"
+    r"|(?:anglais|english|francais|french|coreen|korean)"
+    r".*(?:parle|speak|talk|answer|respond|repondre|reponds)"
+    r"|(?:can you|peux.tu|tu peux|do you).*(?:anglais|english|francais|french|coreen|korean|langue|language)"
+    r"|(?:change|switch|changer).*(?:langue|language)",
+    re.IGNORECASE,
+)
+
+LANG_QUESTION_RESPONSE = {
+    "fr": (
+        "Oui, je peux repondre en francais, anglais et coreen !\n"
+        "Pour changer la langue, utilisez le bouton de selection de langue "
+        "en haut a droite du chat.\n\n"
+        "Sources:\n"
+        "- Aucune page precise du manuel retrouvee pour cette question (reponse generale)."
+    ),
+    "en": (
+        "Yes, I can respond in French, English and Korean!\n"
+        "To change the language, use the language selector button "
+        "in the top right corner of the chat.\n\n"
+        "Sources:\n"
+        "- No specific manual page found for this question (general response)."
+    ),
+    "ko": (
+        "네, 프랑스어, 영어, 한국어로 답변할 수 있습니다!\n"
+        "언어를 변경하려면 채팅 오른쪽 상단의 언어 선택 버튼을 사용하세요.\n\n"
+        "Sources:\n"
+        "- 이 질문에 대한 매뉴얼 페이지를 찾을 수 없습니다 (일반 응답)."
+    ),
+}
+
+# Normalize Korean runtime strings to avoid mojibake on some Windows encodings.
+LANG_INSTRUCTIONS["ko"] = "Answer in Korean."
+
+LANG_OFF_TOPIC["ko"] = (
+    "관련 없는 질문입니다:\n"
+    "{vehicle} 전용 어시스턴트입니다.\n\n"
+    "유용한 질문 예시:\n"
+    "- 브레이크 시스템은 어떻게 작동하나요?\n"
+    "- 권장 타이어 공기압은 얼마인가요?\n"
+    "- 엔진 경고등은 무엇을 의미하나요?\n\n"
+    "Sources:\n"
+    "- 이 질문에 대한 매뉴얼 페이지를 찾을 수 없습니다 (일반 응답)."
+)
+
+LANG_QUESTION_RESPONSE["ko"] = (
+    "네, 프랑스어, 영어, 한국어로 답변할 수 있습니다.\n"
+    "언어를 변경하려면 채팅 오른쪽 상단의 언어 선택 버튼을 사용하세요.\n\n"
+    "Sources:\n"
+    "- 이 질문에 대한 매뉴얼 페이지를 찾을 수 없습니다 (일반 응답)."
+)
+
+for keyword in ("자동차", "엔진", "브레이크", "타이어", "정비", "경고등"):
+    if keyword not in VEHICLE_KEYWORDS:
+        VEHICLE_KEYWORDS.append(keyword)
 
 
 def trim_response(answer: str) -> str:
     """Limit response size while keeping coherent sections."""
     clean = (answer or "").replace("\r\n", "\n").strip()
     if not clean:
-        return "Je n'ai pas trouve de reponse exploitable."
+        return ""
 
     if len(clean) <= MAX_RESPONSE_CHARS and clean.count("\n") <= MAX_RESPONSE_LINES:
         return clean
@@ -52,11 +173,9 @@ def trim_response(answer: str) -> str:
         sentence = sentence.strip()
         if not sentence:
             continue
-
         projected = current_length + len(sentence) + 1
         if projected > MAX_RESPONSE_CHARS:
             break
-
         kept.append(sentence)
         current_length = projected
 
@@ -73,7 +192,7 @@ def trim_response(answer: str) -> str:
 
 
 def clean_model_output(text: str) -> str:
-    """Normalize model output into UI-friendly plain text sections."""
+    """Normalize model output into plain text."""
     if not text:
         return ""
 
@@ -87,13 +206,11 @@ def clean_model_output(text: str) -> str:
             cleaned_lines.append("")
             continue
 
-        # Remove markdown-like markers.
         line = re.sub(r"^#{1,6}\s*", "", line)
         line = line.replace("**", "").replace("`", "")
         if line.startswith("_") and line.endswith("_") and len(line) > 2:
             line = line[1:-1].strip()
 
-        # Remove any source section generated by model.
         if re.match(r"(?i)^sources?\s*:", line):
             skip_sources_block = True
             continue
@@ -136,18 +253,26 @@ def format_sources(documents: List[Document]) -> str:
 
 
 def is_vehicle_related(question: str) -> Tuple[bool, float]:
-    """Return whether the question is vehicle-related and confidence score."""
+    """Return whether the question is vehicle-related and confidence score.
+    
+    Permissive: only rejects clearly non-vehicle questions.
+    When in doubt, let the RAG pipeline decide relevance.
+    """
     text = question.lower()
 
-    for negative in NON_VEHICLE_KEYWORDS:
-        if negative in text:
-            return False, 0.0
+    negative_matches = sum(1 for kw in NON_VEHICLE_KEYWORDS if kw in text)
+    if negative_matches >= 2:
+        return False, 0.0
 
     matches = sum(1 for keyword in VEHICLE_KEYWORDS if keyword in text)
-    if matches >= 2:
+    if matches >= 1:
         return True, 1.0
-    if matches == 1:
-        return True, 0.7
+
+    # If no strong negative signal, assume it could be vehicle-related
+    # and let the RAG retrieval handle relevance
+    if negative_matches == 0:
+        return True, 0.5
+
     return False, 0.0
 
 
@@ -164,29 +289,24 @@ def format_context(documents: List[Document]) -> str:
     return "\n\n---\n\n".join(parts)
 
 
-class SessionChatbot:
-    """RAG chatbot attached to one user session with hybrid retrieval."""
+class GuideChatbot:
+    """RAG chatbot attached to a pre-indexed guide with hybrid retrieval."""
 
-    def __init__(self, session_id: str):
-        self.session_id = session_id
-        self.session = session_manager.get_session(session_id)
-        if not self.session:
-            raise ValueError(f"Session {session_id} introuvable")
-
+    def __init__(self, guide: Guide):
+        self.guide = guide
         self.vector_store = self._load_vector_store()
         self.bm25_index, self.bm25_chunks = self._load_bm25()
         self.client = genai.Client(api_key=GOOGLE_API_KEY)
         self.model_name = LLM_MODEL.replace("models/", "", 1)
-        self.conversation_history = []
+        self.conversation_history: List[dict] = []
 
     def _load_vector_store(self) -> Optional[FAISS]:
-        vs_dir = self.session.vector_store_dir
+        vs_dir = self.guide.vector_store_dir
         index_path = vs_dir / "index.faiss"
         if not index_path.exists():
             return None
 
         if importlib.util.find_spec("faiss") is None:
-            print("Warning: FAISS module not available. Chatbot will use BM25 retrieval only.")
             return None
 
         embeddings = get_embeddings()
@@ -194,21 +314,18 @@ class SessionChatbot:
             return FAISS.load_local(
                 str(vs_dir), embeddings, allow_dangerous_deserialization=True
             )
-        except ImportError as exc:
-            print(f"Warning: failed to load FAISS index: {exc}")
+        except ImportError:
             return None
 
     def _load_bm25(self):
-        """Load the BM25 index if available."""
-        bm25_path = self.session.vector_store_dir / "bm25_index.pkl"
+        bm25_path = self.guide.vector_store_dir / "bm25_index.pkl"
         if not bm25_path.exists():
             return None, []
         try:
             with open(bm25_path, "rb") as f:
                 data = pickle.load(f)
             return data["bm25"], data["chunks"]
-        except Exception as exc:
-            print(f"Warning: could not load BM25 index: {exc}")
+        except Exception:
             return None, []
 
     def _hybrid_search(self, question: str, k: int = TOP_K_RESULTS) -> List[Document]:
@@ -216,17 +333,14 @@ class SessionChatbot:
         seen_contents = set()
         results: List[Tuple[Document, float]] = []
 
-        # FAISS semantic search
         if self.vector_store:
             faiss_docs = self.vector_store.similarity_search_with_score(question, k=k)
             for doc, score in faiss_docs:
                 key = doc.page_content[:200]
                 if key not in seen_contents:
                     seen_contents.add(key)
-                    # Lower distance means better match.
                     results.append((doc, 1.0 / (1.0 + score)))
 
-        # BM25 lexical search
         if self.bm25_index and self.bm25_chunks:
             tokens = re.findall(r"[a-z0-9]{2,}", question.lower())
             if tokens:
@@ -249,20 +363,19 @@ class SessionChatbot:
         results.sort(key=lambda x: x[1], reverse=True)
         return [doc for doc, _ in results[:k]]
 
-    def chat(self, question: str) -> str:
-        """Generate a concise structured response for a user question."""
+    def chat(self, question: str, lang: str = None) -> str:
+        """Generate a response. If lang is provided, use it; otherwise auto-detect."""
+        if not lang:
+            lang = detect_language(question)
+
+        if LANG_QUESTION_PATTERNS.search(question):
+            return LANG_QUESTION_RESPONSE.get(lang, LANG_QUESTION_RESPONSE["fr"])
+
         is_vehicle, confidence = is_vehicle_related(question)
 
         if not is_vehicle and confidence < 0.5:
-            return (
-                "Question hors sujet:\n"
-                f"Je suis specialise pour {self.session.vehicle_name}.\n\n"
-                "Exemples utiles:\n"
-                "- Comment fonctionne le systeme de freinage ?\n"
-                "- Quelle est la pression recommandee des pneus ?\n"
-                "- Que signifie le voyant moteur ?\n\n"
-                "Sources:\n"
-                "- Aucune page precise du manuel retrouvee pour cette question (reponse generale)."
+            return LANG_OFF_TOPIC.get(lang, LANG_OFF_TOPIC["fr"]).format(
+                vehicle=self.guide.name
             )
 
         docs: List[Document] = []
@@ -272,11 +385,12 @@ class SessionChatbot:
             context = format_context(docs)
 
         sources_block = format_sources(docs)
+        lang_instruction = LANG_INSTRUCTIONS.get(lang, LANG_INSTRUCTIONS["fr"])
 
-        prompt = f"""Tu es un assistant expert pour le vehicule {self.session.vehicle_name}.
+        prompt = f"""Tu es un assistant expert pour le vehicule {self.guide.name}.
 
 Regles:
-1) Reponds en francais.
+1) {lang_instruction}
 2) Base-toi sur le contexte fourni en priorite.
 3) Si le contexte est incomplet, complete avec des connaissances automobiles generales.
 4) Reponse concise: 80 a 130 mots max.
@@ -297,6 +411,8 @@ Question: {question}
             raw_answer = (getattr(response, "text", "") or "").strip()
             clean_answer = clean_model_output(raw_answer)
             answer = trim_response(clean_answer)
+            if not answer:
+                answer = "Je n'ai pas trouve de reponse exploitable."
             final_answer = f"{answer}\n\n{sources_block}"
 
             self.conversation_history.append({"role": "user", "content": question})
@@ -318,15 +434,24 @@ Question: {question}
         self.conversation_history = []
 
 
-_chatbot_cache = {}
+# Cache chatbots by guide slug + a simple instance id
+_guide_chatbot_cache: dict[str, GuideChatbot] = {}
 
 
-def get_session_chatbot(session_id: str) -> SessionChatbot:
-    if session_id not in _chatbot_cache:
-        _chatbot_cache[session_id] = SessionChatbot(session_id)
-    return _chatbot_cache[session_id]
+def get_guide_chatbot(slug: str) -> GuideChatbot:
+    """Get or create a chatbot for a guide slug."""
+    if slug not in _guide_chatbot_cache:
+        guide = guide_manager.get_guide(slug)
+        if not guide:
+            raise ValueError(f"Guide '{slug}' not found")
+        if not guide.is_indexed:
+            raise ValueError(f"Guide '{slug}' is not indexed yet")
+        _guide_chatbot_cache[slug] = GuideChatbot(guide)
+    return _guide_chatbot_cache[slug]
 
 
-def clear_chatbot_cache(session_id: str):
-    if session_id in _chatbot_cache:
-        del _chatbot_cache[session_id]
+def clear_guide_chatbot_cache(slug: str = None):
+    if slug:
+        _guide_chatbot_cache.pop(slug, None)
+    else:
+        _guide_chatbot_cache.clear()

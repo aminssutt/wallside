@@ -1,54 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion as Motion } from 'framer-motion'
+import { LANGUAGES, UI_TEXT, useAppLanguage } from '../i18n'
 import './LandingPage.css'
 
 const COLLISION_FRAMES = 30
-
-const plans = [
-  {
-    key: 'free',
-    name: 'Free Version',
-    price: '0€',
-    period: '/month',
-    status: 'Available now',
-    points: [
-      'Access to chat',
-      'Up to 5 prompts',
-      "Manual-based answers",
-    ],
-    cta: 'Start free version',
-    highlight: true,
-  },
-  {
-    key: 'starter',
-    name: 'Starter',
-    price: '5,99€',
-    period: '/month',
-    status: 'Coming soon',
-    points: [
-      'Higher prompt quota',
-      'Faster response queue',
-      'Extended memory scope',
-    ],
-    cta: 'Coming soon',
-    highlight: false,
-  },
-  {
-    key: 'pro',
-    name: 'Pro',
-    price: '19,99€',
-    period: '/month',
-    status: 'Coming soon',
-    points: [
-      'Large prompt capacity',
-      'Multi-manual support',
-      'Advanced assistance layer',
-    ],
-    cta: 'Coming soon',
-    highlight: false,
-  },
-]
 
 const framePath = (index) => `/collision-webp/frame_${String(index).padStart(2, '0')}.webp`
 
@@ -76,9 +32,11 @@ const findNearestLoadedFrame = (frames, target) => {
 function LandingPage() {
   const navigate = useNavigate()
   const [launching, setLaunching] = useState(false)
+  const [lang, setLang] = useAppLanguage()
 
   const collisionCanvasRef = useRef(null)
   const collisionFramesRef = useRef(Array(COLLISION_FRAMES).fill(null))
+  const t = UI_TEXT[lang] || UI_TEXT.fr
 
   const frameUrls = useMemo(
     () => Array.from({ length: COLLISION_FRAMES }, (_, idx) => framePath(idx + 1)),
@@ -181,20 +139,33 @@ function LandingPage() {
     }
   }, [drawCollisionFrame])
 
-  const launchFree = () => {
+  const launchGuides = () => {
     if (launching) {
       return
     }
 
     setLaunching(true)
     window.setTimeout(() => {
-      navigate('/start')
+      navigate('/guides')
     }, 680)
   }
 
   return (
     <main className="saas-page">
       <section className="saas-hero">
+        <div className="saas-lang-switcher" role="group" aria-label="Language selector">
+          {LANGUAGES.map((entry) => (
+            <button
+              key={entry.code}
+              type="button"
+              className={`saas-lang-btn${entry.code === lang ? ' saas-lang-btn--active' : ''}`}
+              onClick={() => setLang(entry.code)}
+            >
+              {entry.label}
+            </button>
+          ))}
+        </div>
+
         <Motion.div
           className="hero-collision-wrap"
           initial={{ opacity: 0, y: 16 }}
@@ -210,7 +181,7 @@ function LandingPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15, duration: 0.6 }}
         >
-          Your car assistant that answers your questions based on your owner&apos;s manual.
+          {t.landing.subtitle}
         </Motion.p>
 
         <Motion.div
@@ -222,78 +193,62 @@ function LandingPage() {
           <Motion.button
             type="button"
             className="saas-btn saas-btn--primary"
-            onClick={launchFree}
+            onClick={launchGuides}
             whileHover={{ y: -2, scale: 1.01 }}
             whileTap={{ scale: 0.98 }}
           >
-            Access to Chat
+            {t.landing.accessChat}
           </Motion.button>
-          <Motion.a
-            className="saas-btn saas-btn--secondary"
-            href="#pricing"
-            whileHover={{ y: -2 }}
-          >
-            View plans
-          </Motion.a>
         </Motion.div>
       </section>
 
       <section className="saas-overview">
-        <article className="overview-card">
-          <h2>1. Upload your manual</h2>
-          <p>
-            Start by uploading your owner&apos;s manual in PDF. The platform organizes your vehicle content for smart retrieval.
-          </p>
-        </article>
-        <article className="overview-card">
-          <h2>2. Ask your questions</h2>
-          <p>
-            Use the chat to get direct answers on maintenance, usage, warnings and specifications from your own documentation.
-          </p>
-        </article>
-      </section>
-
-      <section id="pricing" className="pricing-section">
-        <h2>Freemium Pricing</h2>
-        <p>Start for free, upgrade when you need more capacity.</p>
-
-        <div className="pricing-grid">
-          {plans.map((plan) => (
-            <article className={`pricing-card ${plan.highlight ? 'pricing-card--highlight' : ''}`} key={plan.key}>
-              <div className="pricing-head">
-                <h3>{plan.name}</h3>
-                <span className={`pricing-badge ${plan.status === 'Coming soon' ? 'pricing-badge--soon' : ''}`}>
-                  {plan.status}
-                </span>
-              </div>
-              <p className="pricing-price">
-                <strong>{plan.price}</strong> {plan.period}
-              </p>
-              <ul className="pricing-points">
-                {plan.points.map((point) => (
-                  <li key={point}>{point}</li>
-                ))}
-              </ul>
-              <button
-                type="button"
-                className={`pricing-cta ${plan.highlight ? 'pricing-cta--active' : ''}`}
-                onClick={plan.highlight ? launchFree : undefined}
-                disabled={!plan.highlight}
-              >
-                {plan.cta}
-              </button>
-            </article>
-          ))}
-        </div>
+        {t.landing.features.map((feat) => (
+          <article className="overview-card" key={feat.title}>
+            <h2>{feat.title}</h2>
+            <p>{feat.desc}</p>
+          </article>
+        ))}
       </section>
 
       <footer className="saas-footer">
-        <div>
+        <div className="saas-footer-brand">
           <img src="/logo-84.webp" alt="CC" width="36" height="36" loading="lazy" />
-          <p>Car Chat : CC</p>
+          <div>
+            <p>Car Chat : CC</p>
+            <span>{t.landing.footerTagline}</span>
+          </div>
         </div>
-        <p>Freemium AI assistant for owner&apos;s manuals.</p>
-        <p>© {new Date().getFullYear()} CC. All rights reserved.</p>
+
+        <div className="saas-footer-socials">
+          <a
+            className="social-link"
+            href="https://www.linkedin.com/in/lakhdar-berache/"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="LinkedIn profile"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M6.94 8.72H3.56V20h3.38V8.72Zm.22-3.49C7.14 4.17 6.34 3.4 5.28 3.4S3.4 4.17 3.4 5.23c0 1.04.8 1.83 1.86 1.83h.02c1.08 0 1.88-.79 1.88-1.83ZM20 13.55c0-3.4-1.82-4.98-4.25-4.98-1.96 0-2.84 1.08-3.33 1.85v-1.7H9.04c.04 1.12 0 11.28 0 11.28h3.38v-6.3c0-.34.02-.67.12-.91.27-.67.88-1.36 1.92-1.36 1.35 0 1.9 1.03 1.9 2.55V20H20v-6.45Z" />
+            </svg>
+            {t.landing.linkedin}
+          </a>
+
+          <a
+            className="social-link"
+            href="https://github.com/aminssutt"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="GitHub profile"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 .5A11.5 11.5 0 0 0 .5 12.24c0 5.2 3.35 9.6 8 11.16.58.1.78-.26.78-.57 0-.29-.01-1.04-.01-2.05-3.26.73-3.95-1.6-3.95-1.6-.53-1.38-1.3-1.75-1.3-1.75-1.07-.75.08-.74.08-.74 1.18.08 1.8 1.23 1.8 1.23 1.05 1.82 2.75 1.3 3.42 1 .1-.78.4-1.3.73-1.6-2.6-.3-5.34-1.33-5.34-5.9 0-1.3.45-2.36 1.2-3.2-.12-.3-.52-1.52.12-3.17 0 0 .98-.32 3.2 1.22a10.9 10.9 0 0 1 5.82 0c2.2-1.54 3.18-1.22 3.18-1.22.64 1.65.24 2.87.12 3.17.75.84 1.2 1.9 1.2 3.2 0 4.58-2.74 5.6-5.35 5.9.42.37.8 1.08.8 2.18 0 1.57-.01 2.83-.01 3.22 0 .31.2.68.79.57a11.75 11.75 0 0 0 8-11.16A11.5 11.5 0 0 0 12 .5Z" />
+            </svg>
+            {t.landing.github}
+          </a>
+        </div>
+
+        <p className="saas-footer-copy">&copy; {new Date().getFullYear()} CC. {t.landing.rights}</p>
       </footer>
 
       <AnimatePresence>
@@ -311,7 +266,7 @@ function LandingPage() {
               animate={{ scale: 1, opacity: 1 }}
               transition={{ repeat: Infinity, repeatType: 'reverse', duration: 0.7 }}
             />
-            <p>Opening your workspace...</p>
+            <p>{t.landing.loadingGuides}</p>
           </Motion.div>
         )}
       </AnimatePresence>

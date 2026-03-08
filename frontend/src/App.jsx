@@ -4,8 +4,7 @@ import { AnimatePresence } from 'framer-motion'
 import LandingPage from './pages/LandingPage'
 import './App.css'
 
-const UploadPage = lazy(() => import('./pages/UploadPage'))
-const ProcessingPage = lazy(() => import('./pages/ProcessingPage'))
+const GuidesPage = lazy(() => import('./pages/GuidesPage'))
 const ChatPage = lazy(() => import('./pages/ChatPage'))
 
 function AnimatedRoutes() {
@@ -16,9 +15,8 @@ function AnimatedRoutes() {
       <Suspense fallback={null}>
         <Routes location={location} key={location.pathname}>
           <Route path="/" element={<LandingPage />} />
-          <Route path="/start" element={<UploadPage />} />
-          <Route path="/processing/:sessionId" element={<ProcessingPage />} />
-          <Route path="/chat/:sessionId" element={<ChatPage />} />
+          <Route path="/guides" element={<GuidesPage />} />
+          <Route path="/chat/:slug" element={<ChatPage />} />
         </Routes>
       </Suspense>
     </AnimatePresence>
