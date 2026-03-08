@@ -7,6 +7,7 @@ section-aware chunking, batched embeddings, BM25 index.
 import json
 import traceback
 import threading
+import importlib.util
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import List
@@ -245,6 +246,16 @@ class PDFProcessor:
     # ── Vector store ──────────────────────────────────────────
     def _create_vector_store(self, chunks: List[Document]):
         """Create FAISS vector store with batched embeddings."""
+        if importlib.util.find_spec("faiss") is None:
+            session_manager.update_progress(
+                self.session_id,
+                progress=91,
+                message="FAISS indisponible, index lexical BM25 uniquement",
+                current_step="indexing_skipped",
+            )
+            print("Warning: FAISS not available in this Python environment. Continuing with BM25 only.")
+            return None
+
         embeddings = get_embeddings()
 
         batch_size = 200
@@ -264,10 +275,22 @@ class PDFProcessor:
             )
 
             if vector_store is None:
-                vector_store = FAISS.from_documents(
-                    documents=batch,
-                    embedding=embeddings,
-                )
+                try:
+                    vector_store = FAISS.from_documents(
+                        documents=batch,
+                        embedding=embeddings,
+                    )
+                except ImportError as exc:
+                    if "faiss" in str(exc).lower():
+                        session_manager.update_progress(
+                            self.session_id,
+                            progress=91,
+                            message="FAISS indisponible, index lexical BM25 uniquement",
+                            current_step="indexing_skipped",
+                        )
+                        print(f"Warning: {exc}")
+                        return None
+                    raise
             else:
                 vector_store.add_documents(batch)
 

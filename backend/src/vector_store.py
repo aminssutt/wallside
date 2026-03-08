@@ -1,7 +1,8 @@
-﻿"""
+"""
 Vector store module using FAISS for the RAG pipeline.
 """
 from typing import List, Optional
+import importlib.util
 
 from langchain_community.vectorstores import FAISS
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
@@ -15,12 +16,21 @@ def get_embeddings() -> GoogleGenerativeAIEmbeddings:
     return GoogleGenerativeAIEmbeddings(model=EMBEDDING_MODEL)
 
 
+def _faiss_available() -> bool:
+    return importlib.util.find_spec("faiss") is not None
+
+
 def create_vector_store(
     documents: List[Document], persist_directory: Optional[str] = None
 ) -> FAISS:
     """Create a new FAISS vector store from documents and save it."""
     if not documents:
         raise ValueError("Aucun document a indexer")
+    if not _faiss_available():
+        raise RuntimeError(
+            "FAISS indisponible dans cet environnement Python. "
+            "Utilisez Python 3.12 + faiss-cpu, ou activez le mode BM25 uniquement."
+        )
 
     embeddings = get_embeddings()
     vector_store = FAISS.from_documents(documents=documents, embedding=embeddings)
@@ -34,6 +44,9 @@ def create_vector_store(
 def load_vector_store(persist_directory: Optional[str] = None) -> Optional[FAISS]:
     """Load an existing FAISS vector store."""
     from pathlib import Path
+
+    if not _faiss_available():
+        return None
 
     save_dir = persist_directory or str(VECTOR_STORE_DIR)
     index_path = Path(save_dir) / "index.faiss"
