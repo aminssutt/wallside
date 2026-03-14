@@ -1,8 +1,10 @@
 .guides-page {
-  height: 100vh;
-  height: 100dvh;
+  min-height: 100vh;
+  min-height: 100svh;
+  min-height: 100dvh;
   position: relative;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   color: #e7eaee;
@@ -48,6 +50,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
 .guides-back-btn {
@@ -171,6 +174,7 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 14px;
+  max-width: 100%;
 }
 
 .guide-teaser {
@@ -210,6 +214,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  min-width: 0;
 }
 
 .guide-teaser-body h3 {
@@ -219,6 +224,8 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: #f1f6fb;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .guide-teaser-body span {
@@ -230,6 +237,7 @@
   border-radius: 999px;
   padding: 5px 9px;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .guide-teaser-metal {
@@ -444,6 +452,7 @@
   .guide-teaser-body {
     padding: 10px;
     align-items: center;
+    min-width: 0;
   }
 
   .guide-teaser-body h3 {
@@ -477,5 +486,32 @@
   .guide-confirm-cancel,
   .guide-confirm-accept {
     width: 100%;
+  }
+}
+
+@media (max-width: 520px) {
+  .guides-header {
+    justify-content: space-between;
+  }
+
+  .guides-back-btn {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
+  .guides-lang-dropdown {
+    flex: 0 0 auto;
+  }
+
+  .guide-teaser {
+    grid-template-columns: 1fr;
+  }
+
+  .guide-teaser-image {
+    min-height: 140px;
+  }
+
+  .guide-teaser-body {
+    gap: 8px;
   }
 }

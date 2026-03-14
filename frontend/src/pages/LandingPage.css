@@ -1,7 +1,9 @@
 .saas-page {
-  height: 100vh;
-  height: 100dvh;
-  overflow: hidden;
+  min-height: 100vh;
+  min-height: 100svh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  overflow-y: auto;
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto auto;
   color: #e7eaee;
@@ -45,6 +47,7 @@
   width: min(1120px, 100%);
   display: inline-flex;
   justify-content: flex-end;
+  max-width: 100%;
 }
 
 .saas-lang-dropdown {
@@ -138,6 +141,7 @@
   align-items: center;
   gap: clamp(8px, 1.5vh, 16px);
   margin-top: clamp(-4px, 0.4vh, 6px);
+  max-width: 100%;
 }
 
 .saas-subtitle {
@@ -188,6 +192,7 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
+  max-width: 100%;
 }
 
 .overview-card {
@@ -217,7 +222,7 @@
 .saas-footer {
   border-top: 1px solid rgba(215, 222, 229, 0.12);
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 12px;
   padding: 10px 20px 12px;
@@ -229,6 +234,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
 }
 
 .saas-footer-brand img {
@@ -242,6 +248,7 @@
   letter-spacing: 0.03em;
   text-transform: uppercase;
   font-size: 0.74rem;
+  overflow-wrap: anywhere;
 }
 
 .saas-footer-brand span {
@@ -249,12 +256,15 @@
   margin-top: 2px;
   color: rgba(201, 209, 218, 0.72);
   font-size: 0.7rem;
+  overflow-wrap: anywhere;
 }
 
 .saas-footer-socials {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .social-link {
@@ -282,6 +292,7 @@
   text-align: right;
   color: rgba(197, 205, 214, 0.74);
   font-size: 0.74rem;
+  overflow-wrap: anywhere;
 }
 
 .launch-overlay {
@@ -311,10 +322,9 @@
 
 @media (max-width: 980px) {
   .saas-page {
-    height: 100vh;
-    height: 100dvh;
+    min-height: 100vh;
+    min-height: 100svh;
     min-height: 100dvh;
-    overflow: hidden;
     grid-template-rows: minmax(0, 1fr) auto auto;
   }
 
@@ -333,7 +343,7 @@
   }
 
   .saas-overview {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
     padding: 0 12px 10px;
   }
@@ -418,6 +428,11 @@
   .overview-card {
     padding: 12px 12px;
   }
+
+  .saas-overview {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
 }
 
 @media (max-width: 520px) {
@@ -479,5 +494,20 @@
   .social-link {
     font-size: 0.56rem;
     padding: 5px 8px;
+  }
+}
+
+@media (max-height: 760px) and (min-width: 721px) {
+  .saas-hero {
+    padding-top: 8px;
+    gap: 8px;
+  }
+
+  .hero-collision-wrap {
+    width: min(420px, 62vw);
+  }
+
+  .saas-overview {
+    padding-bottom: 8px;
   }
 }
