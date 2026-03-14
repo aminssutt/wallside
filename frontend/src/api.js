@@ -1,4 +1,5 @@
-const RAW_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5002/api'
+const DEFAULT_API_URL = import.meta.env.DEV ? 'http://localhost:5002/api' : '/api'
+const RAW_API_URL = import.meta.env.VITE_API_URL || DEFAULT_API_URL
 
 const normalizeApiUrl = (value) => {
   const trimmed = String(value || '').trim().replace(/\/+$/, '')

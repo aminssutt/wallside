@@ -13,12 +13,18 @@ from flask_cors import CORS
 from src.guide_manager import guide_manager
 from src.guide_chatbot import get_guide_chatbot, clear_guide_chatbot_cache
 
+BACKEND_DIR = Path(__file__).parent
+PROJECT_ROOT = BACKEND_DIR.parent
+FRONTEND_DIST_DIR = Path(
+    os.getenv("FRONTEND_DIST_DIR", PROJECT_ROOT / "frontend" / "dist")
+)
+
 app = Flask(__name__)
 
 CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
 
 # Serve car images from manuel/voiture/
-IMAGES_DIR = Path(__file__).parent.parent / "manuel" / "voiture"
+IMAGES_DIR = PROJECT_ROOT / "manuel" / "voiture"
 
 
 # ============================================
@@ -175,6 +181,29 @@ def get_suggestions():
         "success": True,
         "suggestions": suggestions
     })
+
+
+# ============================================
+# FRONTEND (SPA) SERVING
+# ============================================
+
+@app.route("/", defaults={"path": ""})
+@app.route("/<path:path>")
+def serve_frontend(path):
+    """Serve built frontend assets and SPA routes."""
+    if path.startswith("api/"):
+        return jsonify({"error": "Not found"}), 404
+
+    if FRONTEND_DIST_DIR.exists():
+        requested = FRONTEND_DIST_DIR / path
+        if path and requested.exists() and requested.is_file():
+            return send_from_directory(str(FRONTEND_DIST_DIR), path)
+
+        index_file = FRONTEND_DIST_DIR / "index.html"
+        if index_file.exists():
+            return send_from_directory(str(FRONTEND_DIST_DIR), "index.html")
+
+    return jsonify({"error": "Frontend build not found"}), 404
 
 
 if __name__ == '__main__':
