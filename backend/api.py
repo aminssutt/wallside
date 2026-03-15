@@ -12,6 +12,7 @@ from flask_cors import CORS
 
 from src.guide_manager import guide_manager
 from src.guide_chatbot import get_guide_chatbot, clear_guide_chatbot_cache
+from src.config import DATA_DIR
 
 BACKEND_DIR = Path(__file__).parent
 PROJECT_ROOT = BACKEND_DIR.parent
@@ -23,8 +24,11 @@ app = Flask(__name__)
 
 CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
 
-# Serve car images from manuel/voiture/
-IMAGES_DIR = PROJECT_ROOT / "manuel" / "voiture"
+# Serve car images from data/vehicle_images first, then legacy manuel/voiture.
+IMAGE_DIRS = [
+    DATA_DIR / "vehicle_images",
+    PROJECT_ROOT / "manuel" / "voiture",
+]
 
 
 # ============================================
@@ -34,10 +38,12 @@ IMAGES_DIR = PROJECT_ROOT / "manuel" / "voiture"
 @app.route('/api/guides', methods=['GET'])
 def list_guides():
     """List all available pre-indexed guides."""
-    guides = guide_manager.list_guides()
+    brand = request.args.get("brand", "").strip() or None
+    guides = guide_manager.list_guides(brand=brand)
     return jsonify({
         "success": True,
         "guides": guides,
+        "brands": guide_manager.list_brands(),
     })
 
 
@@ -146,10 +152,14 @@ def reset_chat(slug):
 
 @app.route('/api/images/<path:filename>', methods=['GET'])
 def serve_image(filename):
-    """Serve car images from the manuel/voiture directory."""
-    if not IMAGES_DIR.exists():
-        return jsonify({"error": "Images directory not found"}), 404
-    return send_from_directory(str(IMAGES_DIR), filename)
+    """Serve car images from configured image directories."""
+    for image_dir in IMAGE_DIRS:
+        if not image_dir.exists():
+            continue
+        candidate = image_dir / filename
+        if candidate.exists() and candidate.is_file():
+            return send_from_directory(str(image_dir), filename)
+    return jsonify({"error": "Image not found"}), 404
 
 
 # ============================================

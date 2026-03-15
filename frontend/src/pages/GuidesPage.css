@@ -164,6 +164,107 @@
   color: rgba(210, 217, 225, 0.84);
 }
 
+.guides-brand-filter {
+  margin: 0 auto 16px;
+  max-width: 100%;
+}
+
+.guides-brand-filter p {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.66rem;
+  color: rgba(197, 206, 215, 0.72);
+  margin-bottom: 8px;
+}
+
+.guides-brand-trigger {
+  min-width: 180px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(220, 228, 236, 0.26);
+  background: rgba(23, 28, 34, 0.78);
+  color: rgba(231, 239, 247, 0.92);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, transform 0.2s ease, background 0.2s ease;
+}
+
+.guides-brand-trigger:hover {
+  transform: translateY(-1px);
+  border-color: rgba(232, 240, 248, 0.38);
+  background: rgba(38, 46, 55, 0.8);
+}
+
+.guides-brand-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 75;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(6, 9, 13, 0.78);
+  backdrop-filter: blur(8px);
+}
+
+.guides-brand-popup {
+  width: min(420px, 94vw);
+  border-radius: 18px;
+  border: 1px solid rgba(221, 229, 238, 0.25);
+  background:
+    linear-gradient(165deg, rgba(90, 100, 112, 0.36), rgba(21, 25, 31, 0.92)),
+    linear-gradient(320deg, rgba(220, 227, 236, 0.1), rgba(220, 227, 236, 0));
+  box-shadow: 0 28px 48px rgba(0, 0, 0, 0.42);
+  padding: 16px;
+}
+
+.guides-brand-popup h3 {
+  font-family: 'Orbitron', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  font-size: 0.9rem;
+  color: #edf3fa;
+}
+
+.guides-brand-options {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+.guides-brand-option {
+  border-radius: 999px;
+  border: 1px solid rgba(216, 224, 233, 0.24);
+  background: rgba(25, 30, 36, 0.8);
+  color: rgba(223, 232, 240, 0.9);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 9px 12px;
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+
+.guides-brand-option:hover {
+  transform: translateY(-1px);
+  border-color: rgba(231, 239, 247, 0.36);
+  background: rgba(45, 53, 63, 0.82);
+}
+
+.guides-brand-option--active {
+  border-color: rgba(244, 249, 255, 0.5);
+  color: #f4f9ff;
+  background: linear-gradient(130deg, rgba(118, 129, 143, 0.9), rgba(68, 77, 89, 0.9));
+}
+
 .guides-state-block {
   text-align: center;
   padding: 20px 0;
@@ -172,12 +273,14 @@
 
 .guides-rail {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(260px, 360px));
+  justify-content: center;
   gap: 14px;
   max-width: 100%;
 }
 
 .guide-teaser {
+  width: 100%;
   border-radius: 16px;
   overflow: hidden;
   cursor: pointer;
@@ -217,6 +320,10 @@
   min-width: 0;
 }
 
+.guide-teaser-meta {
+  min-width: 0;
+}
+
 .guide-teaser-body h3 {
   font-family: 'Orbitron', sans-serif;
   font-size: 0.78rem;
@@ -226,6 +333,14 @@
   color: #f1f6fb;
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+.guide-teaser-meta p {
+  margin-top: 6px;
+  color: rgba(186, 197, 208, 0.78);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.58rem;
 }
 
 .guide-teaser-body span {
@@ -344,11 +459,20 @@
 
 .guide-confirm-card span {
   display: block;
-  padding: 10px 12px;
+  padding: 10px 12px 2px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-size: 0.75rem;
   color: #eaf0f7;
+}
+
+.guide-confirm-card small {
+  display: block;
+  padding: 0 12px 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.6rem;
+  color: rgba(198, 208, 218, 0.78);
 }
 
 .guide-confirm-actions {
@@ -437,6 +561,16 @@
     font-size: 0.82rem;
   }
 
+  .guides-brand-filter {
+    margin-bottom: 12px;
+  }
+
+  .guides-brand-trigger {
+    min-width: 150px;
+    font-size: 0.62rem;
+    padding: 9px 12px;
+  }
+
   .guide-teaser {
     display: grid;
     grid-template-columns: 120px 1fr;
@@ -501,6 +635,11 @@
 
   .guides-lang-dropdown {
     flex: 0 0 auto;
+  }
+
+  .guides-brand-popup {
+    width: min(360px, 94vw);
+    padding: 12px;
   }
 
   .guide-teaser {

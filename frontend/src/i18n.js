@@ -36,7 +36,7 @@ export const UI_TEXT = {
     guides: {
       home: 'Accueil',
       title: 'Choisissez votre assistant véhicule',
-      subtitle: 'Ouvrez un assistant déjà entraîné sur le manuel.',
+      subtitle: 'Ouvrez votre assistant personnel.',
       loading: 'Chargement des guides disponibles...',
       loadError: 'Impossible de charger les guides',
       serverError: 'Connexion serveur indisponible',
@@ -49,6 +49,10 @@ export const UI_TEXT = {
       cancel: 'Annuler',
       confirm: 'Oui, ouvrir le chat',
       loadingAssistant: "Ouverture de l'assistant...",
+      brandFilterLabel: 'Filtrer par marque',
+      allBrands: 'Toutes',
+      noBrandMatch: 'Aucun véhicule pour cette marque.',
+      brandUnknown: 'Marque non renseignée',
     },
     chat: {
       guides: 'Guides',
@@ -95,7 +99,7 @@ export const UI_TEXT = {
     guides: {
       home: 'Home',
       title: 'Choose your vehicle assistant',
-      subtitle: 'Open an assistant already trained on the manual.',
+      subtitle: 'Open your personal assistant.',
       loading: 'Loading available guides...',
       loadError: 'Unable to load guides',
       serverError: 'Server connection unavailable',
@@ -108,6 +112,10 @@ export const UI_TEXT = {
       cancel: 'Cancel',
       confirm: 'Yes, open the chat',
       loadingAssistant: 'Loading assistant...',
+      brandFilterLabel: 'Filter by brand',
+      allBrands: 'All',
+      noBrandMatch: 'No vehicle for this brand.',
+      brandUnknown: 'Unknown brand',
     },
     chat: {
       guides: 'Guides',
@@ -154,7 +162,7 @@ export const UI_TEXT = {
     guides: {
       home: '홈',
       title: '차량 어시스턴트 선택',
-      subtitle: '매뉴얼로 학습된 어시스턴트를 바로 열어보세요.',
+      subtitle: '개인 맞춤 어시스턴트를 열어보세요.',
       loading: '사용 가능한 가이드를 불러오는 중...',
       loadError: '가이드를 불러올 수 없습니다',
       serverError: '서버에 연결할 수 없습니다',
@@ -167,6 +175,10 @@ export const UI_TEXT = {
       cancel: '취소',
       confirm: '네, 채팅 열기',
       loadingAssistant: '어시스턴트를 여는 중...',
+      brandFilterLabel: '브랜드 필터',
+      allBrands: '전체',
+      noBrandMatch: '해당 브랜드의 차량이 없습니다.',
+      brandUnknown: '브랜드 정보 없음',
     },
     chat: {
       guides: '가이드',

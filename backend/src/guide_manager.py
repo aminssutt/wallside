@@ -31,10 +31,17 @@ def slugify(name: str) -> str:
 class Guide:
     """Represents a pre-indexed vehicle guide."""
 
-    def __init__(self, slug: str, name: str, image: Optional[str] = None):
+    def __init__(
+        self,
+        slug: str,
+        name: str,
+        image: Optional[str] = None,
+        brand: Optional[str] = None,
+    ):
         self.slug = slug
         self.name = name
         self.image = image  # filename like "clio-4.png"
+        self.brand = (brand or "").strip() or "Autres"
 
     @property
     def dir(self) -> Path:
@@ -55,6 +62,7 @@ class Guide:
         return {
             "slug": self.slug,
             "name": self.name,
+            "brand": self.brand,
             "image": self.image,
             "indexed": self.is_indexed,
         }
@@ -82,13 +90,32 @@ class GuideManager:
                 slug=slug,
                 name=entry["name"],
                 image=entry.get("image"),
+                brand=entry.get("brand"),
             )
 
         print(f"GuideManager: {len(self.guides)} guides loaded")
 
-    def list_guides(self) -> List[dict]:
+    def list_guides(self, brand: Optional[str] = None) -> List[dict]:
         """Return all indexed guides as dicts."""
-        return [g.to_dict() for g in self.guides.values() if g.is_indexed]
+        normalized_brand = (brand or "").strip().lower()
+
+        guides = []
+        for guide in self.guides.values():
+            if not guide.is_indexed:
+                continue
+            if normalized_brand and guide.brand.lower() != normalized_brand:
+                continue
+            guides.append(guide.to_dict())
+        return guides
+
+    def list_brands(self) -> List[str]:
+        """Return available brands among indexed guides."""
+        brands = {
+            guide.brand
+            for guide in self.guides.values()
+            if guide.is_indexed and guide.brand
+        }
+        return sorted(brands, key=str.lower)
 
     def get_guide(self, slug: str) -> Optional[Guide]:
         return self.guides.get(slug)

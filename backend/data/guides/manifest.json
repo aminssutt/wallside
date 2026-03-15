@@ -1,17 +1,71 @@
 [
   {
+    "slug": "honda-civic-11",
+    "name": "Honda Civic 11",
+    "brand": "Honda",
+    "image": "honda civic 11.png",
+    "source_pdf": "car data/Honda/honda civic 11.pdf",
+    "source_hash": "5f8626498ff10164f517360b76740cbfe2377b6762f310e3240ee0bf4312b324",
+    "page_count": 754,
+    "chunk_count": 954,
+    "extraction_mode": "pypdf",
+    "indexed_at": "2026-03-15T08:27:14.144316+00:00"
+  },
+  {
+    "slug": "alpine-a390-2025",
+    "name": "Alpine A390 2025",
+    "brand": "Renault",
+    "image": "alpine a390 2025.png",
+    "source_pdf": "car data/Renault/Alpine A390 2025.pdf",
+    "source_hash": "e2b1153e79975609c135f6e55d08b9914b9f62c0b3684ba6e1bbdabd73e8da81",
+    "page_count": 432,
+    "chunk_count": 469,
+    "extraction_mode": "pypdf",
+    "indexed_at": "2026-03-15T08:27:39.790807+00:00"
+  },
+  {
     "slug": "clio-4",
     "name": "Clio 4",
-    "image": "clio 4.png"
+    "brand": "Renault",
+    "image": "clio 4.png",
+    "source_pdf": null
   },
   {
     "slug": "tesla-model-y",
     "name": "Tesla Model Y",
-    "image": "tesla model Y.png"
+    "brand": "Tesla",
+    "image": "tesla model Y.png",
+    "source_pdf": null
   },
   {
     "slug": "toyota-auris-hybride-2015",
     "name": "Toyota Auris Hybride 2015",
-    "image": "toyota auris hybride 2015.png"
+    "brand": "Toyota",
+    "image": "toyota auris hybride 2015.png",
+    "source_pdf": null
+  },
+  {
+    "slug": "volkswagen-golf-6-phase-1",
+    "name": "Volkswagen Golf 6 Phase 1",
+    "brand": "Volkswagen",
+    "image": "volkswagen golf 6 phase 1.png",
+    "source_pdf": "car data/Volkswagen/Volkswagen golf 6 phase 1.pdf",
+    "source_hash": "18926bc33a1dcc3f609018c694c3a1520cbc1bf478f10d3da94104f7a7ccdd72",
+    "page_count": 372,
+    "chunk_count": 555,
+    "extraction_mode": "ocr",
+    "indexed_at": "2026-03-15T08:50:59.604570+00:00"
+  },
+  {
+    "slug": "volkswagen-golf-8-2020",
+    "name": "Volkswagen Golf 8 2020",
+    "brand": "Volkswagen",
+    "image": "volkswagen golf 8 2020.png",
+    "source_pdf": "car data/Volkswagen/Volkswagen golf 8 2020.pdf",
+    "source_hash": "400321413d10f77f355738051658dd67d1f69d5a2606e813c20884cdf08947f3",
+    "page_count": 789,
+    "chunk_count": 1145,
+    "extraction_mode": "pypdf",
+    "indexed_at": "2026-03-15T08:28:52.124913+00:00"
   }
 ]

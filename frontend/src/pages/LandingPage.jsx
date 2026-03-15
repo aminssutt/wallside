@@ -38,7 +38,7 @@ function LandingPage() {
 
   const collisionCanvasRef = useRef(null)
   const collisionFramesRef = useRef(Array(COLLISION_FRAMES).fill(null))
-  const t = UI_TEXT[lang] || UI_TEXT.fr
+  const landingText = (UI_TEXT[lang] || UI_TEXT.fr).landing
 
   const frameUrls = useMemo(
     () => Array.from({ length: COLLISION_FRAMES }, (_, idx) => framePath(idx + 1)),
@@ -245,7 +245,7 @@ function LandingPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.18, duration: 0.58 }}
         >
-          <p className="saas-subtitle">{t.landing.subtitle}</p>
+          <p className="saas-subtitle">{landingText.subtitle}</p>
 
           <Motion.div
             className="saas-actions"
@@ -260,29 +260,62 @@ function LandingPage() {
               whileHover={{ y: -2, scale: 1.01 }}
               whileTap={{ scale: 0.98 }}
             >
-              {t.landing.accessChat}
+              <span>{landingText.accessChat}</span>
+              <svg
+                className="saas-btn-icon"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                aria-hidden="true"
+              >
+                <polyline points="9 6 15 12 9 18" />
+              </svg>
             </Motion.button>
           </Motion.div>
         </Motion.div>
       </section>
 
-      <section className="saas-overview">
-        {t.landing.features.map((feat) => (
-          <article className="overview-card" key={feat.title}>
+      <Motion.section
+        className="saas-overview"
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.34, duration: 0.5 }}
+      >
+        {landingText.features.map((feat, index) => (
+          <Motion.article
+            className="overview-card"
+            key={feat.title}
+            initial={{ opacity: 0, y: 18, scale: 0.985 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ delay: 0.4 + index * 0.1, duration: 0.42, ease: 'easeOut' }}
+          >
             <h2>{feat.title}</h2>
             <p>{feat.desc}</p>
-          </article>
+          </Motion.article>
         ))}
-      </section>
+      </Motion.section>
 
-      <footer className="saas-footer">
-        <div className="saas-footer-brand">
+      <Motion.footer
+        className="saas-footer"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.6, duration: 0.45 }}
+      >
+        <button
+          type="button"
+          className="saas-footer-brand saas-footer-brand-link"
+          onClick={() => navigate('/')}
+          aria-label={(UI_TEXT[lang] || UI_TEXT.fr).guides.home}
+        >
           <img src="/logo-84.webp" alt="CC" width="36" height="36" loading="lazy" />
           <div>
             <p>Car Chat : CC</p>
-            <span>{t.landing.footerTagline}</span>
+            <span>{landingText.footerTagline}</span>
           </div>
-        </div>
+        </button>
 
         <div className="saas-footer-socials">
           <a
@@ -295,7 +328,7 @@ function LandingPage() {
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path d="M6.94 8.72H3.56V20h3.38V8.72Zm.22-3.49C7.14 4.17 6.34 3.4 5.28 3.4S3.4 4.17 3.4 5.23c0 1.04.8 1.83 1.86 1.83h.02c1.08 0 1.88-.79 1.88-1.83ZM20 13.55c0-3.4-1.82-4.98-4.25-4.98-1.96 0-2.84 1.08-3.33 1.85v-1.7H9.04c.04 1.12 0 11.28 0 11.28h3.38v-6.3c0-.34.02-.67.12-.91.27-.67.88-1.36 1.92-1.36 1.35 0 1.9 1.03 1.9 2.55V20H20v-6.45Z" />
             </svg>
-            {t.landing.linkedin}
+            {landingText.linkedin}
           </a>
 
           <a
@@ -308,12 +341,12 @@ function LandingPage() {
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path d="M12 .5A11.5 11.5 0 0 0 .5 12.24c0 5.2 3.35 9.6 8 11.16.58.1.78-.26.78-.57 0-.29-.01-1.04-.01-2.05-3.26.73-3.95-1.6-3.95-1.6-.53-1.38-1.3-1.75-1.3-1.75-1.07-.75.08-.74.08-.74 1.18.08 1.8 1.23 1.8 1.23 1.05 1.82 2.75 1.3 3.42 1 .1-.78.4-1.3.73-1.6-2.6-.3-5.34-1.33-5.34-5.9 0-1.3.45-2.36 1.2-3.2-.12-.3-.52-1.52.12-3.17 0 0 .98-.32 3.2 1.22a10.9 10.9 0 0 1 5.82 0c2.2-1.54 3.18-1.22 3.18-1.22.64 1.65.24 2.87.12 3.17.75.84 1.2 1.9 1.2 3.2 0 4.58-2.74 5.6-5.35 5.9.42.37.8 1.08.8 2.18 0 1.57-.01 2.83-.01 3.22 0 .31.2.68.79.57a11.75 11.75 0 0 0 8-11.16A11.5 11.5 0 0 0 12 .5Z" />
             </svg>
-            {t.landing.github}
+            {landingText.github}
           </a>
         </div>
 
-        <p className="saas-footer-copy">&copy; {new Date().getFullYear()} CC. {t.landing.rights}</p>
-      </footer>
+        <p className="saas-footer-copy">&copy; {new Date().getFullYear()} CC. {landingText.rights}</p>
+      </Motion.footer>
 
       <AnimatePresence>
         {launching && (
@@ -330,7 +363,7 @@ function LandingPage() {
               animate={{ scale: 1, opacity: 1 }}
               transition={{ repeat: Infinity, repeatType: 'reverse', duration: 0.7 }}
             />
-            <p>{t.landing.loadingGuides}</p>
+            <p>{landingText.loadingGuides}</p>
           </Motion.div>
         )}
       </AnimatePresence>
