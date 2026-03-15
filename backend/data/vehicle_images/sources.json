@@ -1,15 +1,39 @@
 [
   {
-    "vehicle": "Honda Civic 11",
-    "image": "honda civic 11.png",
-    "source_page": "https://en.wikipedia.org/wiki/Honda_Civic_(eleventh_generation)",
-    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b5/2022_Honda_Civic_Touring_in_Lunar_Silver_Metallic%2C_Front_Left%2C_05-10-2022.jpg/960px-2022_Honda_Civic_Touring_in_Lunar_Silver_Metallic%2C_Front_Left%2C_05-10-2022.jpg"
+    "vehicle": "Alfa Roméo 33 Phase 3 1989-1995",
+    "image": "alfa romeo 33 phase 3 1989-1995.png",
+    "source_page": "https://en.wikipedia.org/wiki/Alfa_Romeo_33",
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4a/Alfaromeo_33_1.3cc_anno_1990.JPG/960px-Alfaromeo_33_1.3cc_anno_1990.JPG"
+  },
+  {
+    "vehicle": "Alfa Roméo 4C 2013-2020",
+    "image": "alfa romeo 4c 2013-2020.png",
+    "source_page": "https://en.wikipedia.org/wiki/Alfa_Romeo_4C",
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/3/34/Festival_automobile_international_2014_-_Alfa_Romeo_4C_-_009.jpg"
+  },
+  {
+    "vehicle": "Alfa Roméo 8C Competizione",
+    "image": "alfa romeo 8c competizione.png",
+    "source_page": "https://en.wikipedia.org/wiki/Alfa_Romeo_8C_Competizione",
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/d/dc/AR8C-Competizione.jpg"
   },
   {
     "vehicle": "Alpine A390 2025",
     "image": "alpine a390 2025.png",
     "source_page": "https://en.wikipedia.org/wiki/Alpine_A390",
     "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1f/Alpine_A390_IMG_4939.jpg/960px-Alpine_A390_IMG_4939.jpg"
+  },
+  {
+    "vehicle": "Chevrolet Avalanche 2001-2006",
+    "image": "chevrolet avalanche 2001-2006.png",
+    "source_page": "https://en.wikipedia.org/wiki/Chevrolet_Avalanche",
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/1/10/2007_Chevrolet_Avalanche_LS.jpg"
+  },
+  {
+    "vehicle": "Honda Civic 11",
+    "image": "honda civic 11.png",
+    "source_page": "https://en.wikipedia.org/wiki/Honda_Civic_(eleventh_generation)",
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b5/2022_Honda_Civic_Touring_in_Lunar_Silver_Metallic%2C_Front_Left%2C_05-10-2022.jpg/960px-2022_Honda_Civic_Touring_in_Lunar_Silver_Metallic%2C_Front_Left%2C_05-10-2022.jpg"
   },
   {
     "vehicle": "Volkswagen Golf 6 Phase 1",

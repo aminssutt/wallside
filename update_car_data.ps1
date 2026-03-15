@@ -128,7 +128,7 @@ else {
 
 Write-Host "`n[2/6] Installing/refreshing Python dependencies..."
 Push-Location $backendDir
-python -m pip install -q rank-bm25 pypdf pymupdf pytesseract pillow rembg onnxruntime
+python -m pip install -q rank-bm25 pypdf pymupdf pytesseract pillow rembg onnxruntime duckduckgo-search
 Pop-Location
 
 if (-not $SkipImageProcessing) {
