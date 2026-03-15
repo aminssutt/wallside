@@ -59,3 +59,15 @@ CHUNK_OVERLAP = 300
 # Configuration du RAG
 TOP_K_RESULTS = 5
 
+
+def _as_bool(raw_value: str, default: bool = True) -> bool:
+    if raw_value is None:
+        return default
+    return str(raw_value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+# Web enrichment (supplemental only, manual remains primary source)
+ENABLE_WEB_ENRICHMENT = _as_bool(os.getenv("ENABLE_WEB_ENRICHMENT"), default=True)
+WEB_MAX_RESULTS = int(os.getenv("WEB_MAX_RESULTS", "3"))
+WEB_SEARCH_REGION = os.getenv("WEB_SEARCH_REGION", "wt-wt")
+

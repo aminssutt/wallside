@@ -35,17 +35,93 @@ function Resolve-PythonExe {
     [string]$BackendPath
   )
 
+  function New-PythonRuntime {
+    param(
+      [string]$ExePath,
+      [string[]]$PrefixArgs = @()
+    )
+
+    return @{
+      ExePath = $ExePath
+      PrefixArgs = $PrefixArgs
+    }
+  }
+
+  function Test-PythonExecutable {
+    param(
+      [string]$ExePath
+    )
+
+    if (-not $ExePath) {
+      return $false
+    }
+
+    try {
+      & $ExePath -c "import sys; print(sys.executable)" *> $null
+      return ($LASTEXITCODE -eq 0)
+    } catch {
+      return $false
+    }
+  }
+
+  function Test-PyLauncher {
+    param(
+      [string]$ExePath
+    )
+
+    if (-not $ExePath) {
+      return $false
+    }
+
+    try {
+      & $ExePath -3 -c "import sys; print(sys.executable)" *> $null
+      return ($LASTEXITCODE -eq 0)
+    } catch {
+      return $false
+    }
+  }
+
   $venvPython = Join-Path $BackendPath ".venv\\Scripts\\python.exe"
+  if ((Test-Path $venvPython) -and (Test-PythonExecutable -ExePath $venvPython)) {
+    return (New-PythonRuntime -ExePath $venvPython)
+  }
+
   if (Test-Path $venvPython) {
-    return $venvPython
+    Write-Host "Warning: backend/.venv detected but invalid, falling back to system Python."
   }
 
-  $pythonCmd = Get-Command python -ErrorAction SilentlyContinue
-  if ($pythonCmd) {
-    return $pythonCmd.Source
+  $pythonCandidates = @()
+
+  foreach ($cmdName in @("python", "python3")) {
+    $cmd = Get-Command $cmdName -ErrorAction SilentlyContinue
+    if ($cmd -and $cmd.Source) {
+      $pythonCandidates += $cmd.Source
+    }
   }
 
-  throw "Python not found. Install Python or create backend/.venv first."
+  try {
+    $wherePython = where.exe python 2>$null
+    if ($wherePython) {
+      $pythonCandidates += $wherePython
+    }
+  } catch {}
+
+  $pythonCandidates = $pythonCandidates |
+    Where-Object { $_ -and (Test-Path $_) } |
+    Select-Object -Unique
+
+  foreach ($candidate in $pythonCandidates) {
+    if (Test-PythonExecutable -ExePath $candidate) {
+      return (New-PythonRuntime -ExePath $candidate)
+    }
+  }
+
+  $pyCmd = Get-Command py -ErrorAction SilentlyContinue
+  if ($pyCmd -and (Test-PyLauncher -ExePath $pyCmd.Source)) {
+    return (New-PythonRuntime -ExePath $pyCmd.Source -PrefixArgs @("-3"))
+  }
+
+  throw "Python not found or not runnable. Install Python or recreate backend/.venv."
 }
 
 if (-not (Test-Path $backendDir)) {
@@ -63,11 +139,18 @@ if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
 Stop-PortProcess -Port 5002
 Stop-PortProcess -Port 5173
 
-$pythonExe = Resolve-PythonExe -BackendPath $backendDir
+$pythonRuntime = Resolve-PythonExe -BackendPath $backendDir
+$pythonExe = $pythonRuntime.ExePath
+$pythonPrefixArgs = @($pythonRuntime.PrefixArgs)
+$backendArgs = @()
+if ($pythonPrefixArgs.Count -gt 0) {
+  $backendArgs += $pythonPrefixArgs
+}
+$backendArgs += "api.py"
 
 Start-Process `
   -FilePath $pythonExe `
-  -ArgumentList "api.py" `
+  -ArgumentList $backendArgs `
   -WorkingDirectory $backendDir `
   -RedirectStandardOutput $backendLog `
   -RedirectStandardError $backendErrLog | Out-Null

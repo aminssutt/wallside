@@ -520,6 +520,11 @@ def parse_args():
     parser.add_argument("--force", action="store_true", help="Force re-indexing even when unchanged")
     parser.add_argument("--no-ocr", action="store_true", help="Disable OCR fallback for scanned PDFs")
     parser.add_argument(
+        "--prune-missing-sources",
+        action="store_true",
+        help="Remove existing guides whose source_pdf is missing from car data",
+    )
+    parser.add_argument(
         "--ocr-lang",
         default=os.getenv("OCR_LANG", "fra+eng+kor"),
         help="Tesseract OCR languages (default: fra+eng+kor)",
@@ -601,6 +606,7 @@ def main():
         "failed": [],
         "removed_failed": [],
         "removed_missing": [],
+        "kept_without_source": [],
         "chat_added": [],
         "chat_already_available": [],
         "chat_removed": [],
@@ -726,20 +732,44 @@ def main():
             slug = entry.get("slug")
             name = entry.get("name", slug)
             brand = normalize_brand(entry.get("brand"))
-            removed = False
-            if slug:
-                removed = delete_guide_data(slug)
+            if args.prune_missing_sources:
+                removed = False
+                if slug:
+                    removed = delete_guide_data(slug)
 
-            removed_item = _summary_item(
-                slug=slug or "",
+                removed_item = _summary_item(
+                    slug=slug or "",
+                    name=name,
+                    brand=brand,
+                    source_pdf=source_pdf,
+                    reason="source_pdf_missing",
+                )
+                if removed:
+                    summary["removed_missing"].append(removed_item)
+                    summary["chat_removed"].append(removed_item)
+                continue
+
+            if not slug:
+                continue
+            if slug in used_slugs:
+                continue
+            if not guide_is_indexed(slug):
+                continue
+
+            kept_entry = dict(entry)
+            kept_entry["brand"] = brand
+            manifest.append(kept_entry)
+            used_slugs.add(slug)
+
+            kept_item = _summary_item(
+                slug=slug,
                 name=name,
                 brand=brand,
                 source_pdf=source_pdf,
-                reason="source_pdf_missing",
+                reason="source_pdf_missing_but_kept",
             )
-            if removed:
-                summary["removed_missing"].append(removed_item)
-                summary["chat_removed"].append(removed_item)
+            summary["kept_without_source"].append(kept_item)
+            summary["chat_already_available"].append(_summary_item(slug, name, brand, source_pdf))
 
     manifest.sort(key=lambda g: (str(g.get("brand", "")).lower(), str(g.get("name", "")).lower()))
 
@@ -758,6 +788,7 @@ def main():
     _print_group("Failed (not added)", summary["failed"])
     _print_group("Removed (failed extraction)", summary["removed_failed"])
     _print_group("Removed (missing source)", summary["removed_missing"])
+    _print_group("Kept (missing source, no prune)", summary["kept_without_source"])
 
     print(f"\nChats added/updated: {len(summary['chat_added'])}")
     print(f"Chats already available: {len(summary['chat_already_available'])}")

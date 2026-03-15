@@ -19,6 +19,7 @@ google-genai>=1.0.0
 
 # Utilities
 python-dotenv>=1.0.0
+duckduckgo-search>=6.2.13
 
 # API
 flask>=3.0.0

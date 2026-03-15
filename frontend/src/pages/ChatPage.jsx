@@ -17,6 +17,73 @@ const pageVariants = {
   exit: { opacity: 0, transition: { duration: 0.25 } },
 }
 
+const URL_REGEX = /(https?:\/\/[^\s)]+)/g
+const YOUTUBE_URL_REGEX = /(https?:\/\/(?:www\.)?(?:youtube\.com\/[^\s)]+|youtu\.be\/[^\s)]+))/i
+const VIDEO_LABEL_REGEX = /^(?:video.*youtube.*|recommended youtube video|youtube recommended video)\s*:?\s*$/i
+const VIDEO_UI = {
+  fr: { badge: 'Video conseillee', action: 'Voir la video' },
+  en: { badge: 'Suggested video', action: 'Watch video' },
+  ko: { badge: 'Recommended video', action: 'Open video' },
+}
+
+const sanitizeUrl = (url) => {
+  return String(url || '').replace(/[)\],.;!?]+$/g, '')
+}
+
+const extractYoutubeId = (urlValue) => {
+  try {
+    const parsed = new URL(urlValue)
+    const host = parsed.hostname.replace(/^www\./i, '').toLowerCase()
+    if (host === 'youtu.be') {
+      return parsed.pathname.split('/').filter(Boolean)[0] || ''
+    }
+    if (host.endsWith('youtube.com')) {
+      if (parsed.pathname === '/watch') {
+        return parsed.searchParams.get('v') || ''
+      }
+      const parts = parsed.pathname.split('/').filter(Boolean)
+      const knownPrefixes = ['shorts', 'embed', 'live']
+      const prefixIndex = parts.findIndex((part) => knownPrefixes.includes(part))
+      if (prefixIndex >= 0 && parts[prefixIndex + 1]) {
+        return parts[prefixIndex + 1]
+      }
+    }
+  } catch {
+    return ''
+  }
+  return ''
+}
+
+const youtubeThumbFromUrl = (urlValue) => {
+  const videoId = extractYoutubeId(urlValue).trim()
+  if (!videoId || !/^[a-zA-Z0-9_-]{6,}$/.test(videoId)) {
+    return ''
+  }
+  return `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`
+}
+
+const youtubeEmbedFromUrl = (urlValue) => {
+  const videoId = extractYoutubeId(urlValue).trim()
+  if (!videoId || !/^[a-zA-Z0-9_-]{6,}$/.test(videoId)) {
+    return ''
+  }
+  return `https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1`
+}
+
+const renderTextWithLinks = (text, keyPrefix) => {
+  const chunks = String(text || '').split(URL_REGEX)
+  return chunks.map((chunk, index) => {
+    if (/^https?:\/\/[^\s)]+$/i.test(chunk)) {
+      return (
+        <a key={`${keyPrefix}-u-${index}`} href={chunk} target="_blank" rel="noreferrer">
+          {chunk}
+        </a>
+      )
+    }
+    return <span key={`${keyPrefix}-t-${index}`}>{chunk}</span>
+  })
+}
+
 const formatInline = (text) => {
   const segments = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g)
   return segments.map((segment, index) => {
@@ -28,7 +95,7 @@ const formatInline = (text) => {
       return <code key={`c-${index}`}>{segment.slice(1, -1)}</code>
     }
 
-    return <span key={`t-${index}`}>{segment}</span>
+    return <span key={`t-${index}`}>{renderTextWithLinks(segment, `lnk-${index}`)}</span>
   })
 }
 
@@ -37,20 +104,12 @@ const normalizeAssistantText = (rawText) => {
   return clean.replace(/^[^\p{L}\p{N}]+/u, '').trim()
 }
 
-const limitAssistantText = (text, maxChars = 980) => {
-  if (text.length <= maxChars) {
-    return text
-  }
-
-  const clipped = text.slice(0, maxChars).trim()
-  const safe = clipped.lastIndexOf(' ') > 50 ? clipped.slice(0, clipped.lastIndexOf(' ')) : clipped
-  return `${safe}...`
-}
-
-function RichBotMessage({ text }) {
+function RichBotMessage({ text, lang = 'fr' }) {
   const lines = normalizeAssistantText(text).replace(/\r\n/g, '\n').split('\n')
   const blocks = []
   let listBuffer = null
+  let pendingVideoLabel = ''
+  const videoUi = VIDEO_UI[lang] || VIDEO_UI.fr
 
   const flushList = () => {
     if (listBuffer && listBuffer.items.length > 0) {
@@ -64,6 +123,43 @@ function RichBotMessage({ text }) {
 
     if (!line) {
       flushList()
+      pendingVideoLabel = ''
+      return
+    }
+
+    if (VIDEO_LABEL_REGEX.test(line)) {
+      flushList()
+      pendingVideoLabel = line.replace(/:\s*$/, '')
+      return
+    }
+
+    const youtubeMatch = line.match(YOUTUBE_URL_REGEX)
+    if (youtubeMatch) {
+      flushList()
+      const url = sanitizeUrl(youtubeMatch[1])
+      let title = line
+        .replace(/^[-*]\s+/, '')
+        .replace(youtubeMatch[1], '')
+        .replace(/[:\s-]+$/, '')
+        .trim()
+
+      if (!title && pendingVideoLabel) {
+        title = pendingVideoLabel.replace(/:\s*$/, '').trim()
+      }
+      if (!title || VIDEO_LABEL_REGEX.test(title)) {
+        title = 'YouTube'
+      }
+
+      blocks.push({
+        type: 'video',
+        content: {
+          title,
+          url,
+          thumb: youtubeThumbFromUrl(url),
+          embed: youtubeEmbedFromUrl(url),
+        },
+      })
+      pendingVideoLabel = ''
       return
     }
 
@@ -77,6 +173,7 @@ function RichBotMessage({ text }) {
     if (line.length <= 70 && line.endsWith(':') && !line.startsWith('- ')) {
       flushList()
       blocks.push({ type: 'heading', content: line.slice(0, -1) })
+      pendingVideoLabel = ''
       return
     }
 
@@ -97,6 +194,7 @@ function RichBotMessage({ text }) {
 
     flushList()
     blocks.push({ type: 'paragraph', content: line })
+    pendingVideoLabel = ''
   })
 
   flushList()
@@ -109,6 +207,39 @@ function RichBotMessage({ text }) {
             <h4 className="bot-heading" key={`h-${index}`}>
               {formatInline(block.content)}
             </h4>
+          )
+        }
+
+        if (block.type === 'video') {
+          return (
+            <div className="bot-video-card" key={`v-${index}`}>
+              <div className="bot-video-thumb">
+                {block.content.embed ? (
+                  <iframe
+                    src={block.content.embed}
+                    title={block.content.title}
+                    loading="lazy"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    referrerPolicy="strict-origin-when-cross-origin"
+                    allowFullScreen
+                  />
+                ) : block.content.thumb ? (
+                  <img src={block.content.thumb} alt={block.content.title} loading="lazy" />
+                ) : (
+                  <div className="bot-video-thumb-fallback">
+                    <span>YouTube</span>
+                  </div>
+                )}
+                <span className="bot-video-badge">{videoUi.badge}</span>
+              </div>
+              <div className="bot-video-content">
+                <p className="bot-video-title">{block.content.title}</p>
+                <span className="bot-video-url">{block.content.url}</span>
+              </div>
+              <a className="bot-video-action" href={block.content.url} target="_blank" rel="noreferrer">
+                {videoUi.action}
+              </a>
+            </div>
           )
         }
 
@@ -216,7 +347,7 @@ function ChatPage() {
       const data = await response.json()
 
       if (data.success) {
-        const cleaned = limitAssistantText(normalizeAssistantText(data.response || ''))
+        const cleaned = normalizeAssistantText(data.response || '')
         setMessages((previous) => [...previous, { type: 'bot', content: cleaned }])
       } else {
         const fallback = (data.error || '').trim() || t.chat.unavailable
@@ -395,7 +526,7 @@ function ChatPage() {
                 </div>
 
                 <div className="msg-bubble">
-                  {msg.type === 'bot' ? <RichBotMessage text={msg.content} /> : msg.content}
+                  {msg.type === 'bot' ? <RichBotMessage text={msg.content} lang={lang} /> : msg.content}
                 </div>
               </Motion.div>
             ))}

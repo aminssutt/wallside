@@ -1,5 +1,53 @@
 [
   {
+    "slug": "alfa-romeo-33-phase-3-1989-1995",
+    "name": "Alfa Roméo 33 Phase 3 1989 1995",
+    "brand": "Alfa Roméo",
+    "image": "alfa romeo 33 phase 3 1989-1995.png",
+    "source_pdf": "car data/Alfa Roméo/Alfa Roméo 33 Phase 3 1989-1995.pdf",
+    "source_hash": "d42cea38762d6b5cebfaded47af49e9448c684d87c11cb0f4539547116a5098c",
+    "page_count": 53,
+    "chunk_count": 107,
+    "extraction_mode": "ocr",
+    "indexed_at": "2026-03-15T11:52:31.535773+00:00"
+  },
+  {
+    "slug": "alfa-romeo-4c-2013-2020",
+    "name": "Alfa Roméo 4C 2013 2020",
+    "brand": "Alfa Roméo",
+    "image": "alfa romeo 4c 2013-2020.png",
+    "source_pdf": "car data/Alfa Roméo/Alfa Roméo 4C 2013-2020.pdf",
+    "source_hash": "f7cd9021b46d1960a46d1b0d7d20ad2f4cbfb1149fd373071a10da8ce56deb31",
+    "page_count": 202,
+    "chunk_count": 345,
+    "extraction_mode": "pypdf",
+    "indexed_at": "2026-03-15T11:52:59.463120+00:00"
+  },
+  {
+    "slug": "alfa-romeo-8c-competizione",
+    "name": "Alfa Roméo 8C Competizione",
+    "brand": "Alfa Roméo",
+    "image": "alfa romeo 8c competizione.png",
+    "source_pdf": "car data/Alfa Roméo/Alfa Roméo 8C Competizione.pdf",
+    "source_hash": "ee43a4bdfbb6a76986f2ed9ce2fd7c432a79ffc21e3e804c2e142ddd0caa46f0",
+    "page_count": 223,
+    "chunk_count": 415,
+    "extraction_mode": "pypdf",
+    "indexed_at": "2026-03-15T11:53:33.317498+00:00"
+  },
+  {
+    "slug": "chevrolet-avalanche-2001-2006",
+    "name": "Chevrolet Avalanche 2001 2006",
+    "brand": "Chevrolet",
+    "image": "chevrolet avalanche 2001-2006.png",
+    "source_pdf": "car data/Chevrolet/Chevrolet Avalanche 2001-2006.pdf",
+    "source_hash": "62e4829eee0c338f139faea1976a5d4455824456ab089ba5b0782a4ed19e1a89",
+    "page_count": 603,
+    "chunk_count": 1087,
+    "extraction_mode": "pypdf",
+    "indexed_at": "2026-03-15T11:54:11.559073+00:00"
+  },
+  {
     "slug": "honda-civic-11",
     "name": "Honda Civic 11",
     "brand": "Honda",
