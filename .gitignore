@@ -13,6 +13,8 @@ credentials.json
 backend/data/*
 !backend/data/guides/
 !backend/data/guides/**
+!backend/data/vehicle_images/
+!backend/data/vehicle_images/**
 
 # Keep manual PDFs out of git (car images are allowed)
 *.pdf

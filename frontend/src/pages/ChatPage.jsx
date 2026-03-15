@@ -267,13 +267,18 @@ function ChatPage() {
   return (
     <Motion.div className="chat-page" variants={pageVariants} initial="initial" animate="animate" exit="exit">
       <header className="chat-header">
-        <div className="chat-brand">
+        <button
+          type="button"
+          className="chat-brand chat-brand-link"
+          onClick={() => navigate('/')}
+          aria-label={(UI_TEXT[lang] || UI_TEXT.fr).guides.home}
+        >
           <img src="/logo-84.webp" alt="CC" width="42" height="42" loading="lazy" />
           <div>
             <p>Car Chat : CC</p>
             <span>{guide.name}</span>
           </div>
-        </div>
+        </button>
 
         <div className="chat-header-right">
           <div className="lang-switcher">
