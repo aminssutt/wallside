@@ -1,1 +1,119 @@
-[]
+[
+  {
+    "slug": "alfa-romeo-33-phase-3-1989-1995",
+    "name": "Alfa Roméo 33 Phase 3 1989 1995",
+    "brand": "Alfa Roméo",
+    "image": "alfa romeo 33 phase 3 1989-1995.png",
+    "source_pdf": "car data/Alfa Roméo/Alfa Roméo 33 Phase 3 1989-1995.pdf",
+    "source_hash": "d42cea38762d6b5cebfaded47af49e9448c684d87c11cb0f4539547116a5098c",
+    "page_count": 53,
+    "chunk_count": 107,
+    "extraction_mode": "ocr",
+    "indexed_at": "2026-03-15T11:52:31.535773+00:00"
+  },
+  {
+    "slug": "alfa-romeo-4c-2013-2020",
+    "name": "Alfa Roméo 4C 2013 2020",
+    "brand": "Alfa Roméo",
+    "image": "alfa romeo 4c 2013-2020.png",
+    "source_pdf": "car data/Alfa Roméo/Alfa Roméo 4C 2013-2020.pdf",
+    "source_hash": "f7cd9021b46d1960a46d1b0d7d20ad2f4cbfb1149fd373071a10da8ce56deb31",
+    "page_count": 202,
+    "chunk_count": 345,
+    "extraction_mode": "pypdf",
+    "indexed_at": "2026-03-15T11:52:59.463120+00:00"
+  },
+  {
+    "slug": "alfa-romeo-8c-competizione",
+    "name": "Alfa Roméo 8C Competizione",
+    "brand": "Alfa Roméo",
+    "image": "alfa romeo 8c competizione.png",
+    "source_pdf": "car data/Alfa Roméo/Alfa Roméo 8C Competizione.pdf",
+    "source_hash": "ee43a4bdfbb6a76986f2ed9ce2fd7c432a79ffc21e3e804c2e142ddd0caa46f0",
+    "page_count": 223,
+    "chunk_count": 415,
+    "extraction_mode": "pypdf",
+    "indexed_at": "2026-03-15T11:53:33.317498+00:00"
+  },
+  {
+    "slug": "chevrolet-avalanche-2001-2006",
+    "name": "Chevrolet Avalanche 2001 2006",
+    "brand": "Chevrolet",
+    "image": "chevrolet avalanche 2001-2006.png",
+    "source_pdf": "car data/Chevrolet/Chevrolet Avalanche 2001-2006.pdf",
+    "source_hash": "62e4829eee0c338f139faea1976a5d4455824456ab089ba5b0782a4ed19e1a89",
+    "page_count": 603,
+    "chunk_count": 1087,
+    "extraction_mode": "pypdf",
+    "indexed_at": "2026-03-15T11:54:11.559073+00:00"
+  },
+  {
+    "slug": "honda-civic-11",
+    "name": "Honda Civic 11",
+    "brand": "Honda",
+    "image": "honda civic 11.png",
+    "source_pdf": "car data/Honda/honda civic 11.pdf",
+    "source_hash": "5f8626498ff10164f517360b76740cbfe2377b6762f310e3240ee0bf4312b324",
+    "page_count": 754,
+    "chunk_count": 954,
+    "extraction_mode": "pypdf",
+    "indexed_at": "2026-03-15T08:27:14.144316+00:00"
+  },
+  {
+    "slug": "alpine-a390-2025",
+    "name": "Alpine A390 2025",
+    "brand": "Renault",
+    "image": "alpine a390 2025.png",
+    "source_pdf": "car data/Renault/Alpine A390 2025.pdf",
+    "source_hash": "e2b1153e79975609c135f6e55d08b9914b9f62c0b3684ba6e1bbdabd73e8da81",
+    "page_count": 432,
+    "chunk_count": 469,
+    "extraction_mode": "pypdf",
+    "indexed_at": "2026-03-15T08:27:39.790807+00:00"
+  },
+  {
+    "slug": "clio-4",
+    "name": "Clio 4",
+    "brand": "Renault",
+    "image": "clio 4.png",
+    "source_pdf": null
+  },
+  {
+    "slug": "tesla-model-y",
+    "name": "Tesla Model Y",
+    "brand": "Tesla",
+    "image": "tesla model Y.png",
+    "source_pdf": null
+  },
+  {
+    "slug": "toyota-auris-hybride-2015",
+    "name": "Toyota Auris Hybride 2015",
+    "brand": "Toyota",
+    "image": "toyota auris hybride 2015.png",
+    "source_pdf": null
+  },
+  {
+    "slug": "volkswagen-golf-6-phase-1",
+    "name": "Volkswagen Golf 6 Phase 1",
+    "brand": "Volkswagen",
+    "image": "volkswagen golf 6 phase 1.png",
+    "source_pdf": "car data/Volkswagen/Volkswagen golf 6 phase 1.pdf",
+    "source_hash": "18926bc33a1dcc3f609018c694c3a1520cbc1bf478f10d3da94104f7a7ccdd72",
+    "page_count": 372,
+    "chunk_count": 555,
+    "extraction_mode": "ocr",
+    "indexed_at": "2026-03-15T08:50:59.604570+00:00"
+  },
+  {
+    "slug": "volkswagen-golf-8-2020",
+    "name": "Volkswagen Golf 8 2020",
+    "brand": "Volkswagen",
+    "image": "volkswagen golf 8 2020.png",
+    "source_pdf": "car data/Volkswagen/Volkswagen golf 8 2020.pdf",
+    "source_hash": "400321413d10f77f355738051658dd67d1f69d5a2606e813c20884cdf08947f3",
+    "page_count": 789,
+    "chunk_count": 1145,
+    "extraction_mode": "pypdf",
+    "indexed_at": "2026-03-15T08:28:52.124913+00:00"
+  }
+]
