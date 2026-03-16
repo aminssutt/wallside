@@ -75,6 +75,38 @@ npm run dev
 
 L'API tourne sur `http://localhost:5002`, le frontend sur `http://localhost:5173`.
 
+## Donnees Locales (Non Versionnees)
+
+Pour eviter de publier des donnees sensibles ou trop lourdes, le repo **ne versionne pas**:
+
+- `backend/data/guides/*/vector_store/*` (indexes FAISS/BM25 issus des manuels)
+- `backend/data/waitlist/*`
+- les fichiers `.env`
+- les PDF de manuels
+
+### Regenerer les guides apres un clone
+
+1. Mettre les PDF dans `car data/<marque>/*.pdf`
+2. Lancer l'indexation:
+
+```bash
+cd backend
+python index_manuals.py --prune-missing-sources
+```
+
+3. Redemarrer l'API Flask (`python api.py`)
+
+### Images vehicules
+
+- Les images front sont dans `backend/data/vehicle_images/`
+- Nom recommande: nom du vehicule (exemple: `honda civic 11.png`)
+- Si besoin de retraitement local:
+
+```bash
+cd backend
+python process_vehicle_images.py
+```
+
 ## Endpoints API
 
 | Methode | Route | Description |

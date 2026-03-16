@@ -12,7 +12,8 @@ credentials.json
 # ================================
 backend/data/*
 !backend/data/guides/
-!backend/data/guides/**
+backend/data/guides/*
+!backend/data/guides/manifest.json
 !backend/data/vehicle_images/
 !backend/data/vehicle_images/**
 
@@ -44,12 +45,6 @@ htmlcov/
 vector_store/
 *.faiss
 *.pkl
-
-# Keep pre-indexed deploy guides tracked
-!backend/data/guides/**/vector_store/
-!backend/data/guides/**/vector_store/**
-!backend/data/guides/**/*.faiss
-!backend/data/guides/**/*.pkl
 
 # ================================
 # Node / React / Vite
