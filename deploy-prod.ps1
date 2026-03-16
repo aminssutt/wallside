@@ -30,6 +30,7 @@ Write-Host "Creating archive: $archive"
 & tar -czf $archive `
   --exclude=".git" `
   --exclude=".vscode" `
+  --exclude="backend/.env" `
   --exclude="backend/.venv" `
   --exclude="backend/venv" `
   --exclude="frontend/node_modules" `
@@ -91,6 +92,8 @@ echo deploy-ok
 "@
 
 Write-Host "Deploying on server..."
+# Normalize line endings to LF so remote bash does not choke on CRLF.
+$remoteScript = $remoteScript -replace "`r", ""
 $remoteScript | & ssh $remote "bash -se"
 if ($LASTEXITCODE -ne 0) {
   throw "Remote deploy failed"
