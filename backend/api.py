@@ -1,9 +1,13 @@
 """
 API Flask for the pre-indexed vehicle guide chatbot.
 """
+import csv
 import os
+import re
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
+from threading import Lock
 
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -29,6 +33,12 @@ IMAGE_DIRS = [
     DATA_DIR / "vehicle_images",
     PROJECT_ROOT / "manuel" / "voiture",
 ]
+
+WAITLIST_DIR = DATA_DIR / "waitlist"
+WAITLIST_FILE = WAITLIST_DIR / "premium_waitlist.csv"
+WAITLIST_COLUMNS = ["email", "lang", "source", "created_at"]
+WAITLIST_LOCK = Lock()
+EMAIL_REGEX = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 
 
 # ============================================
@@ -191,6 +201,62 @@ def get_suggestions():
         "success": True,
         "suggestions": suggestions
     })
+
+
+@app.route('/api/waitlist/premium', methods=['POST'])
+def save_premium_waitlist_email():
+    """Save a premium waitlist email in backend/data/waitlist/premium_waitlist.csv."""
+    data = request.get_json(silent=True) or {}
+    raw_email = str(data.get("email", "")).strip().lower()
+    lang = str(data.get("lang", "")).strip().lower()[:10]
+    source = str(data.get("source", "")).strip()[:120]
+
+    if not EMAIL_REGEX.match(raw_email):
+        return jsonify({
+            "success": False,
+            "error": "invalid_email",
+        }), 400
+
+    try:
+        WAITLIST_DIR.mkdir(parents=True, exist_ok=True)
+
+        with WAITLIST_LOCK:
+            existing_emails = set()
+            if WAITLIST_FILE.exists():
+                with WAITLIST_FILE.open("r", encoding="utf-8", newline="") as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        existing = str(row.get("email", "")).strip().lower()
+                        if existing:
+                            existing_emails.add(existing)
+
+            if raw_email in existing_emails:
+                return jsonify({
+                    "success": True,
+                    "already_exists": True,
+                }), 200
+
+            write_header = not WAITLIST_FILE.exists() or WAITLIST_FILE.stat().st_size == 0
+            with WAITLIST_FILE.open("a", encoding="utf-8", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=WAITLIST_COLUMNS)
+                if write_header:
+                    writer.writeheader()
+                writer.writerow({
+                    "email": raw_email,
+                    "lang": lang,
+                    "source": source,
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                })
+
+        return jsonify({
+            "success": True,
+            "already_exists": False,
+        }), 201
+    except Exception:
+        return jsonify({
+            "success": False,
+            "error": "waitlist_write_failed",
+        }), 500
 
 
 # ============================================
