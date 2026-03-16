@@ -3,18 +3,38 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { motion as Motion, AnimatePresence } from 'framer-motion'
 import { formatText, LANGUAGES, UI_TEXT, useAppLanguage } from '../i18n'
 import { API_URL } from '../api'
+import { useToast } from '../toast'
 import './ChatPage.css'
 import wrenchIcon from '../assets/icons/wrench.svg'
 import dashboardIcon from '../assets/icons/dashboard.svg'
 import navigationIcon from '../assets/icons/navigation.svg'
 import infotainmentIcon from '../assets/icons/infotainment.svg'
 
+const FLAG_BY_LANG = {
+  fr: '/flags/fr.svg',
+  en: '/flags/en.svg',
+  ko: '/flags/ko.svg',
+}
+
 const QUICK_ICONS = [wrenchIcon, dashboardIcon, navigationIcon]
+const COMPACT_MENU_BREAKPOINT = 1024
 
 const pageVariants = {
   initial: { opacity: 0 },
   animate: { opacity: 1, transition: { duration: 0.35 } },
   exit: { opacity: 0, transition: { duration: 0.25 } },
+}
+
+const TOAST_COPY = {
+  fr: {
+    redirecting: 'Action validee. Redirection en cours...',
+  },
+  en: {
+    redirecting: 'Action confirmed. Redirecting...',
+  },
+  ko: {
+    redirecting: '확인되었습니다. 이동 중입니다...',
+  },
 }
 
 const URL_REGEX = /(https?:\/\/[^\s)]+)/g
@@ -276,16 +296,33 @@ function RichBotMessage({ text, lang = 'fr' }) {
 function ChatPage() {
   const { slug } = useParams()
   const navigate = useNavigate()
+  const { showToast } = useToast()
   const [lang, setLang] = useAppLanguage()
   const [guide, setGuide] = useState(null)
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [isStreaming, setIsStreaming] = useState(false)
   const [errorKey, setErrorKey] = useState('')
   const [langOpen, setLangOpen] = useState(false)
+  const [navMenuOpen, setNavMenuOpen] = useState(false)
+  const [showExitConfirm, setShowExitConfirm] = useState(false)
+  const [pendingExitPath, setPendingExitPath] = useState('')
+  const [isCompactNav, setIsCompactNav] = useState(
+    typeof window !== 'undefined' ? window.innerWidth <= COMPACT_MENU_BREAKPOINT : false,
+  )
   const chatContainerRef = useRef(null)
+  const langDropdownRef = useRef(null)
+  const tokenFlushTimerRef = useRef(null)
   const inputRef = useRef(null)
   const t = UI_TEXT[lang] || UI_TEXT.fr
+  const toastCopy = TOAST_COPY[lang] || TOAST_COPY.en
+  const coverageLabel = t.chat.coverageLabel || '{coverage}'
+  const exitConfirmTitle = t.chat.exitConfirmTitle || 'End this chat?'
+  const exitConfirmText = t.chat.exitConfirmText || 'Are you sure you want to leave this conversation?'
+  const exitConfirmCancel = t.chat.exitConfirmCancel || 'Cancel'
+  const exitConfirmAccept = t.chat.exitConfirmAccept || 'Leave'
+  const currentLang = LANGUAGES.find((entry) => entry.code === lang) || LANGUAGES[0]
 
   const quickQuestions = useMemo(() => {
     return (t.chat.quickQuestions || []).map((text, index) => ({
@@ -326,17 +363,210 @@ function ChatPage() {
 
   useEffect(() => {
     if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight
+      chatContainerRef.current.scrollTo({
+        top: chatContainerRef.current.scrollHeight,
+        behavior: isStreaming ? 'auto' : 'smooth',
+      })
     }
-  }, [messages, isLoading])
+  }, [messages, isLoading, isStreaming])
+
+  useEffect(() => {
+    if (!langOpen) return undefined
+
+    const handleOutsideClick = (event) => {
+      if (langDropdownRef.current && !langDropdownRef.current.contains(event.target)) {
+        setLangOpen(false)
+      }
+    }
+
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        setLangOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleOutsideClick)
+    document.addEventListener('keydown', handleEscape)
+
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick)
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [langOpen])
+
+  useEffect(() => {
+    const handleResize = () => {
+      const compact = window.innerWidth <= COMPACT_MENU_BREAKPOINT
+      setIsCompactNav(compact)
+      if (!compact) {
+        setNavMenuOpen(false)
+      }
+    }
+
+    handleResize()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  useEffect(() => {
+    if (!navMenuOpen) return undefined
+
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        setNavMenuOpen(false)
+      }
+    }
+
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [navMenuOpen])
+
+  useEffect(() => {
+    if (!showExitConfirm) return undefined
+
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        setShowExitConfirm(false)
+      }
+    }
+
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [showExitConfirm])
+
+  const closeExitConfirm = () => {
+    setShowExitConfirm(false)
+    setPendingExitPath('')
+  }
+
+  const openExitConfirm = (targetPath = '/') => {
+    setLangOpen(false)
+    setNavMenuOpen(false)
+    setPendingExitPath(targetPath)
+    setShowExitConfirm(true)
+  }
+
+  const handleLangSelect = (nextLang) => {
+    setLang(nextLang)
+    setLangOpen(false)
+    setNavMenuOpen(false)
+  }
+
+  const confirmExitChat = () => {
+    const targetPath = pendingExitPath || '/'
+    closeExitConfirm()
+    showToast({ type: 'success', message: toastCopy.redirecting })
+    navigate(targetPath)
+  }
+
+  const ensureBotMessage = (initialText = '') => {
+      setMessages((previous) => {
+        if (previous.length === 0 || previous[previous.length - 1]?.type !== 'bot') {
+          return [...previous, { type: 'bot', content: initialText }]
+        }
+        return previous
+      })
+    }
+
+  const appendToBotMessage = (chunk = '') => {
+      if (!chunk) return
+      setMessages((previous) => {
+        if (previous.length === 0) return previous
+        const updated = [...previous]
+        const last = updated[updated.length - 1]
+        if (!last || last.type !== 'bot') {
+          updated.push({ type: 'bot', content: chunk })
+          return updated
+        }
+        updated[updated.length - 1] = {
+          ...last,
+          content: `${last.content || ''}${chunk}`,
+        }
+        return updated
+      })
+    }
+
+  const setBotMessage = (text = '') => {
+      setMessages((previous) => {
+        if (previous.length === 0) return previous
+        const updated = [...previous]
+        const last = updated[updated.length - 1]
+        if (!last || last.type !== 'bot') {
+          updated.push({ type: 'bot', content: text })
+          return updated
+        }
+        updated[updated.length - 1] = { ...last, content: text }
+        return updated
+      })
+    }
+
+  useEffect(() => {
+    return () => {
+      if (tokenFlushTimerRef.current) {
+        window.clearInterval(tokenFlushTimerRef.current)
+      }
+    }
+  }, [])
+
+  const streamBotMessage = (fullText) =>
+    new Promise((resolve) => {
+      const safeText = normalizeAssistantText(fullText || '') || t.chat.unavailable
+      const chars = Array.from(safeText)
+
+      setMessages((previous) => [...previous, { type: 'bot', content: '' }])
+      setIsStreaming(true)
+
+      if (chars.length === 0) {
+        setIsStreaming(false)
+        resolve()
+        return
+      }
+
+      const step = chars.length > 1400 ? 20 : chars.length > 800 ? 14 : chars.length > 420 ? 10 : 7
+      const intervalMs = chars.length > 900 ? 14 : 18
+      let index = 0
+
+      if (tokenFlushTimerRef.current) {
+        window.clearInterval(tokenFlushTimerRef.current)
+      }
+
+      tokenFlushTimerRef.current = window.setInterval(() => {
+        index = Math.min(chars.length, index + step)
+        const nextContent = chars.slice(0, index).join('')
+
+        setMessages((previous) => {
+          if (previous.length === 0) return previous
+          const updated = [...previous]
+          const lastMessage = updated[updated.length - 1]
+
+          if (!lastMessage || lastMessage.type !== 'bot') {
+            updated.push({ type: 'bot', content: nextContent })
+            return updated
+          }
+
+          updated[updated.length - 1] = { ...lastMessage, content: nextContent }
+          return updated
+        })
+
+        if (index >= chars.length) {
+          if (tokenFlushTimerRef.current) {
+            window.clearInterval(tokenFlushTimerRef.current)
+            tokenFlushTimerRef.current = null
+          }
+          setIsStreaming(false)
+          resolve()
+        }
+      }, intervalMs)
+    })
 
   const sendMessage = async (messageText) => {
     const text = (messageText || input).trim()
-    if (!text || isLoading) return
+    if (!text || isLoading || isStreaming) return
 
     setMessages((previous) => [...previous, { type: 'user', content: text }])
     setInput('')
     setIsLoading(true)
+    setLangOpen(false)
 
     try {
       const response = await fetch(`${API_URL}/guides/${slug}/chat`, {
@@ -347,14 +577,13 @@ function ChatPage() {
       const data = await response.json()
 
       if (data.success) {
-        const cleaned = normalizeAssistantText(data.response || '')
-        setMessages((previous) => [...previous, { type: 'bot', content: cleaned }])
+        await streamBotMessage(data.response || '')
       } else {
         const fallback = (data.error || '').trim() || t.chat.unavailable
-        setMessages((previous) => [...previous, { type: 'bot', content: fallback }])
+        await streamBotMessage(fallback)
       }
     } catch {
-      setMessages((previous) => [...previous, { type: 'bot', content: t.chat.serverUnavailable }])
+      await streamBotMessage(t.chat.serverUnavailable)
     } finally {
       setIsLoading(false)
       inputRef.current?.focus()
@@ -397,75 +626,147 @@ function ChatPage() {
 
   return (
     <Motion.div className="chat-page" variants={pageVariants} initial="initial" animate="animate" exit="exit">
+      <div className="chat-bg-image" />
       <header className="chat-header">
-        <button
-          type="button"
-          className="chat-brand chat-brand-link"
-          onClick={() => navigate('/')}
-          aria-label={(UI_TEXT[lang] || UI_TEXT.fr).guides.home}
-        >
-          <img src="/logo-84.webp" alt="CC" width="42" height="42" loading="lazy" />
-          <div>
-            <p>Car Chat : CC</p>
-            <span>{guide.name}</span>
+        {isCompactNav ? (
+          <div className="chat-brand chat-brand-static" aria-hidden>
+            <img src="/logo top left.png" alt="CarChat" width="122" height="36" loading="lazy" />
+            <div>
+              <p>{guide.name}</p>
+              {guide.coverage_note ? (
+                <small className="chat-brand-note">{formatText(coverageLabel, { coverage: guide.coverage_note })}</small>
+              ) : null}
+            </div>
           </div>
-        </button>
+        ) : (
+          <button
+            type="button"
+            className="chat-brand chat-brand-link"
+            onClick={() => openExitConfirm('/')}
+            aria-label={(UI_TEXT[lang] || UI_TEXT.fr).guides.home}
+          >
+            <img src="/logo top left.png" alt="CarChat" width="122" height="36" loading="lazy" />
+            <div>
+              <p>{guide.name}</p>
+              {guide.coverage_note ? (
+                <small className="chat-brand-note">{formatText(coverageLabel, { coverage: guide.coverage_note })}</small>
+              ) : null}
+            </div>
+          </button>
+        )}
 
         <div className="chat-header-right">
-          <div className="lang-switcher">
-            <Motion.button
+          {isCompactNav ? (
+            <button
               type="button"
-              className="lang-toggle"
-              onClick={() => setLangOpen((prev) => !prev)}
-              whileHover={{ y: -1 }}
-              whileTap={{ scale: 0.96 }}
+              className="chat-burger-trigger"
+              onClick={() => {
+                setLangOpen(false)
+                setNavMenuOpen((prev) => !prev)
+              }}
+              aria-label="Menu"
+              aria-expanded={navMenuOpen}
+              aria-haspopup="dialog"
             >
-              <span>{LANGUAGES.find((entry) => entry.code === lang)?.flag}</span>
-              {LANGUAGES.find((entry) => entry.code === lang)?.label}
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <polyline points="6 9 12 15 18 9" />
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="18" x2="21" y2="18" />
               </svg>
-            </Motion.button>
+            </button>
+          ) : (
+            <div className="lang-switcher" ref={langDropdownRef}>
+              <Motion.button
+                type="button"
+                className="lang-toggle"
+                onClick={() => setLangOpen((prev) => !prev)}
+                whileHover={{ y: -1 }}
+                whileTap={{ scale: 0.96 }}
+              >
+                <img
+                  className="chat-lang-flag"
+                  src={FLAG_BY_LANG[currentLang?.code] || FLAG_BY_LANG.en}
+                  alt={`${currentLang?.label || 'EN'} flag`}
+                />
+                {currentLang?.label}
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </Motion.button>
 
-            <AnimatePresence>
-              {langOpen && (
-                <Motion.div
-                  className="lang-dropdown"
-                  initial={{ opacity: 0, y: -6, scale: 0.96 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -6, scale: 0.96 }}
-                  transition={{ duration: 0.18 }}
-                >
-                  {LANGUAGES.map((entry) => (
-                    <button
-                      key={entry.code}
-                      type="button"
-                      className={`lang-option${entry.code === lang ? ' lang-option--active' : ''}`}
-                      onClick={() => {
-                        setLang(entry.code)
-                        setLangOpen(false)
-                      }}
-                    >
-                      <span>{entry.flag}</span>
-                      <span>{entry.label}</span>
-                    </button>
-                  ))}
-                </Motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
-          <Motion.button
-            type="button"
-            className="chat-home-btn"
-            onClick={() => navigate('/guides')}
-            whileHover={{ y: -1 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            {t.chat.guides}
-          </Motion.button>
+              <AnimatePresence>
+                {langOpen && (
+                  <Motion.div
+                    className="chat-lang-dropdown"
+                    initial={{ opacity: 0, y: -6, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -6, scale: 0.96 }}
+                    transition={{ duration: 0.18 }}
+                  >
+                    {LANGUAGES.map((entry) => (
+                      <button
+                        key={entry.code}
+                        type="button"
+                        className={`chat-lang-option${entry.code === lang ? ' chat-lang-option--active' : ''}`}
+                        onClick={() => handleLangSelect(entry.code)}
+                      >
+                        <img
+                          className="chat-lang-flag"
+                          src={FLAG_BY_LANG[entry.code] || FLAG_BY_LANG.en}
+                          alt={`${entry.label} flag`}
+                        />
+                        <span>{entry.label}</span>
+                      </button>
+                    ))}
+                  </Motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
         </div>
       </header>
+
+      <AnimatePresence>
+        {isCompactNav && navMenuOpen && (
+          <Motion.div
+            className="chat-nav-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setNavMenuOpen(false)}
+          >
+            <Motion.div
+              className="chat-nav-menu"
+              initial={{ opacity: 0, y: -10, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -8, scale: 0.98 }}
+              transition={{ duration: 0.18 }}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <button type="button" className="chat-nav-home" onClick={() => openExitConfirm('/')}>
+                {(UI_TEXT[lang] || UI_TEXT.fr).guides.home}
+              </button>
+              <div className="chat-nav-languages">
+                {LANGUAGES.map((entry) => (
+                  <button
+                    key={entry.code}
+                    type="button"
+                    className={`chat-nav-lang-option${entry.code === lang ? ' chat-nav-lang-option--active' : ''}`}
+                    onClick={() => handleLangSelect(entry.code)}
+                  >
+                    <img
+                      className="chat-lang-flag"
+                      src={FLAG_BY_LANG[entry.code] || FLAG_BY_LANG.en}
+                      alt={`${entry.label} flag`}
+                    />
+                    <span>{entry.label}</span>
+                  </button>
+                ))}
+              </div>
+            </Motion.div>
+          </Motion.div>
+        )}
+      </AnimatePresence>
 
       <main className="chat-body" ref={chatContainerRef}>
         <AnimatePresence>
@@ -533,7 +834,7 @@ function ChatPage() {
           </AnimatePresence>
 
           <AnimatePresence>
-            {isLoading && (
+            {isLoading && !isStreaming && (
               <Motion.div
                 className="msg bot"
                 initial={{ opacity: 0, y: 12 }}
@@ -561,12 +862,12 @@ function ChatPage() {
             onChange={(event) => setInput(event.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={formatText(t.chat.placeholder, { vehicle: guide.name })}
-            disabled={isLoading}
+            disabled={isLoading || isStreaming}
           />
           <Motion.button
             className="chat-send-btn"
             onClick={() => sendMessage()}
-            disabled={!input.trim() || isLoading}
+            disabled={!input.trim() || isLoading || isStreaming}
             whileHover={{ scale: 1.04 }}
             whileTap={{ scale: 0.95 }}
             title={t.chat.send}
@@ -579,6 +880,41 @@ function ChatPage() {
           </Motion.button>
         </div>
       </footer>
+
+      <AnimatePresence>
+        {showExitConfirm && (
+          <Motion.div
+            className="chat-exit-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={closeExitConfirm}
+          >
+            <Motion.div
+              className="chat-exit-popup"
+              initial={{ opacity: 0, y: 10, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 8, scale: 0.98 }}
+              transition={{ duration: 0.2 }}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="chat-exit-top">
+                <h2>{exitConfirmTitle}</h2>
+                <p>{exitConfirmText}</p>
+              </div>
+
+              <div className="chat-exit-actions">
+                <button type="button" className="chat-exit-cancel" onClick={closeExitConfirm}>
+                  {exitConfirmCancel}
+                </button>
+                <button type="button" className="chat-exit-accept" onClick={confirmExitChat}>
+                  {exitConfirmAccept}
+                </button>
+              </div>
+            </Motion.div>
+          </Motion.div>
+        )}
+      </AnimatePresence>
     </Motion.div>
   )
 }
