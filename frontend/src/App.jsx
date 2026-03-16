@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
 import LandingPage from './pages/LandingPage'
+import { ToastProvider } from './toast'
 import './App.css'
 
 const GuidesPage = lazy(() => import('./pages/GuidesPage'))
@@ -26,8 +27,10 @@ function AnimatedRoutes() {
 function App() {
   return (
     <BrowserRouter>
-      <div className="ambient-bg" />
-      <AnimatedRoutes />
+      <ToastProvider>
+        <div className="ambient-bg" />
+        <AnimatedRoutes />
+      </ToastProvider>
     </BrowserRouter>
   )
 }

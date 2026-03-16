@@ -97,3 +97,94 @@ svg {
   background: var(--accent-glow);
   color: #fff;
 }
+
+.app-toast-stack {
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(16px, env(safe-area-inset-bottom));
+  z-index: 2200;
+  width: min(360px, calc(100vw - 24px));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.app-toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 13px;
+  border-radius: 14px;
+  border: 1px solid rgba(205, 214, 224, 0.2);
+  background: linear-gradient(130deg, rgba(22, 26, 34, 0.95), rgba(16, 20, 28, 0.9));
+  color: var(--text-primary);
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.36);
+  backdrop-filter: blur(14px);
+}
+
+.app-toast-indicator {
+  width: 8px;
+  height: 8px;
+  margin-top: 6px;
+  border-radius: 999px;
+  background: var(--accent-light);
+  box-shadow: 0 0 0 4px rgba(152, 166, 182, 0.17);
+  flex: 0 0 auto;
+}
+
+.app-toast p {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.35;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.app-toast-close {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1;
+  margin-top: 1px;
+  padding: 4px 2px;
+  cursor: pointer;
+  transition: color 0.16s ease, transform 0.16s ease;
+}
+
+.app-toast-close:hover {
+  color: var(--text-primary);
+  transform: scale(1.04);
+}
+
+.app-toast--success .app-toast-indicator {
+  background: var(--success);
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.2);
+}
+
+.app-toast--error .app-toast-indicator {
+  background: var(--error);
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.18);
+}
+
+.app-toast--info .app-toast-indicator {
+  background: var(--accent-light);
+  box-shadow: 0 0 0 4px rgba(152, 166, 182, 0.17);
+}
+
+@media (max-width: 700px) {
+  .app-toast-stack {
+    left: 12px;
+    right: 12px;
+    width: auto;
+    bottom: max(12px, env(safe-area-inset-bottom));
+  }
+
+  .app-toast {
+    padding: 11px 12px;
+    border-radius: 12px;
+  }
+}
