@@ -1,205 +1,348 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { AnimatePresence, motion as Motion } from 'framer-motion'
-import { LANGUAGES, UI_TEXT, useAppLanguage } from '../i18n'
-import './LandingPage.css'
+﻿import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
+import { LANGUAGES, useAppLanguage } from '../i18n';
+import { API_URL } from '../api';
+import { useToast } from '../toast';
+import './LandingPage.css';
 
-const COLLISION_FRAMES = 30
+const FLAG_BY_LANG = {
+  fr: '/flags/fr.svg',
+  en: '/flags/en.svg',
+  ko: '/flags/ko.svg',
+};
 
-const framePath = (index) => `/collision-webp/frame_${String(index).padStart(2, '0')}.webp`
-
-const findNearestLoadedFrame = (frames, target) => {
-  if (frames[target]?.complete) {
-    return frames[target]
+const COPY = {
+  en: {
+    heroBadge: 'AI-Powered Vehicle Assistant',
+    heroTitleHover: 'Ask your car manual',
+    heroTitleMain: 'anything.',
+    heroSubtitle: "Get instant answers about warning lights, maintenance, specs, and features—from indexed owner's manual content.",
+    ctaPrimary: 'Try the beta free >',
+    ctaSecondary: 'See example questions',
+    toastRedirecting: 'Action confirmed. Redirecting...',
+    featuresTitle: 'Why Choose CarChat?',
+    features: [
+      { title: 'Understand warning lights', desc: 'Get real-time answers about your dashboard lights and clear, safe next steps.' },
+      { title: 'Find maintenance info faster', desc: 'Know when and how to service your car without flipping through pages.' },
+      { title: 'Ask in your language', desc: 'Chat in English, French, or Korean seamlessly.' }
+    ],
+    plansTitle: 'Choose your access',
+    plansSubtitle: 'Start in beta today, then unlock deep technical guidance with Premium.',
+    betaPlanBadge: 'LIVE',
+    betaPlanTitle: 'Beta test',
+    betaPlanDesc: 'Free early access to core chat, model selection, and indexed manual answers.',
+    betaPlanCta: 'Test the beta',
+    premiumPlanBadge: 'COMING SOON',
+    premiumPlanTitle: 'Premium coming soon',
+    premiumPlanDesc: 'Advanced technical intelligence for power users and workshops.',
+    premiumPlanFeatures: [
+      '+500 vehicles indexed',
+      'Cross-manual spec conflict detection',
+      'VIN and trim-aware procedure filtering',
+      'Maintenance delta tracking by mileage and time',
+      'Deep diagnostics workflow guidance',
+    ],
+    premiumPlanCta: 'Join premium waitlist',
+    waitlistTitle: 'Join premium waitlist',
+    waitlistSubtitle: 'Enter your email to be notified when premium opens.',
+    waitlistPlaceholder: 'you@example.com',
+    waitlistCancel: 'Cancel',
+    waitlistSubmit: 'Join waitlist',
+    waitlistSubmitting: 'Saving...',
+    waitlistSuccess: 'Thanks, you are now on the premium waitlist.',
+    waitlistInvalidEmail: 'Please enter a valid email address.',
+    waitlistError: 'Unable to save your email right now.',
+    chatPreview: {
+      user: 'What does this warning light mean?',
+      ai: "According to your manual, this is the Malfunction Indicator Lamp (Check Engine). If it stays on continuously, it indicates a potential emissions control system issue. If it flashes, it may indicate an engine misfire. Please reduce speed and seek service soon."
+    }
+  },
+  fr: {
+    heroBadge: 'Assistant Automobile par IA',
+    heroTitleHover: 'Demandez tout à',
+    heroTitleMain: 'votre manuel.',
+    heroSubtitle: 'Obtenez des réponses instantanées sur les voyants, l\'entretien et les caractéristiques—à partir du contenu indexé de votre manuel.',
+    ctaPrimary: 'Essayer la beta gratuit >',
+    ctaSecondary: 'Voir des exemples',
+    toastRedirecting: 'Action validee. Redirection en cours...',
+    featuresTitle: 'Pourquoi Choisir CarChat ?',
+    features: [
+      { title: 'Comprendre les voyants', desc: 'Obtenez des réponses en temps réel sur les voyants de votre tableau de bord.' },
+      { title: 'Trouvez l\'entretien plus vite', desc: 'Sachez quand et comment entretenir votre voiture sans chercher dans les pages.' },
+      { title: 'Demandez dans votre langue', desc: 'Discutez en anglais, français ou coréen de manière fluide.' }
+    ],
+    plansTitle: 'Choisissez votre acces',
+    plansSubtitle: 'Commencez en beta puis debloquez une guidance technique avancee avec Premium.',
+    betaPlanBadge: 'EN DIRECT',
+    betaPlanTitle: 'Beta test',
+    betaPlanDesc: 'Acces gratuit aux fonctions essentielles: chat, selection modele et reponses manuels indexees.',
+    betaPlanCta: 'Tester la beta',
+    premiumPlanBadge: 'BIENTOT',
+    premiumPlanTitle: 'Premium bientot',
+    premiumPlanDesc: 'Intelligence technique avancee pour utilisateurs exigeants et ateliers.',
+    premiumPlanFeatures: [
+      '+500 vehicules indexes',
+      'Detection des conflits de specs multi-manuels',
+      'Filtrage des procedures par VIN et finition',
+      'Suivi des deltas entretien kilometrage et temps',
+      'Guidance de workflow diagnostic avance',
+    ],
+    premiumPlanCta: 'Rejoindre la waitlist premium',
+    waitlistTitle: 'Rejoindre la waitlist premium',
+    waitlistSubtitle: 'Ajoutez votre email pour etre prevenu de l ouverture.',
+    waitlistPlaceholder: 'vous@exemple.com',
+    waitlistCancel: 'Annuler',
+    waitlistSubmit: 'Rejoindre',
+    waitlistSubmitting: 'Enregistrement...',
+    waitlistSuccess: 'Merci, votre email est bien ajoute a la waitlist.',
+    waitlistInvalidEmail: 'Veuillez saisir une adresse email valide.',
+    waitlistError: 'Impossible d enregistrer votre email pour le moment.',
+    chatPreview: {
+      user: 'Que signifie ce voyant d\'avertissement ?',
+      ai: 'D\'après votre manuel, il s\'agit du témoin de dysfonctionnement (Check Engine). S\'il reste allumé, cela indique un problème du système antipollution. S\'il clignote, un raté d\'allumage est possible. Réduisez votre vitesse.'
+    }
+  },
+  ko: {
+    heroBadge: 'AI 기반 차량 어시스턴트',
+    heroTitleHover: '차량 매뉴얼에',
+    heroTitleMain: '무엇이든 물어보세요.',
+    heroSubtitle: '경고등, 유지보수, 사양 및 기능에 대한 빠르고 정확한 답변—인덱싱된 매뉴얼 내용에서 제공합니다.',
+    ctaPrimary: '무료 베타 체험하기 >',
+    ctaSecondary: '예시 질문 보기',
+    toastRedirecting: '확인되었습니다. 이동 중입니다...',
+    featuresTitle: 'CarChat을 선택하는 이유?',
+    features: [
+      { title: '경고등 이해', desc: '대시보드 경고등에 대한 실시간 답변과 안전한 다음 단계를 확인하세요.' },
+      { title: '빠른 유지보수 정보', desc: '페이지를 넘기지 않고도 차량 정비 시기와 방법을 알아보세요.' },
+      { title: '당신의 언어로 질문', desc: '영어, 프랑스어 또는 한국어로 원활하게 채팅하세요.' }
+    ],
+    plansTitle: '이용 옵션을 선택하세요',
+    plansSubtitle: '오늘 베타로 시작하고, Premium으로 더 깊은 기술 가이드를 받아보세요.',
+    betaPlanBadge: '라이브',
+    betaPlanTitle: '베타 테스트',
+    betaPlanDesc: '핵심 채팅, 모델 선택, 인덱싱된 매뉴얼 답변을 무료로 먼저 이용하세요.',
+    betaPlanCta: '베타 시작',
+    premiumPlanBadge: '출시 예정',
+    premiumPlanTitle: '프리미엄 곧 출시',
+    premiumPlanDesc: '전문 사용자와 정비소를 위한 고급 기술 인텔리전스.',
+    premiumPlanFeatures: [
+      '+500개 차량 인덱싱',
+      '매뉴얼 간 사양 충돌 감지',
+      'VIN 및 트림 기반 정비 절차 필터링',
+      '주행거리/기간 기준 정비 변화 추적',
+      '딥 진단 워크플로 가이드',
+    ],
+    premiumPlanCta: '프리미엄 대기자 등록',
+    waitlistTitle: '프리미엄 대기자 등록',
+    waitlistSubtitle: '프리미엄 오픈 알림을 받을 이메일을 입력하세요.',
+    waitlistPlaceholder: 'you@example.com',
+    waitlistCancel: '취소',
+    waitlistSubmit: '대기자 등록',
+    waitlistSubmitting: '저장 중...',
+    waitlistSuccess: '감사합니다. 프리미엄 대기자 명단에 등록되었습니다.',
+    waitlistInvalidEmail: '유효한 이메일 주소를 입력해 주세요.',
+    waitlistError: '지금은 이메일을 저장할 수 없습니다.',
+    chatPreview: {
+      user: '이 경고등은 무슨 뜻인가요?',
+      ai: '매뉴얼에 따르면 이것은 오작동 표시등(엔진 경고등)입니다. 계속 켜져 있으면 배출가스 제어 시스템 문제일 수 있으며, 깜박이면 엔진 실화일 수 있습니다. 속도를 줄이고 즉시 점검을 받으세요.'
+    }
   }
+};
 
-  for (let distance = 1; distance < frames.length; distance += 1) {
-    const previous = target - distance
-    const next = target + distance
-
-    if (previous >= 0 && frames[previous]?.complete) {
-      return frames[previous]
-    }
-
-    if (next < frames.length && frames[next]?.complete) {
-      return frames[next]
-    }
-  }
-
-  return null
-}
-
-function LandingPage() {
-  const navigate = useNavigate()
-  const [launching, setLaunching] = useState(false)
-  const [lang, setLang] = useAppLanguage()
-  const [langOpen, setLangOpen] = useState(false)
-  const langDropdownRef = useRef(null)
-
-  const collisionCanvasRef = useRef(null)
-  const collisionFramesRef = useRef(Array(COLLISION_FRAMES).fill(null))
-  const landingText = (UI_TEXT[lang] || UI_TEXT.fr).landing
-
-  const frameUrls = useMemo(
-    () => Array.from({ length: COLLISION_FRAMES }, (_, idx) => framePath(idx + 1)),
-    []
-  )
-
-  const currentLang = LANGUAGES.find((entry) => entry.code === lang) || LANGUAGES[0]
-
-  const drawCollisionFrame = useCallback((frameIndex) => {
-    const canvas = collisionCanvasRef.current
-    if (!canvas) {
-      return false
-    }
-
-    const context = canvas.getContext('2d', { alpha: true, desynchronized: true })
-    if (!context) {
-      return false
-    }
-
-    const clampedFrame = Math.max(0, Math.min(COLLISION_FRAMES - 1, frameIndex))
-    const image = findNearestLoadedFrame(collisionFramesRef.current, clampedFrame)
-    if (!image) {
-      return false
-    }
-
-    const dpr = Math.min(window.devicePixelRatio || 1, 2)
-    const width = Math.max(1, Math.round(canvas.clientWidth * dpr))
-    const height = Math.max(1, Math.round(canvas.clientHeight * dpr))
-
-    if (canvas.width !== width || canvas.height !== height) {
-      canvas.width = width
-      canvas.height = height
-    }
-
-    context.setTransform(1, 0, 0, 1, 0, 0)
-    context.clearRect(0, 0, width, height)
-
-    const scale = Math.min(width / image.width, height / image.height)
-    const drawWidth = image.width * scale
-    const drawHeight = image.height * scale
-    const x = (width - drawWidth) / 2
-    const y = (height - drawHeight) / 2
-
-    context.imageSmoothingEnabled = true
-    context.imageSmoothingQuality = 'high'
-    context.drawImage(image, x, y, drawWidth, drawHeight)
-
-    return true
-  }, [])
+const TypewriterText = ({ text, delay = 0 }) => {
+  const [displayedText, setDisplayedText] = useState('');
 
   useEffect(() => {
-    let cancelled = false
+    let index = 0;
+    let timer;
+    
+    const startTyping = () => {
+      timer = setInterval(() => {
+        setDisplayedText(text.substring(0, index + 1));
+        index++;
+        if (index === text.length) clearInterval(timer);
+      }, 30); // typing speed
+    };
 
-    frameUrls.forEach((url, index) => {
-      const image = new Image()
-      image.decoding = 'async'
-      image.src = url
-
-      image.onload = () => {
-        if (cancelled) {
-          return
-        }
-
-        if (index === 0) {
-          drawCollisionFrame(0)
-        }
-      }
-
-      collisionFramesRef.current[index] = image
-    })
+    const initialDelay = setTimeout(startTyping, delay);
 
     return () => {
-      cancelled = true
-    }
-  }, [drawCollisionFrame, frameUrls])
+      clearInterval(timer);
+      clearTimeout(initialDelay);
+    };
+  }, [text, delay]);
+
+  return <span>{displayedText}</span>;
+};
+
+export default function LandingPage() {
+  const navigate = useNavigate();
+  const { showToast } = useToast();
+  const [lang, setLang] = useAppLanguage();
+  const t = COPY[lang] || COPY.en;
+  
+  const [langOpen, setLangOpen] = useState(false);
+  const langDropdownRef = useRef(null);
+  
+  const currentLang = LANGUAGES.find((entry) => entry.code === lang) || LANGUAGES[0];
+  const [chatStep, setChatStep] = useState(0);
+  const [waitlistOpen, setWaitlistOpen] = useState(false);
+  const [waitlistEmail, setWaitlistEmail] = useState('');
+  const [waitlistStatus, setWaitlistStatus] = useState('idle');
+  const [waitlistFeedback, setWaitlistFeedback] = useState('');
 
   useEffect(() => {
-    let rafId = null
-    let startAt = null
-
-    const animateIntro = (timestamp) => {
-      if (startAt === null) {
-        startAt = timestamp
-      }
-
-      const progress = Math.min((timestamp - startAt) / 1100, 1)
-      const easedProgress = 1 - ((1 - progress) ** 1.2)
-      const frameIndex = Math.round(easedProgress * (COLLISION_FRAMES - 1))
-      drawCollisionFrame(frameIndex)
-
-      if (progress < 1) {
-        rafId = window.requestAnimationFrame(animateIntro)
-      }
-    }
-
-    rafId = window.requestAnimationFrame(animateIntro)
-
-    return () => {
-      if (rafId !== null) {
-        window.cancelAnimationFrame(rafId)
-      }
-    }
-  }, [drawCollisionFrame])
+    // Ensure the home page can always scroll after leaving full-screen chat pages.
+    document.body.style.overflow = 'auto';
+    document.documentElement.style.overflow = 'auto';
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, []);
 
   useEffect(() => {
-    if (!langOpen) {
-      return undefined
-    }
+    // Chat Animation Sequence
+    setChatStep(0);
+    const t1 = setTimeout(() => setChatStep(1), 600);   // User starts typing
+    const t2 = setTimeout(() => setChatStep(2), 2500);  // User done, AI thinking
+    const t3 = setTimeout(() => setChatStep(3), 4000);  // AI responding
+    
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+  }, [lang]); // Re-run animation when language changes
+
+  useEffect(() => {
+    if (!langOpen) return undefined;
 
     const handleOutsideClick = (event) => {
       if (langDropdownRef.current && !langDropdownRef.current.contains(event.target)) {
-        setLangOpen(false)
+        setLangOpen(false);
       }
-    }
+    };
 
     const handleEscape = (event) => {
       if (event.key === 'Escape') {
-        setLangOpen(false)
+        setLangOpen(false);
       }
-    }
+    };
 
-    document.addEventListener('mousedown', handleOutsideClick)
-    document.addEventListener('keydown', handleEscape)
+    document.addEventListener('mousedown', handleOutsideClick);
+    document.addEventListener('keydown', handleEscape);
 
     return () => {
-      document.removeEventListener('mousedown', handleOutsideClick)
-      document.removeEventListener('keydown', handleEscape)
+      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [langOpen]);
+
+  useEffect(() => {
+    if (!waitlistOpen) return undefined;
+
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        setWaitlistOpen(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [waitlistOpen]);
+
+  const openWaitlistModal = () => {
+    setWaitlistEmail('');
+    setWaitlistStatus('idle');
+    setWaitlistFeedback('');
+    setWaitlistOpen(true);
+  };
+
+  const closeWaitlistModal = () => {
+    setWaitlistOpen(false);
+  };
+
+  const goToGuides = () => {
+    showToast({ type: 'success', message: t.toastRedirecting });
+    navigate('/guides');
+  };
+
+  const handleWaitlistSubmit = async (event) => {
+    event.preventDefault();
+
+    const email = waitlistEmail.trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!emailRegex.test(email)) {
+      setWaitlistStatus('error');
+      setWaitlistFeedback(t.waitlistInvalidEmail);
+      showToast({ type: 'error', message: t.waitlistInvalidEmail });
+      return;
     }
-  }, [langOpen])
 
-  const launchGuides = () => {
-    if (launching) {
-      return
+    setWaitlistStatus('loading');
+    setWaitlistFeedback('');
+
+    try {
+      const response = await fetch(`${API_URL}/waitlist/premium`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          lang,
+          source: 'landing-premium',
+        }),
+      });
+
+      const payload = await response.json();
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.error || t.waitlistError);
+      }
+
+      setWaitlistStatus('success');
+      setWaitlistFeedback(t.waitlistSuccess);
+      setWaitlistEmail('');
+      showToast({ type: 'success', message: t.waitlistSuccess });
+    } catch {
+      setWaitlistStatus('error');
+      setWaitlistFeedback(t.waitlistError);
+      showToast({ type: 'error', message: t.waitlistError });
     }
+  };
 
-    setLaunching(true)
-    window.setTimeout(() => {
-      navigate('/guides')
-    }, 680)
-  }
+  const fadeUp = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1, transition: { duration: 0.5, ease: 'easeOut' } }
+  };
 
-  const handleLangSelect = (nextLang) => {
-    setLang(nextLang)
-    setLangOpen(false)
-  }
+  const staggerContainer = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1, transition: { staggerChildren: 0.15 } }
+  };
 
   return (
-    <main className="saas-page">
-      <section className="saas-hero">
-        <div className="saas-topbar">
-          <div className="saas-lang-dropdown" ref={langDropdownRef}>
+    <main className="landing-automotive">
+      <div className="landing-bg-elements" aria-hidden="true" />
+      <div className="landing-bg-image" aria-hidden="true" />
+      <div className="landing-grid" aria-hidden="true" />
+
+      {/* Navigation Strip */}
+      <section className="landing-shell nav-strip">
+        <button type="button" className="nav-brand" onClick={() => navigate('/')} aria-label="Home">
+          <img className="nav-brand__mark nav-brand__mark--wide" src="/logo top left.png" alt="CarChat" />
+        </button>
+
+        <div className="nav-actions">
+          <div className="lang-dropdown" ref={langDropdownRef}>
             <button
               type="button"
-              className="saas-lang-trigger"
-              onClick={() => setLangOpen((previous) => !previous)}
+              className="lang-btn"
+              onClick={() => setLangOpen((prev) => !prev)}
               aria-expanded={langOpen}
               aria-haspopup="menu"
             >
-              <span>{currentLang.flag}</span>
-              {currentLang.label}
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+              <img
+                className="lang-flag"
+                src={FLAG_BY_LANG[currentLang?.code] || FLAG_BY_LANG.en}
+                alt={`${currentLang?.label || 'EN'} flag`}
+              />
+              <span className="lang-code">{currentLang?.label}</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                 <polyline points="6 9 12 15 18 9" />
               </svg>
             </button>
@@ -207,21 +350,28 @@ function LandingPage() {
             <AnimatePresence>
               {langOpen && (
                 <Motion.div
-                  className="saas-lang-menu"
-                  initial={{ opacity: 0, y: -6, scale: 0.96 }}
+                  className="lang-menu"
+                  initial={{ opacity: 0, y: -8, scale: 0.96 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -6, scale: 0.96 }}
-                  transition={{ duration: 0.16 }}
+                  exit={{ opacity: 0, y: -8, scale: 0.96 }}
+                  transition={{ duration: 0.14 }}
                 >
                   {LANGUAGES.map((entry) => (
                     <button
                       key={entry.code}
                       type="button"
-                      className={`saas-lang-item${entry.code === lang ? ' saas-lang-item--active' : ''}`}
-                      onClick={() => handleLangSelect(entry.code)}
+                      className={`lang-menu-item${entry.code === lang ? ' active' : ''}`}
+                      onClick={() => {
+                        setLang(entry.code);
+                        setLangOpen(false);
+                      }}
                     >
-                      <span>{entry.flag}</span>
-                      {entry.label}
+                      <img
+                        className="lang-flag"
+                        src={FLAG_BY_LANG[entry.code] || FLAG_BY_LANG.en}
+                        alt={`${entry.label} flag`}
+                      />
+                      <span className="lang-code">{entry.label}</span>
                     </button>
                   ))}
                 </Motion.div>
@@ -229,146 +379,241 @@ function LandingPage() {
             </AnimatePresence>
           </div>
         </div>
+      </section>
 
-        <Motion.div
-          className="hero-collision-wrap"
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
+      {/* Hero Section */}
+      <section className="landing-shell hero-section">
+        <Motion.div 
+          className="hero-content"
+          variants={staggerContainer}
+          initial="hidden"
+          animate="visible"
         >
-          <canvas ref={collisionCanvasRef} className="hero-collision-canvas" />
+          <Motion.h1 variants={fadeUp} className="hero-title">
+            <span className="gradient-text">{t.heroTitleHover}</span>
+            <br />
+            <span className="light-text">{t.heroTitleMain}</span>
+          </Motion.h1>
+          
+          <Motion.p variants={fadeUp} className="hero-desc">
+            {t.heroSubtitle}
+          </Motion.p>
+          
+          <Motion.div variants={fadeUp} className="hero-actions">
+            <button className="btn-primary" onClick={goToGuides}>
+              <span>{t.ctaPrimary.replace(' >', '')}</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+                <path d="M5 12h14" />
+                <path d="M13 5l7 7-7 7" />
+              </svg>
+            </button>
+          </Motion.div>
         </Motion.div>
 
-        <Motion.div
-          className="hero-main-content"
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.18, duration: 0.58 }}
+        {/* Chat Visual Mockup */}
+        <Motion.div 
+          className="hero-visual"
+          initial={{ opacity: 0, x: 20, rotateY: 10 }}
+          animate={{ opacity: 1, x: 0, rotateY: 0 }}
+          transition={{ duration: 0.8, ease: 'easeOut', delay: 0.2 }}
         >
-          <p className="saas-subtitle">{landingText.subtitle}</p>
+          <div className="chat-glass">
+            <div className="chat-header">
+              <div className="chat-dot"></div>
+              <div className="chat-dot"></div>
+              <div className="chat-dot"></div>
+              <div className="chat-title">
+                <img src="/logo-128.png" alt="CarChat" className="chat-title-icon" />
+                CarChat
+              </div>
+            </div>
+            
+            <div className="chat-messages">
+              <AnimatePresence>
+                {chatStep >= 1 && (
+                  <Motion.div 
+                    key="preview-user"
+                    className="chat-bubble bubble-user"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.18 }}
+                  >
+                    <TypewriterText text={t.chatPreview.user} delay={100} />
+                  </Motion.div>
+                )}
+                
+                {chatStep === 2 && (
+                  <Motion.div 
+                    key="preview-ai-loading"
+                    className="chat-bubble bubble-ai loading-ai"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0, transition: { duration: 0.15 } }}
+                  >
+                    <div className="typing-dots">
+                      <span></span><span></span><span></span>
+                    </div>
+                  </Motion.div>
+                )}
 
-          <Motion.div
-            className="saas-actions"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.5 }}
-          >
-            <Motion.button
-              type="button"
-              className="saas-btn saas-btn--primary"
-              onClick={launchGuides}
-              whileHover={{ y: -2, scale: 1.01 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <span>{landingText.accessChat}</span>
-              <svg
-                className="saas-btn-icon"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.2"
-                aria-hidden="true"
-              >
-                <polyline points="9 6 15 12 9 18" />
-              </svg>
-            </Motion.button>
-          </Motion.div>
+                {chatStep >= 3 && (
+                  <Motion.div 
+                    key="preview-ai-answer"
+                    className="chat-bubble bubble-ai"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <TypewriterText text={t.chatPreview.ai} delay={50} />
+                  </Motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+            
+            <div className="chat-input-bar">
+              <div className="chat-input">
+                <span>Ask anything...</span>
+                <div className="chat-send">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
+                </div>
+              </div>
+            </div>
+          </div>
         </Motion.div>
       </section>
 
-      <Motion.section
-        className="saas-overview"
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.34, duration: 0.5 }}
-      >
-        {landingText.features.map((feat, index) => (
-          <Motion.article
-            className="overview-card"
-            key={feat.title}
-            initial={{ opacity: 0, y: 18, scale: 0.985 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ delay: 0.4 + index * 0.1, duration: 0.42, ease: 'easeOut' }}
+      {/* Features Section */}
+      <section id="features" className="landing-shell features-section">
+        {t.features.map((feature, idx) => (
+          <Motion.div 
+            key={idx}
+            className="feature-card"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.3 }}
+            transition={{ duration: 0.5, delay: idx * 0.15 }}
           >
-            <h2>{feat.title}</h2>
-            <p>{feat.desc}</p>
-          </Motion.article>
+            <div className="feature-icon">
+              {idx === 0 && <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>}
+              {idx === 1 && <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>}
+              {idx === 2 && <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>}
+            </div>
+            <h3 className="feature-title">{feature.title}</h3>
+            <p className="feature-desc">{feature.desc}</p>
+          </Motion.div>
         ))}
-      </Motion.section>
+      </section>
 
-      <Motion.footer
-        className="saas-footer"
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.6, duration: 0.45 }}
-      >
-        <button
-          type="button"
-          className="saas-footer-brand saas-footer-brand-link"
-          onClick={() => navigate('/')}
-          aria-label={(UI_TEXT[lang] || UI_TEXT.fr).guides.home}
+      {/* Access Plans */}
+      <section className="landing-shell plans-section">
+        <Motion.div
+          className="plans-heading"
+          initial={{ opacity: 0, y: 12 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.5 }}
+          transition={{ duration: 0.45 }}
         >
-          <img src="/logo-84.webp" alt="CC" width="36" height="36" loading="lazy" />
-          <div>
-            <p>Car Chat : CC</p>
-            <span>{landingText.footerTagline}</span>
-          </div>
-        </button>
+          <h2>{t.plansTitle}</h2>
+          <p>{t.plansSubtitle}</p>
+        </Motion.div>
 
-        <div className="saas-footer-socials">
-          <a
-            className="social-link"
-            href="https://www.linkedin.com/in/lakhdar-berache/"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="LinkedIn profile"
+        <div className="plans-grid">
+          <Motion.article
+            className="plan-card plan-card-beta"
+            initial={{ opacity: 0, y: 14 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.35 }}
+            transition={{ duration: 0.45 }}
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M6.94 8.72H3.56V20h3.38V8.72Zm.22-3.49C7.14 4.17 6.34 3.4 5.28 3.4S3.4 4.17 3.4 5.23c0 1.04.8 1.83 1.86 1.83h.02c1.08 0 1.88-.79 1.88-1.83ZM20 13.55c0-3.4-1.82-4.98-4.25-4.98-1.96 0-2.84 1.08-3.33 1.85v-1.7H9.04c.04 1.12 0 11.28 0 11.28h3.38v-6.3c0-.34.02-.67.12-.91.27-.67.88-1.36 1.92-1.36 1.35 0 1.9 1.03 1.9 2.55V20H20v-6.45Z" />
-            </svg>
-            {landingText.linkedin}
-          </a>
+            <span className="plan-badge">{t.betaPlanBadge || 'LIVE'}</span>
+            <h3>{t.betaPlanTitle}</h3>
+            <p>{t.betaPlanDesc}</p>
+            <button className="plan-cta" onClick={goToGuides}>
+              {t.betaPlanCta}
+            </button>
+          </Motion.article>
 
-          <a
-            className="social-link"
-            href="https://github.com/aminssutt"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="GitHub profile"
+          <Motion.article
+            className="plan-card plan-card-premium"
+            initial={{ opacity: 0, y: 14 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.35 }}
+            transition={{ duration: 0.45, delay: 0.08 }}
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M12 .5A11.5 11.5 0 0 0 .5 12.24c0 5.2 3.35 9.6 8 11.16.58.1.78-.26.78-.57 0-.29-.01-1.04-.01-2.05-3.26.73-3.95-1.6-3.95-1.6-.53-1.38-1.3-1.75-1.3-1.75-1.07-.75.08-.74.08-.74 1.18.08 1.8 1.23 1.8 1.23 1.05 1.82 2.75 1.3 3.42 1 .1-.78.4-1.3.73-1.6-2.6-.3-5.34-1.33-5.34-5.9 0-1.3.45-2.36 1.2-3.2-.12-.3-.52-1.52.12-3.17 0 0 .98-.32 3.2 1.22a10.9 10.9 0 0 1 5.82 0c2.2-1.54 3.18-1.22 3.18-1.22.64 1.65.24 2.87.12 3.17.75.84 1.2 1.9 1.2 3.2 0 4.58-2.74 5.6-5.35 5.9.42.37.8 1.08.8 2.18 0 1.57-.01 2.83-.01 3.22 0 .31.2.68.79.57a11.75 11.75 0 0 0 8-11.16A11.5 11.5 0 0 0 12 .5Z" />
-            </svg>
-            {landingText.github}
-          </a>
+            <span className="plan-badge plan-badge-premium">{t.premiumPlanBadge || 'COMING SOON'}</span>
+            <h3>{t.premiumPlanTitle}</h3>
+            <p>{t.premiumPlanDesc}</p>
+            <ul className="plan-features">
+              {t.premiumPlanFeatures.map((feature) => (
+                <li key={feature}>{feature}</li>
+              ))}
+            </ul>
+            <button className="plan-cta plan-cta-premium" onClick={openWaitlistModal}>
+              {t.premiumPlanCta}
+            </button>
+          </Motion.article>
         </div>
-
-        <p className="saas-footer-copy">&copy; {new Date().getFullYear()} CC. {landingText.rights}</p>
-      </Motion.footer>
+      </section>
 
       <AnimatePresence>
-        {launching && (
+        {waitlistOpen && (
           <Motion.div
-            className="launch-overlay"
+            className="waitlist-backdrop"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            onClick={closeWaitlistModal}
           >
-            <Motion.img
-              src="/logo-300.webp"
-              alt="Launching"
-              initial={{ scale: 0.92, opacity: 0.8 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ repeat: Infinity, repeatType: 'reverse', duration: 0.7 }}
-            />
-            <p>{landingText.loadingGuides}</p>
+            <Motion.div
+              className="waitlist-modal"
+              initial={{ opacity: 0, y: 12, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.98 }}
+              transition={{ duration: 0.18 }}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <h3>{t.waitlistTitle}</h3>
+              <p>{t.waitlistSubtitle}</p>
+
+              <form className="waitlist-form" onSubmit={handleWaitlistSubmit}>
+                <input
+                  type="email"
+                  value={waitlistEmail}
+                  onChange={(event) => setWaitlistEmail(event.target.value)}
+                  placeholder={t.waitlistPlaceholder}
+                  autoComplete="email"
+                  required
+                  disabled={waitlistStatus === 'loading'}
+                />
+
+                <div className="waitlist-actions">
+                  <button
+                    type="button"
+                    className="waitlist-btn waitlist-btn-ghost"
+                    onClick={closeWaitlistModal}
+                    disabled={waitlistStatus === 'loading'}
+                  >
+                    {t.waitlistCancel}
+                  </button>
+                  <button
+                    type="submit"
+                    className="waitlist-btn waitlist-btn-primary"
+                    disabled={waitlistStatus === 'loading'}
+                  >
+                    {waitlistStatus === 'loading' ? t.waitlistSubmitting : t.waitlistSubmit}
+                  </button>
+                </div>
+              </form>
+
+              {waitlistFeedback ? (
+                <p className={`waitlist-feedback waitlist-feedback-${waitlistStatus}`}>{waitlistFeedback}</p>
+              ) : null}
+            </Motion.div>
           </Motion.div>
         )}
       </AnimatePresence>
     </main>
-  )
+  );
 }
 
-export default LandingPage
+
