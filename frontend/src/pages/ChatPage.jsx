@@ -27,7 +27,7 @@ const pageVariants = {
 
 const TOAST_COPY = {
   fr: {
-    redirecting: 'Action validee. Redirection en cours...',
+    redirecting: 'Action validée. Redirection en cours...',
   },
   en: {
     redirecting: 'Action confirmed. Redirecting...',
@@ -41,7 +41,7 @@ const URL_REGEX = /(https?:\/\/[^\s)]+)/g
 const YOUTUBE_URL_REGEX = /(https?:\/\/(?:www\.)?(?:youtube\.com\/[^\s)]+|youtu\.be\/[^\s)]+))/i
 const VIDEO_LABEL_REGEX = /^(?:video.*youtube.*|recommended youtube video|youtube recommended video)\s*:?\s*$/i
 const VIDEO_UI = {
-  fr: { badge: 'Video conseillee', action: 'Voir la video' },
+  fr: { badge: 'Vidéo conseillée', action: 'Voir la vidéo' },
   en: { badge: 'Suggested video', action: 'Watch video' },
   ko: { badge: 'Recommended video', action: 'Open video' },
 }
