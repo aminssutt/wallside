@@ -21,7 +21,7 @@ const pageVariants = {
 const TOAST_COPY = {
   fr: {
     openingAssistant: "Ouverture de l'assistant...",
-    redirectingHome: 'Action validee. Redirection en cours...',
+    redirectingHome: 'Action validée. Redirection en cours...',
   },
   en: {
     openingAssistant: 'Opening assistant...',

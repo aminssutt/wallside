@@ -27,7 +27,7 @@ if not GOOGLE_API_KEY:
         "Creez un fichier .env avec votre cle API Google."
     )
 
-# Configuration du modÃ¨le
+# Configuration du modèle
 def _normalize_model_name(raw_value, default_value, aliases=None):
     value = (raw_value or default_value).strip()
     if aliases and value in aliases:
