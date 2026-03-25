@@ -30,10 +30,64 @@
     "image_url": "https://upload.wikimedia.org/wikipedia/commons/1/10/2007_Chevrolet_Avalanche_LS.jpg"
   },
   {
+    "vehicle": "Citroen C3 2024",
+    "image": "citroen c3 2024.png",
+    "source_page": "https://en.wikipedia.org/wiki/Citroën_C3",
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/02/Citro%C3%ABn_C3_%284th_generation%29_DSC_7961.jpg/1280px-Citro%C3%ABn_C3_%284th_generation%29_DSC_7961.jpg"
+  },
+  {
+    "vehicle": "Dacia Duster 2024",
+    "image": "dacia duster 2024.png",
+    "source_page": "https://en.wikipedia.org/wiki/Dacia_Duster",
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Dacia_Duster_TCe_130_Extreme_%28III%29_%E2%80%93_f_13102024.jpg/1280px-Dacia_Duster_TCe_130_Extreme_%28III%29_%E2%80%93_f_13102024.jpg"
+  },
+  {
+    "vehicle": "Dacia Sandero 2023",
+    "image": "dacia sandero 2023.png",
+    "source_page": "https://en.wikipedia.org/wiki/Dacia_Sandero",
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/2023_Dacia_Sandero_III_DSC_6012.jpg/1280px-2023_Dacia_Sandero_III_DSC_6012.jpg"
+  },
+  {
     "vehicle": "Honda Civic 11",
     "image": "honda civic 11.png",
     "source_page": "https://en.wikipedia.org/wiki/Honda_Civic_(eleventh_generation)",
     "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b5/2022_Honda_Civic_Touring_in_Lunar_Silver_Metallic%2C_Front_Left%2C_05-10-2022.jpg/960px-2022_Honda_Civic_Touring_in_Lunar_Silver_Metallic%2C_Front_Left%2C_05-10-2022.jpg"
+  },
+  {
+    "vehicle": "Peugeot 2008 2019",
+    "image": "peugeot 2008 2019.png",
+    "source_page": "https://en.wikipedia.org/wiki/Peugeot_2008",
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f7/2023_Peugeot_2008_in_Vertigo_Blue%2C_front_left%2C_06-08-2025.jpg/1280px-2023_Peugeot_2008_in_Vertigo_Blue%2C_front_left%2C_06-08-2025.jpg"
+  },
+  {
+    "vehicle": "Peugeot 208 2023",
+    "image": "peugeot 208 2023.png",
+    "source_page": "https://en.wikipedia.org/wiki/Peugeot_208",
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c6/Peugeot_208_PureTech_130_EAT8_Allure_GT-Line_%28II%29_%E2%80%93_f_17102021.jpg/1280px-Peugeot_208_PureTech_130_EAT8_Allure_GT-Line_%28II%29_%E2%80%93_f_17102021.jpg"
+  },
+  {
+    "vehicle": "Peugeot 3008 2018",
+    "image": "peugeot 3008 2018.png",
+    "source_page": "https://en.wikipedia.org/wiki/Peugeot_3008",
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/ed/Peugeot_e-3008_Automesse_Ludwigsburg_2024_IMG_1537.jpg/1280px-Peugeot_e-3008_Automesse_Ludwigsburg_2024_IMG_1537.jpg"
+  },
+  {
+    "vehicle": "Peugeot 308 2022",
+    "image": "peugeot 308 2022.png",
+    "source_page": "https://en.wikipedia.org/wiki/Peugeot_308",
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9e/2022_-_Peugeot_308_III_%28C%29_-_121.jpg/1280px-2022_-_Peugeot_308_III_%28C%29_-_121.jpg"
+  },
+  {
+    "vehicle": "Peugeot 508 2019",
+    "image": "peugeot 508 2019.png",
+    "source_page": "https://en.wikipedia.org/wiki/Peugeot_508",
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/01/2019_Peugeot_508_GT-Line_BlueHDi_1.5_%28130_PS%29_Front.jpg/1280px-2019_Peugeot_508_GT-Line_BlueHDi_1.5_%28130_PS%29_Front.jpg"
+  },
+  {
+    "vehicle": "Renault Captur 2024",
+    "image": "renault captur 2024.png",
+    "source_page": "https://en.wikipedia.org/wiki/Renault_Captur",
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/03/2024_Renault_Captur_II_Automesse_Ludwigsburg_2024_IMG_1506.jpg/1280px-2024_Renault_Captur_II_Automesse_Ludwigsburg_2024_IMG_1506.jpg"
   },
   {
     "vehicle": "Volkswagen Golf 6 Phase 1",

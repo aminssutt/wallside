@@ -48,6 +48,42 @@
     "indexed_at": "2026-03-15T11:54:11.559073+00:00"
   },
   {
+    "slug": "citroen-c3-2024",
+    "name": "Citroen C3 2024",
+    "brand": "Citroen",
+    "image": "citroen c3 2024.png",
+    "source_pdf": "car data/Citroen/Citroen C3 2024.pdf",
+    "source_hash": "6c9b8788d10fa1ba3d0a3abbdcfbda1e4438940ffa065857eb226cb450ff80e5",
+    "page_count": 328,
+    "chunk_count": 327,
+    "extraction_mode": "pypdf",
+    "indexed_at": "2026-03-25T23:02:05.168640+00:00"
+  },
+  {
+    "slug": "dacia-duster-2024",
+    "name": "Dacia Duster 2024",
+    "brand": "Dacia",
+    "image": "dacia duster 2024.png",
+    "source_pdf": "car data/Dacia/Dacia Duster 2024.pdf",
+    "source_hash": "72ec2ae6ad02f34b6dade827f69548be209c7e6903f1f138499f8ff22682dc9f",
+    "page_count": 406,
+    "chunk_count": 450,
+    "extraction_mode": "pypdf",
+    "indexed_at": "2026-03-25T23:02:29.531743+00:00"
+  },
+  {
+    "slug": "dacia-sandero-2023",
+    "name": "Dacia Sandero 2023",
+    "brand": "Dacia",
+    "image": "dacia sandero 2023.png",
+    "source_pdf": "car data/Dacia/Dacia Sandero 2023.pdf",
+    "source_hash": "8d9abb857debc9bb77e54e034b69a88b823db829f0387c91e1c43698c71c6086",
+    "page_count": 472,
+    "chunk_count": 452,
+    "extraction_mode": "pypdf",
+    "indexed_at": "2026-03-25T23:02:59.098675+00:00"
+  },
+  {
     "slug": "honda-civic-11",
     "name": "Honda Civic 11",
     "brand": "Honda",
@@ -58,6 +94,66 @@
     "chunk_count": 954,
     "extraction_mode": "pypdf",
     "indexed_at": "2026-03-15T08:27:14.144316+00:00"
+  },
+  {
+    "slug": "peugeot-2008-2019",
+    "name": "Peugeot 2008 2019",
+    "brand": "Peugeot",
+    "image": "peugeot 2008 2019.png",
+    "source_pdf": "car data/Peugeot/Peugeot 2008 2019.pdf",
+    "source_hash": "29085401d7302f31d7779fd64799b078da8a1f5cf7eabae6854effd4077e924d",
+    "page_count": 260,
+    "chunk_count": 468,
+    "extraction_mode": "pypdf",
+    "indexed_at": "2026-03-25T22:27:11.598545+00:00"
+  },
+  {
+    "slug": "peugeot-208-2023",
+    "name": "Peugeot 208 2023",
+    "brand": "Peugeot",
+    "image": "peugeot 208 2023.png",
+    "source_pdf": "car data/Peugeot/Peugeot 208 2023.pdf",
+    "source_hash": "42c0f7b1731f07007c811218130080e831d48020452cfbe3da38a6bdc117ac6b",
+    "page_count": 308,
+    "chunk_count": 561,
+    "extraction_mode": "pypdf",
+    "indexed_at": "2026-03-25T22:27:50.870909+00:00"
+  },
+  {
+    "slug": "peugeot-3008-2018",
+    "name": "Peugeot 3008 2018",
+    "brand": "Peugeot",
+    "image": "peugeot 3008 2018.png",
+    "source_pdf": "car data/Peugeot/Peugeot 3008 2018.pdf",
+    "source_hash": "0d5336663d097c5a04e6c932eafc86d4221018428a8645ad5a6159bce6707dcb",
+    "page_count": 578,
+    "chunk_count": 589,
+    "extraction_mode": "pypdf",
+    "indexed_at": "2026-03-25T22:28:47.014363+00:00"
+  },
+  {
+    "slug": "peugeot-308-2022",
+    "name": "Peugeot 308 2022",
+    "brand": "Peugeot",
+    "image": "peugeot 308 2022.png",
+    "source_pdf": "car data/Peugeot/Peugeot 308 2022.pdf",
+    "source_hash": "5ecaa25a187f958dc250ee8cc2503838efe44a1b64ef007737958f52e1dbcef5",
+    "page_count": 260,
+    "chunk_count": 452,
+    "extraction_mode": "pypdf",
+    "indexed_at": "2026-03-25T22:29:18.140906+00:00"
+  },
+  {
+    "slug": "peugeot-508-2019",
+    "name": "Peugeot 508 2019",
+    "brand": "Peugeot",
+    "image": "peugeot 508 2019.png",
+    "source_pdf": "car data/Peugeot/Peugeot 508 2019.pdf",
+    "source_hash": "4c93a927fa73c6e50c1c382621f5323fb0dae14549dc54f1f1a48de9f50e907a",
+    "page_count": 371,
+    "chunk_count": 394,
+    "extraction_mode": "pypdf",
+    "indexed_at": "2026-03-25T22:29:54.444954+00:00"
   },
   {
     "slug": "alpine-a390-2025",
@@ -77,6 +173,18 @@
     "brand": "Renault",
     "image": "clio 4.png",
     "source_pdf": null
+  },
+  {
+    "slug": "renault-captur-2024",
+    "name": "Renault Captur 2024",
+    "brand": "Renault",
+    "image": "renault captur 2024.png",
+    "source_pdf": "car data/Renault/Renault Captur 2024.pdf",
+    "source_hash": "acb9760e7eb08aeddce58ea6a70f0aba63e11a13b43704faf72fee7218048cda",
+    "page_count": 442,
+    "chunk_count": 487,
+    "extraction_mode": "pypdf",
+    "indexed_at": "2026-03-25T23:03:26.928175+00:00"
   },
   {
     "slug": "tesla-model-y",
