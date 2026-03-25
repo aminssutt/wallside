@@ -125,6 +125,19 @@ python process_vehicle_images.py
 
 Variable d'environnement Vercel : `VITE_API_URL=https://your-app.onrender.com/api`
 
+### Nettoyage avant redeploiement serveur
+
+Depuis la racine du projet (Windows PowerShell) :
+
+```powershell
+./clean-workspace.ps1
+```
+
+Options utiles :
+
+- `./clean-workspace.ps1 -IncludeFrontendDist`
+- `./clean-workspace.ps1 -IncludeFrontendDist -IncludeNodeModules`
+
 ## Auteur
 
 **Amine S.**

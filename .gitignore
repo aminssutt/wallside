@@ -4,6 +4,8 @@
 .env
 .env.local
 .env.*.local
+.env.prod
+.env.prod.save
 secrets.json
 credentials.json
 
@@ -12,10 +14,7 @@ credentials.json
 # ================================
 backend/data/*
 !backend/data/guides/
-backend/data/guides/*
-!backend/data/guides/manifest.json
-!backend/data/vehicle_images/
-!backend/data/vehicle_images/**
+!backend/data/guides/**
 
 # Keep manual PDFs out of git (car images are allowed)
 *.pdf
@@ -46,6 +45,12 @@ vector_store/
 *.faiss
 *.pkl
 
+# Keep pre-indexed deploy guides tracked
+!backend/data/guides/**/vector_store/
+!backend/data/guides/**/vector_store/**
+!backend/data/guides/**/*.faiss
+!backend/data/guides/**/*.pkl
+
 # ================================
 # Node / React / Vite
 # ================================
@@ -59,6 +64,9 @@ frontend/build/
 # ================================
 .vscode/
 .idea/
+.claude/
+.claude-flow/
+.swarm/
 *.swp
 *.swo
 

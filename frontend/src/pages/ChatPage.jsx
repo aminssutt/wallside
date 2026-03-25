@@ -8,7 +8,6 @@ import './ChatPage.css'
 import wrenchIcon from '../assets/icons/wrench.svg'
 import dashboardIcon from '../assets/icons/dashboard.svg'
 import navigationIcon from '../assets/icons/navigation.svg'
-import infotainmentIcon from '../assets/icons/infotainment.svg'
 
 const FLAG_BY_LANG = {
   fr: '/flags/fr.svg',
@@ -18,6 +17,29 @@ const FLAG_BY_LANG = {
 
 const QUICK_ICONS = [wrenchIcon, dashboardIcon, navigationIcon]
 const COMPACT_MENU_BREAKPOINT = 1024
+const CHAT_REQUEST_TIMEOUT_MS = 45000
+const ASSISTANT_ALIAS_BANK = {
+  fr: {
+    prefix: ['Atelier', 'Circuit', 'Pitlane', 'Moteur', 'Garage', 'Turbo'],
+    core: ['Nova', 'Apex', 'Vortex', 'Volt', 'Piston', 'Sprint'],
+  },
+  en: {
+    prefix: ['Torque', 'Apex', 'Pitlane', 'Drive', 'Garage', 'Vector'],
+    core: ['Nova', 'Pulse', 'Vortex', 'Volt', 'Piston', 'Sprint'],
+  },
+  ko: {
+    prefix: ['피트', '터보', '드라이브', '모터', '레이스', '기어'],
+    core: ['노바', '펄스', '벡터', '볼트', '피스톤', '스프린트'],
+  },
+}
+
+const pickRandom = (items) => items[Math.floor(Math.random() * items.length)]
+
+const generateAssistantAlias = (lang = 'en') => {
+  const bank = ASSISTANT_ALIAS_BANK[lang] || ASSISTANT_ALIAS_BANK.en
+  const serial = Math.floor(10 + Math.random() * 90)
+  return `${pickRandom(bank.prefix)} ${pickRandom(bank.core)}-${serial}`
+}
 
 const pageVariants = {
   initial: { opacity: 0 },
@@ -311,6 +333,11 @@ function ChatPage() {
   const [isCompactNav, setIsCompactNav] = useState(
     typeof window !== 'undefined' ? window.innerWidth <= COMPACT_MENU_BREAKPOINT : false,
   )
+  const [assistantAliases] = useState(() => ({
+    fr: generateAssistantAlias('fr'),
+    en: generateAssistantAlias('en'),
+    ko: generateAssistantAlias('ko'),
+  }))
   const chatContainerRef = useRef(null)
   const langDropdownRef = useRef(null)
   const tokenFlushTimerRef = useRef(null)
@@ -322,7 +349,12 @@ function ChatPage() {
   const exitConfirmText = t.chat.exitConfirmText || 'Are you sure you want to leave this conversation?'
   const exitConfirmCancel = t.chat.exitConfirmCancel || 'Cancel'
   const exitConfirmAccept = t.chat.exitConfirmAccept || 'Leave'
+  const exitConfirmKicker = lang === 'fr' ? 'TERMINER LA LIAISON ?' : lang === 'ko' ? '링크를 종료하시겠습니까?' : 'TERMINATE NEURAL LINK?'
+  const exitNodeLabel = lang === 'fr' ? 'NOEUD.ACTIF' : lang === 'ko' ? '활성 노드' : 'ACTIVE.NODE'
   const currentLang = LANGUAGES.find((entry) => entry.code === lang) || LANGUAGES[0]
+  const terminalSystemLabel = assistantAliases[lang] || assistantAliases.en
+  const terminalProtocolLabel = 'PROTOCOL_SECURE_LINE'
+  const executeLabel = lang === 'fr' ? 'EXECUTER' : 'EXECUTE'
 
   const quickQuestions = useMemo(() => {
     return (t.chat.quickQuestions || []).map((text, index) => ({
@@ -330,6 +362,7 @@ function ChatPage() {
       icon: QUICK_ICONS[index % QUICK_ICONS.length],
     }))
   }, [t])
+  const isIntroMode = messages.length === 0 && !isLoading
 
   useEffect(() => {
     const previousBodyOverflow = document.body.style.overflow
@@ -459,47 +492,6 @@ function ChatPage() {
     navigate(targetPath)
   }
 
-  const ensureBotMessage = (initialText = '') => {
-      setMessages((previous) => {
-        if (previous.length === 0 || previous[previous.length - 1]?.type !== 'bot') {
-          return [...previous, { type: 'bot', content: initialText }]
-        }
-        return previous
-      })
-    }
-
-  const appendToBotMessage = (chunk = '') => {
-      if (!chunk) return
-      setMessages((previous) => {
-        if (previous.length === 0) return previous
-        const updated = [...previous]
-        const last = updated[updated.length - 1]
-        if (!last || last.type !== 'bot') {
-          updated.push({ type: 'bot', content: chunk })
-          return updated
-        }
-        updated[updated.length - 1] = {
-          ...last,
-          content: `${last.content || ''}${chunk}`,
-        }
-        return updated
-      })
-    }
-
-  const setBotMessage = (text = '') => {
-      setMessages((previous) => {
-        if (previous.length === 0) return previous
-        const updated = [...previous]
-        const last = updated[updated.length - 1]
-        if (!last || last.type !== 'bot') {
-          updated.push({ type: 'bot', content: text })
-          return updated
-        }
-        updated[updated.length - 1] = { ...last, content: text }
-        return updated
-      })
-    }
-
   useEffect(() => {
     return () => {
       if (tokenFlushTimerRef.current) {
@@ -567,13 +559,19 @@ function ChatPage() {
     setInput('')
     setIsLoading(true)
     setLangOpen(false)
+    let timeoutId
 
     try {
+      const controller = new AbortController()
+      timeoutId = window.setTimeout(() => controller.abort(), CHAT_REQUEST_TIMEOUT_MS)
+
       const response = await fetch(`${API_URL}/guides/${slug}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: text, lang }),
+        signal: controller.signal,
       })
+
       const data = await response.json()
 
       if (data.success) {
@@ -582,9 +580,16 @@ function ChatPage() {
         const fallback = (data.error || '').trim() || t.chat.unavailable
         await streamBotMessage(fallback)
       }
-    } catch {
+    } catch (error) {
+      if (error?.name === 'AbortError') {
+        await streamBotMessage(t.chat.serverUnavailable)
+        return
+      }
       await streamBotMessage(t.chat.serverUnavailable)
     } finally {
+      if (timeoutId) {
+        window.clearTimeout(timeoutId)
+      }
       setIsLoading(false)
       inputRef.current?.focus()
     }
@@ -631,7 +636,8 @@ function ChatPage() {
         {isCompactNav ? (
           <div className="chat-brand chat-brand-static" aria-hidden>
             <img src="/logo top left.png" alt="CarChat" width="122" height="36" loading="lazy" />
-            <div>
+            <div className="chat-brand-copy">
+              <span className="chat-brand-system">{terminalSystemLabel}</span>
               <p>{guide.name}</p>
               {guide.coverage_note ? (
                 <small className="chat-brand-note">{formatText(coverageLabel, { coverage: guide.coverage_note })}</small>
@@ -646,7 +652,8 @@ function ChatPage() {
             aria-label={(UI_TEXT[lang] || UI_TEXT.fr).guides.home}
           >
             <img src="/logo top left.png" alt="CarChat" width="122" height="36" loading="lazy" />
-            <div>
+            <div className="chat-brand-copy">
+              <span className="chat-brand-system">{terminalSystemLabel}</span>
               <p>{guide.name}</p>
               {guide.coverage_note ? (
                 <small className="chat-brand-note">{formatText(coverageLabel, { coverage: guide.coverage_note })}</small>
@@ -656,6 +663,7 @@ function ChatPage() {
         )}
 
         <div className="chat-header-right">
+          <span className="chat-header-protocol">{terminalProtocolLabel}</span>
           {isCompactNav ? (
             <button
               type="button"
@@ -769,115 +777,111 @@ function ChatPage() {
       </AnimatePresence>
 
       <main className="chat-body" ref={chatContainerRef}>
-        <AnimatePresence>
-          {messages.length === 0 && !isLoading && (
-            <Motion.div
-              className="chat-welcome"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.45 }}
-            >
-              <div className="chat-welcome-icon">
-                <img src={navigationIcon} alt="" loading="lazy" />
-              </div>
-              <h2>{t.chat.askFirst}</h2>
-              <p>{formatText(t.chat.askFirstDesc, { vehicle: guide.name })}</p>
-
-              <div className="chat-suggestions">
-                {quickQuestions.map((item, index) => (
-                  <Motion.button
-                    key={item.text}
-                    className="suggestion-pill"
-                    onClick={() => sendMessage(item.text)}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.22 + (index * 0.08) }}
-                    whileHover={{ scale: 1.01 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    <img src={item.icon} alt="" loading="lazy" />
-                    <span>{item.text}</span>
-                  </Motion.button>
-                ))}
-              </div>
-            </Motion.div>
+          {!isIntroMode && (
+            <div className="chat-vehicle-banner">
+              <p>{terminalSystemLabel}</p>
+              <h1>{guide.name}</h1>
+            </div>
           )}
-        </AnimatePresence>
 
-        <div className="chat-messages">
-          <AnimatePresence initial={false}>
-            {messages.map((msg, index) => (
-              <Motion.div
-                key={`${msg.type}-${index}`}
-                className={`msg ${msg.type}`}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.28 }}
-              >
-                <div className="msg-avatar">
-                  {msg.type === 'user' ? (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
-                      <circle cx="12" cy="7" r="4" />
-                    </svg>
-                  ) : (
-                    <img src={infotainmentIcon} alt="" loading="lazy" />
-                  )}
-                </div>
+          <div className={`chat-messages${isIntroMode ? ' chat-messages--empty' : ''}`}>
+            <AnimatePresence>
+              {messages.length === 0 && !isLoading && (
+                <Motion.div
+                  className="chat-intro-card"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.45 }}
+                >
+                  <h2>{t.chat.askFirst}</h2>
+                  <p>{formatText(t.chat.askFirstDesc, { vehicle: guide.name })}</p>
 
-                <div className="msg-bubble">
-                  {msg.type === 'bot' ? <RichBotMessage text={msg.content} lang={lang} /> : msg.content}
-                </div>
-              </Motion.div>
-            ))}
-          </AnimatePresence>
+                  <div className="chat-suggestions chat-suggestions--inline">
+                    {quickQuestions.map((item, index) => (
+                      <Motion.button
+                        key={item.text}
+                        className="suggestion-pill"
+                        onClick={() => sendMessage(item.text)}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.22 + (index * 0.08) }}
+                        whileHover={{ scale: 1.01 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        <img src={item.icon} alt="" loading="lazy" />
+                        <span>{item.text}</span>
+                      </Motion.button>
+                    ))}
+                  </div>
+                </Motion.div>
+              )}
+            </AnimatePresence>
 
-          <AnimatePresence>
-            {isLoading && !isStreaming && (
-              <Motion.div
-                className="msg bot"
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-              >
-                <div className="msg-avatar">
-                  <img src={infotainmentIcon} alt="" loading="lazy" />
-                </div>
-                <div className="msg-bubble msg-typing">
-                  <span /><span /><span />
-                </div>
-              </Motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+            <AnimatePresence initial={false}>
+              {messages.map((msg, index) => (
+                <Motion.div
+                  key={`${msg.type}-${index}`}
+                  className={`msg ${msg.type}`}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.28 }}
+                >
+                  <div className="msg-avatar">
+                    <span className="msg-avatar-tag">{msg.type === 'user' ? 'USR' : 'AI'}</span>
+                  </div>
+
+                  <div className="msg-bubble">
+                    {msg.type === 'bot' ? <RichBotMessage text={msg.content} lang={lang} /> : msg.content}
+                  </div>
+                </Motion.div>
+              ))}
+            </AnimatePresence>
+
+            <AnimatePresence>
+              {isLoading && !isStreaming && (
+                <Motion.div
+                  className="msg bot"
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                >
+                  <div className="msg-avatar">
+                    <span className="msg-avatar-tag">AI</span>
+                  </div>
+                  <div className="msg-bubble msg-typing">
+                    <span /><span /><span />
+                  </div>
+                </Motion.div>
+              )}
+            </AnimatePresence>
+          </div>
       </main>
 
       <footer className="chat-footer">
         <div className="chat-input-wrap">
-          <input
-            ref={inputRef}
-            type="text"
-            value={input}
-            onChange={(event) => setInput(event.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={formatText(t.chat.placeholder, { vehicle: guide.name })}
-            disabled={isLoading || isStreaming}
-          />
-          <Motion.button
-            className="chat-send-btn"
-            onClick={() => sendMessage()}
-            disabled={!input.trim() || isLoading || isStreaming}
-            whileHover={{ scale: 1.04 }}
-            whileTap={{ scale: 0.95 }}
-            title={t.chat.send}
-            aria-label={t.chat.send}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="22" y1="2" x2="11" y2="13" />
-              <polygon points="22 2 15 22 11 13 2 9 22 2" />
-            </svg>
-          </Motion.button>
+          <div className="chat-input-row">
+            <input
+              ref={inputRef}
+              type="text"
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={`> ${formatText(t.chat.placeholder, { vehicle: guide.name })}`}
+              disabled={isLoading || isStreaming}
+            />
+            <Motion.button
+              className="chat-send-btn"
+              onClick={() => sendMessage()}
+              disabled={!input.trim() || isLoading || isStreaming}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.96 }}
+              title={t.chat.send}
+              aria-label={t.chat.send}
+            >
+              {executeLabel}
+            </Motion.button>
+          </div>
         </div>
       </footer>
 
@@ -899,8 +903,10 @@ function ChatPage() {
               onClick={(event) => event.stopPropagation()}
             >
               <div className="chat-exit-top">
+                <span className="chat-exit-sigil" aria-hidden>{'\u25CE'}</span>
+                <p className="chat-exit-kicker">{exitConfirmKicker}</p>
                 <h2>{exitConfirmTitle}</h2>
-                <p>{exitConfirmText}</p>
+                <p className="chat-exit-text">{exitConfirmText}</p>
               </div>
 
               <div className="chat-exit-actions">
@@ -910,6 +916,11 @@ function ChatPage() {
                 <button type="button" className="chat-exit-accept" onClick={confirmExitChat}>
                   {exitConfirmAccept}
                 </button>
+              </div>
+
+              <div className="chat-exit-foot">
+                <span>SYS.ID: AURIS-V3</span>
+                <span>{exitNodeLabel}: {guide.name}</span>
               </div>
             </Motion.div>
           </Motion.div>
