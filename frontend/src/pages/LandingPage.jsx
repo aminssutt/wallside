@@ -55,8 +55,9 @@ const COPY = {
     waitlistError: 'Unable to save your email right now.',
     chatPreview: {
       user: 'What does this warning light mean?',
-      ai: "According to your manual, this is the Malfunction Indicator Lamp (Check Engine). If it stays on continuously, it indicates a potential emissions control system issue. If it flashes, it may indicate an engine misfire. Please reduce speed and seek service soon."
-    }
+      ai: "According to your manual, this is likely the Malfunction Indicator Lamp (Check Engine). Drive calmly and schedule a diagnostic if it stays on.\n\nVideo: [YouTube walkthrough placeholder]\nSources: Owner's manual p.2, p.45"
+    },
+    chatInputPlaceholder: 'Ask your manual...'
   },
   fr: {
     heroBadge: 'Assistant Automobile par IA',
@@ -100,8 +101,9 @@ const COPY = {
     waitlistError: 'Impossible d\'enregistrer votre e-mail pour le moment.',
     chatPreview: {
       user: 'Que signifie ce voyant d\'avertissement ?',
-      ai: 'D\'après votre manuel, il s\'agit du témoin de dysfonctionnement (Check Engine). S\'il reste allumé, cela indique un problème du système antipollution. S\'il clignote, un raté d\'allumage est possible. Réduisez votre vitesse.'
-    }
+      ai: 'Selon votre manuel, il s\'agit probablement du voyant moteur (Check Engine). Roulez calmement et planifiez un diagnostic s\'il reste allumé.\n\nVideo: [Placeholder lien YouTube]\nSources: Manuel p.2, p.45'
+    },
+    chatInputPlaceholder: 'Posez votre question...'
   },
   ko: {
     heroBadge: 'AI 기반 차량 어시스턴트',
@@ -145,8 +147,9 @@ const COPY = {
     waitlistError: '지금은 이메일을 저장할 수 없습니다.',
     chatPreview: {
       user: '이 경고등은 무슨 뜻인가요?',
-      ai: '매뉴얼에 따르면 이것은 오작동 표시등(엔진 경고등)입니다. 계속 켜져 있으면 배출가스 제어 시스템 문제일 수 있으며, 깜박이면 엔진 실화일 수 있습니다. 속도를 줄이고 즉시 점검을 받으세요.'
-    }
+      ai: '매뉴얼 기준으로 이 표시는 엔진 경고등일 가능성이 높습니다. 계속 켜져 있으면 속도를 줄이고 점검 일정을 잡아 주세요.\n\nVideo: [YouTube 가이드 자리표시자]\nSources: 매뉴얼 2페이지, 45페이지'
+    },
+    chatInputPlaceholder: '매뉴얼에 질문해 보세요...'
   }
 };
 
@@ -191,6 +194,7 @@ export default function LandingPage() {
   const [waitlistEmail, setWaitlistEmail] = useState('');
   const [waitlistStatus, setWaitlistStatus] = useState('idle');
   const [waitlistFeedback, setWaitlistFeedback] = useState('');
+  const chatPreviewHasAnimatedRef = useRef(false);
 
   useEffect(() => {
     // Ensure the home page can always scroll after leaving full-screen chat pages.
@@ -201,13 +205,21 @@ export default function LandingPage() {
 
   useEffect(() => {
     // Chat Animation Sequence
+    if (chatPreviewHasAnimatedRef.current) {
+      setChatStep(3);
+      return undefined;
+    }
+
     setChatStep(0);
     const t1 = setTimeout(() => setChatStep(1), 600);   // User starts typing
     const t2 = setTimeout(() => setChatStep(2), 2500);  // User done, AI thinking
-    const t3 = setTimeout(() => setChatStep(3), 4000);  // AI responding
+    const t3 = setTimeout(() => {
+      setChatStep(3);  // AI responding
+      chatPreviewHasAnimatedRef.current = true;
+    }, 4000);
     
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
-  }, [lang]); // Re-run animation when language changes
+  }, []);
 
   useEffect(() => {
     if (!langOpen) return undefined;
@@ -260,6 +272,11 @@ export default function LandingPage() {
   const goToGuides = () => {
     showToast({ type: 'success', message: t.toastRedirecting });
     navigate('/guides');
+  };
+
+  const scrollToFeatures = () => {
+    const target = document.getElementById('features');
+    target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   const handleWaitlistSubmit = async (event) => {
@@ -389,10 +406,14 @@ export default function LandingPage() {
           initial="hidden"
           animate="visible"
         >
+          <Motion.div variants={fadeUp} className="hero-badge-line">
+            <span className="hero-badge-track" />
+            <span className="hero-badge">{t.heroBadge}</span>
+          </Motion.div>
+
           <Motion.h1 variants={fadeUp} className="hero-title">
-            <span className="gradient-text">{t.heroTitleHover}</span>
-            <br />
-            <span className="light-text">{t.heroTitleMain}</span>
+            <span className="gradient-text hero-title-line">{t.heroTitleHover}</span>
+            <span className="light-text hero-title-line">{t.heroTitleMain}</span>
           </Motion.h1>
           
           <Motion.p variants={fadeUp} className="hero-desc">
@@ -407,6 +428,9 @@ export default function LandingPage() {
                 <path d="M13 5l7 7-7 7" />
               </svg>
             </button>
+            <button className="btn-secondary" onClick={scrollToFeatures}>
+              {t.ctaSecondary}
+            </button>
           </Motion.div>
         </Motion.div>
 
@@ -417,64 +441,69 @@ export default function LandingPage() {
           animate={{ opacity: 1, x: 0, rotateY: 0 }}
           transition={{ duration: 0.8, ease: 'easeOut', delay: 0.2 }}
         >
-          <div className="chat-glass">
-            <div className="chat-header">
-              <div className="chat-dot"></div>
-              <div className="chat-dot"></div>
-              <div className="chat-dot"></div>
-              <div className="chat-title">
-                <img src="/logo-128.png" alt="CarChat" className="chat-title-icon" />
-                CarChat
+          <div className="hero-visual-glow" aria-hidden="true" />
+          <div className="chat-shell">
+            <div className="chat-glass">
+              <div className="chat-header">
+                <div className="chat-window-controls">
+                  <div className="chat-dot"></div>
+                  <div className="chat-dot"></div>
+                  <div className="chat-dot"></div>
+                </div>
+                <div className="chat-title">
+                  <img src="/logo-128.png" alt="CarChat" className="chat-title-icon" />
+                  CarChat
+                </div>
               </div>
-            </div>
-            
-            <div className="chat-messages">
-              <AnimatePresence>
-                {chatStep >= 1 && (
-                  <Motion.div 
-                    key="preview-user"
-                    className="chat-bubble bubble-user"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.18 }}
-                  >
-                    <TypewriterText text={t.chatPreview.user} delay={100} />
-                  </Motion.div>
-                )}
-                
-                {chatStep === 2 && (
-                  <Motion.div 
-                    key="preview-ai-loading"
-                    className="chat-bubble bubble-ai loading-ai"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0, transition: { duration: 0.15 } }}
-                  >
-                    <div className="typing-dots">
-                      <span></span><span></span><span></span>
-                    </div>
-                  </Motion.div>
-                )}
+              
+              <div className="chat-messages">
+                <AnimatePresence>
+                  {chatStep >= 1 && (
+                    <Motion.div 
+                      key="preview-user"
+                      className="chat-bubble bubble-user"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.18 }}
+                    >
+                      <TypewriterText text={t.chatPreview.user} delay={100} />
+                    </Motion.div>
+                  )}
+                  
+                  {chatStep === 2 && (
+                    <Motion.div 
+                      key="preview-ai-loading"
+                      className="chat-bubble bubble-ai loading-ai"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0, transition: { duration: 0.15 } }}
+                    >
+                      <div className="typing-dots">
+                        <span></span><span></span><span></span>
+                      </div>
+                    </Motion.div>
+                  )}
 
-                {chatStep >= 3 && (
-                  <Motion.div 
-                    key="preview-ai-answer"
-                    className="chat-bubble bubble-ai"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <TypewriterText text={t.chatPreview.ai} delay={50} />
-                  </Motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-            
-            <div className="chat-input-bar">
-              <div className="chat-input">
-                <span>Ask anything...</span>
-                <div className="chat-send">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
+                  {chatStep >= 3 && (
+                    <Motion.div 
+                      key="preview-ai-answer"
+                      className="chat-bubble bubble-ai"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <TypewriterText text={t.chatPreview.ai} delay={50} />
+                    </Motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+              
+              <div className="chat-input-bar">
+                <div className="chat-input">
+                  <span>{t.chatInputPlaceholder || 'Ask your manual...'}</span>
+                  <div className="chat-send">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
+                  </div>
                 </div>
               </div>
             </div>

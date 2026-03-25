@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion as Motion, AnimatePresence } from 'framer-motion'
 import { formatText, LANGUAGES, UI_TEXT, useAppLanguage } from '../i18n'
@@ -67,7 +67,8 @@ function GuidesPage() {
   const [langOpen, setLangOpen] = useState(false)
   const [navMenuOpen, setNavMenuOpen] = useState(false)
   const [brandPickerOpen, setBrandPickerOpen] = useState(false)
-  const [modelPickerOpen, setModelPickerOpen] = useState(false)
+  const [brandSearchTerm, setBrandSearchTerm] = useState('')
+  const [brandDraftValue, setBrandDraftValue] = useState(ALL_BRANDS_VALUE)
   const [showExitConfirm, setShowExitConfirm] = useState(false)
   const [activeGuideSlug, setActiveGuideSlug] = useState('')
   const [carouselWidth, setCarouselWidth] = useState(0)
@@ -76,7 +77,6 @@ function GuidesPage() {
   )
   const langDropdownRef = useRef(null)
   const brandPopupRef = useRef(null)
-  const modelPopupRef = useRef(null)
   const carouselViewportRef = useRef(null)
   const draggingCarouselRef = useRef(false)
   const confirmRevealTimerRef = useRef(null)
@@ -91,8 +91,6 @@ function GuidesPage() {
   const brandUnknownLabel = t.guides.brandUnknown
   const coverageLabel = t.guides.coverageLabel || '{coverage}'
   const selectedBrandLabel = selectedBrand === ALL_BRANDS_VALUE ? allBrandsLabel : selectedBrand
-  const modelFilterLabel = t.guides.modelFilterLabel || 'Choose model'
-  const modelFilterPlaceholder = t.guides.modelFilterPlaceholder || 'Select a model'
   const swipeHintLabel = t.guides.swipeHint || 'Swipe on mobile or use arrows on tablet and desktop.'
   const previousModelLabel = t.guides.previousModel || 'Previous model'
   const nextModelLabel = t.guides.nextModel || 'Next model'
@@ -101,6 +99,14 @@ function GuidesPage() {
   const exitConfirmText = t.guides.exitConfirmText || 'Are you sure you want to go back home?'
   const exitConfirmCancel = t.guides.exitConfirmCancel || 'Stay here'
   const exitConfirmAccept = t.guides.exitConfirmAccept || 'Yes, leave'
+  const exitConfirmKicker = lang === 'fr' ? 'TERMINER LA LIAISON ?' : lang === 'ko' ? '링크를 종료하시겠습니까?' : 'TERMINATE NEURAL LINK?'
+  const exitNodeLabel = lang === 'fr' ? 'NOEUD.ACTIF' : lang === 'ko' ? '활성 노드' : 'ACTIVE.NODE'
+  const exitActiveNodeFallback = selectedBrandLabel || 'HOME'
+  const popupCloseLabel = lang === 'fr' ? 'Fermer' : lang === 'ko' ? '닫기' : 'Close'
+  const popupApplyLabel = lang === 'fr' ? 'Appliquer' : lang === 'ko' ? '적용' : 'Apply'
+  const brandSearchPlaceholder = lang === 'fr' ? 'Rechercher une marque...' : lang === 'ko' ? '브랜드 검색...' : 'Search brand...'
+  const popupSystemLabel = lang === 'fr' ? 'Interface système' : lang === 'ko' ? '시스템 인터페이스' : 'System interface'
+  const popupFilterStatusLabel = lang === 'fr' ? 'Filtre actif' : lang === 'ko' ? '활성 필터' : 'Filter active'
   const isGuideFocusActive = Boolean(pendingGuide)
 
   useEffect(() => {
@@ -140,7 +146,7 @@ function GuidesPage() {
   }, [])
 
   useEffect(() => {
-    if (!langOpen && !brandPickerOpen && !modelPickerOpen) {
+    if (!langOpen && !brandPickerOpen) {
       return undefined
     }
 
@@ -151,16 +157,12 @@ function GuidesPage() {
       if (brandPopupRef.current && !brandPopupRef.current.contains(event.target)) {
         setBrandPickerOpen(false)
       }
-      if (modelPopupRef.current && !modelPopupRef.current.contains(event.target)) {
-        setModelPickerOpen(false)
-      }
     }
 
     const handleEscape = (event) => {
       if (event.key === 'Escape') {
         setLangOpen(false)
         setBrandPickerOpen(false)
-        setModelPickerOpen(false)
       }
     }
 
@@ -171,7 +173,13 @@ function GuidesPage() {
       document.removeEventListener('mousedown', handleOutsideClick)
       document.removeEventListener('keydown', handleEscape)
     }
-  }, [langOpen, brandPickerOpen, modelPickerOpen])
+  }, [langOpen, brandPickerOpen])
+
+  useEffect(() => {
+    if (!brandPickerOpen) return
+    setBrandDraftValue(selectedBrand)
+    setBrandSearchTerm('')
+  }, [brandPickerOpen, selectedBrand])
 
   useEffect(() => {
     const handleResize = () => {
@@ -222,19 +230,6 @@ function GuidesPage() {
     return () => document.removeEventListener('keydown', handleEscape)
   }, [showExitConfirm])
 
-  useEffect(() => {
-    if (!pendingGuide) return undefined
-
-    const handleEscape = (event) => {
-      if (event.key === 'Escape') {
-        closeConfirmPopup()
-      }
-    }
-
-    document.addEventListener('keydown', handleEscape)
-    return () => document.removeEventListener('keydown', handleEscape)
-  }, [pendingGuide, confirmPhase])
-
   const filteredGuides = useMemo(() => {
     if (selectedBrand === ALL_BRANDS_VALUE) {
       return guides
@@ -243,6 +238,26 @@ function GuidesPage() {
       (guide) => (guide.brand || '').toLowerCase() === selectedBrand.toLowerCase(),
     )
   }, [guides, selectedBrand])
+
+  const brandOptionsForPopup = useMemo(() => {
+    const query = brandSearchTerm.trim().toLowerCase()
+    const values = [ALL_BRANDS_VALUE, ...brands]
+    if (!query) return values
+
+    return values.filter((value) => {
+      if (value === ALL_BRANDS_VALUE) {
+        return allBrandsLabel.toLowerCase().includes(query)
+      }
+      return value.toLowerCase().includes(query)
+    })
+  }, [brands, brandSearchTerm, allBrandsLabel])
+
+  const brandDraftGuideCount = useMemo(() => {
+    if (brandDraftValue === ALL_BRANDS_VALUE) return guides.length
+    return guides.filter(
+      (guide) => (guide.brand || '').toLowerCase() === brandDraftValue.toLowerCase(),
+    ).length
+  }, [guides, brandDraftValue])
 
   useEffect(() => {
     if (filteredGuides.length === 0) {
@@ -313,15 +328,14 @@ function GuidesPage() {
   const carouselStep = useMemo(() => {
     if (!carouselWidth) return 220
     if (carouselWidth < 640) {
-      return Math.max(220, Math.min(380, carouselWidth * 0.84))
+      return Math.max(220, Math.min(380, carouselWidth * 0.88))
     }
-    return Math.max(420, Math.min(700, carouselWidth * 0.62))
+    return Math.max(420, Math.min(740, carouselWidth * 0.68))
   }, [carouselWidth])
 
   const canSlideCarousel = filteredGuides.length > 1
 
   const openConfirmPopup = (guide) => {
-    setModelPickerOpen(false)
     setBrandPickerOpen(false)
     if (confirmRevealTimerRef.current) {
       window.clearTimeout(confirmRevealTimerRef.current)
@@ -335,7 +349,7 @@ function GuidesPage() {
     setPendingGuide(guide)
   }
 
-  const closeConfirmPopup = () => {
+  const closeConfirmPopup = useCallback(() => {
     if (!pendingGuide || confirmPhase === 'closing') return
 
     if (confirmRevealTimerRef.current) {
@@ -350,7 +364,20 @@ function GuidesPage() {
       setConfirmPhase('focus')
       confirmCloseTimerRef.current = null
     }, 340)
-  }
+  }, [confirmPhase, pendingGuide])
+
+  useEffect(() => {
+    if (!pendingGuide) return undefined
+
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        closeConfirmPopup()
+      }
+    }
+
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [pendingGuide, closeConfirmPopup])
 
   const launchGuideChat = (slug) => {
     if (!slug) return
@@ -411,7 +438,10 @@ function GuidesPage() {
   const handleBrandSelect = (brandValue) => {
     setSelectedBrand(brandValue)
     setBrandPickerOpen(false)
-    setModelPickerOpen(false)
+  }
+
+  const applyBrandSelection = () => {
+    handleBrandSelect(brandDraftValue || ALL_BRANDS_VALUE)
   }
 
   const setActiveGuideByIndex = (nextIndex) => {
@@ -428,11 +458,6 @@ function GuidesPage() {
   const goToNextGuide = () => {
     if (!canSlideCarousel) return
     setActiveGuideByIndex(safeActiveIndex + 1)
-  }
-
-  const handleModelSelect = (slug) => {
-    setActiveGuideSlug(slug)
-    setModelPickerOpen(false)
   }
 
   const handleCarouselDragStart = () => {
@@ -471,7 +496,6 @@ function GuidesPage() {
     setLangOpen(false)
     setNavMenuOpen(false)
     setBrandPickerOpen(false)
-    setModelPickerOpen(false)
     setShowExitConfirm(true)
   }
 
@@ -500,20 +524,14 @@ function GuidesPage() {
       <div className={`guides-main-ui${isGuideFocusActive ? ' guides-main-ui--hidden' : ''}`}>
         <header className="guides-header">
           <div className="guides-header-left">
-            {isCompactNav ? (
-              <div className="guides-home-brand guides-home-brand--static" aria-hidden>
-                <img src="/logo top left.png" alt="CarChat" />
-              </div>
-            ) : (
-              <button
-                type="button"
-                className="guides-home-brand"
-                onClick={openExitConfirm}
-                aria-label={t.guides.home}
-              >
-                <img src="/logo top left.png" alt="CarChat" />
-              </button>
-            )}
+            <button
+              type="button"
+              className="guides-home-trigger"
+              onClick={openExitConfirm}
+              aria-label={t.guides.home}
+            >
+              <img src="/logo top left.png" alt="CarChat" />
+            </button>
           </div>
 
           {isCompactNav ? (
@@ -523,7 +541,6 @@ function GuidesPage() {
               onClick={() => {
                 setLangOpen(false)
                 setBrandPickerOpen(false)
-                setModelPickerOpen(false)
                 setNavMenuOpen((previous) => !previous)
               }}
               aria-label="Menu"
@@ -630,61 +647,15 @@ function GuidesPage() {
         </AnimatePresence>
 
         <section className="guides-content">
-        <Motion.div
-          className="guides-intro"
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.06, duration: 0.45 }}
-        >
-          <h1>{t.guides.title}</h1>
-          <p>{guidesSubtitle}</p>
-        </Motion.div>
-
-        {!loading && !errorKey && (
-          <div className="guides-filters">
-            {brands.length > 0 && (
-              <div className="guides-brand-filter">
-                <p>{filterLabel}</p>
-                <button
-                  type="button"
-                  className="guides-brand-trigger"
-                  onClick={() => {
-                    setModelPickerOpen(false)
-                    setBrandPickerOpen((prev) => !prev)
-                  }}
-                  aria-expanded={brandPickerOpen}
-                  aria-haspopup="dialog"
-                >
-                  <span>{selectedBrandLabel}</span>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                    <polyline points="6 9 12 15 18 9" />
-                  </svg>
-                </button>
-              </div>
-            )}
-
-            {filteredGuides.length > 0 && (
-              <div className="guides-model-filter">
-                <p>{modelFilterLabel}</p>
-                <button
-                  type="button"
-                  className="guides-model-trigger"
-                  onClick={() => {
-                    setBrandPickerOpen(false)
-                    setModelPickerOpen((prev) => !prev)
-                  }}
-                  aria-expanded={modelPickerOpen}
-                  aria-haspopup="dialog"
-                >
-                  <span>{activeGuide?.name || modelFilterPlaceholder}</span>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                    <polyline points="6 9 12 15 18 9" />
-                  </svg>
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+          <Motion.div
+            className="guides-intro"
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.06, duration: 0.45 }}
+          >
+            <h1>{t.guides.title}</h1>
+            <p>{guidesSubtitle}</p>
+          </Motion.div>
 
         {loading && (
           <div className="guides-state-block">
@@ -713,115 +684,166 @@ function GuidesPage() {
           </div>
         )}
 
-        {!loading && !errorKey && guides.length > 0 && filteredGuides.length > 0 && (
-          <div className="guides-carousel-shell" role="region" aria-label={t.guides.title}>
-            <button
-              type="button"
-              className="guides-carousel-arrow guides-carousel-arrow--left"
-              onClick={goToPreviousGuide}
-              aria-label={previousModelLabel}
-            >
-              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <path d="M15 18l-6-6 6-6" />
-              </svg>
-            </button>
+          {!loading && !errorKey && guides.length > 0 && filteredGuides.length > 0 && (
+            <div className="guides-showcase-shell" role="region" aria-label={t.guides.title}>
+              <div className="guides-carousel-shell">
+                <button
+                  type="button"
+                  className="guides-carousel-arrow guides-carousel-arrow--left"
+                  onClick={goToPreviousGuide}
+                  aria-label={previousModelLabel}
+                >
+                  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                    <path d="M15 18l-6-6 6-6" />
+                  </svg>
+                </button>
 
-            <Motion.div
-              className="guides-carousel-viewport"
-              ref={carouselViewportRef}
-              tabIndex={0}
-              drag={canSlideCarousel ? 'x' : false}
-              dragConstraints={{ left: 0, right: 0 }}
-              dragElastic={0.12}
-              dragMomentum={false}
-              onDragStart={handleCarouselDragStart}
-              onDragEnd={handleCarouselDragEnd}
-              onKeyDown={(event) => {
-                if (event.key === 'ArrowLeft') {
-                  event.preventDefault()
-                  goToPreviousGuide()
-                }
-                if (event.key === 'ArrowRight') {
-                  event.preventDefault()
-                  goToNextGuide()
-                }
-              }}
-            >
-              <AnimatePresence initial={false}>
-                {carouselCards.map(({ guide, offset, index }) => {
-                  const distance = Math.abs(offset)
-                  const scale = distance === 0 ? 0.9 : distance === 1 ? 0.5 : distance === 2 ? 0.3 : 0.18
-                  const opacity = distance === 0 ? 1 : distance === 1 ? 0.42 : distance === 2 ? 0.08 : 0
-                  const blur = distance === 0 ? 0 : distance === 1 ? 0.8 : distance === 2 ? 2.3 : 3.8
-                  const x = offset * carouselStep
-                  const rotateY = offset === 0 ? 0 : offset < 0 ? 8 + distance * 4 : -(8 + distance * 4)
+                <Motion.div
+                  className="guides-carousel-viewport"
+                  ref={carouselViewportRef}
+                  tabIndex={0}
+                  drag={canSlideCarousel ? 'x' : false}
+                  dragConstraints={{ left: 0, right: 0 }}
+                  dragElastic={0.12}
+                  dragMomentum={false}
+                  onDragStart={handleCarouselDragStart}
+                  onDragEnd={handleCarouselDragEnd}
+                  onKeyDown={(event) => {
+                    if (event.key === 'ArrowLeft') {
+                      event.preventDefault()
+                      goToPreviousGuide()
+                    }
+                    if (event.key === 'ArrowRight') {
+                      event.preventDefault()
+                      goToNextGuide()
+                    }
+                  }}
+                >
+                  <AnimatePresence initial={false}>
+                    {carouselCards.map(({ guide, offset, index }) => {
+                      const distance = Math.abs(offset)
+                      const scale = distance === 0 ? 1 : distance === 1 ? 0.56 : distance === 2 ? 0.34 : 0.2
+                      const opacity = distance === 0 ? 1 : distance === 1 ? 0.36 : distance === 2 ? 0.08 : 0
+                      const blur = distance === 0 ? 0 : distance === 1 ? 1.4 : distance === 2 ? 3.4 : 4.6
+                      const x = offset * carouselStep
+                      const rotateY = offset === 0 ? 0 : offset < 0 ? 13 + distance * 5 : -(13 + distance * 5)
 
-                  return (
-                    <Motion.article
-                      key={guide.slug}
-                      className={`guide-teaser${offset === 0 ? ' guide-teaser--active' : ''}`}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => handleCardClick(guide, offset)}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                          event.preventDefault()
-                          handleCardClick(guide, offset)
-                        }
-                      }}
-                      style={{
-                        '--float-delay': `${index * 0.15}s`,
-                        pointerEvents: distance > 1 ? 'none' : 'auto',
-                      }}
-                      initial={{ opacity: 0, y: 16, scale: 0.95 }}
-                      animate={{
-                        x,
-                        scale,
-                        opacity,
-                        rotateY,
-                        filter: `blur(${blur}px)`,
-                        y: distance === 0 ? 0 : distance === 1 ? 8 : distance === 2 ? 15 : 20,
-                        zIndex: 20 - distance,
-                      }}
-                      exit={{ opacity: 0, scale: 0.9 }}
-                      transition={{
-                        type: 'spring',
-                        stiffness: 280,
-                        damping: 28,
-                        mass: 0.9,
-                      }}
-                      whileHover={distance <= 1 ? { scale: scale + 0.06, y: distance === 0 ? -10 : -2 } : undefined}
-                      whileTap={{ scale: scale * 0.97 }}
-                    >
-                      <div className="guide-floating-vehicle">
-                        {guide.image ? (
-                          <img src={buildImageUrl(guide.image)} alt={guide.name} loading="lazy" />
-                        ) : (
-                          <div className="guide-teaser-placeholder">CC</div>
-                        )}
+                      return (
+                        <Motion.article
+                          key={guide.slug}
+                          className={`guide-teaser${offset === 0 ? ' guide-teaser--active' : ''}`}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => handleCardClick(guide, offset)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault()
+                              handleCardClick(guide, offset)
+                            }
+                          }}
+                          style={{
+                            '--float-delay': `${index * 0.15}s`,
+                            pointerEvents: distance > 1 ? 'none' : 'auto',
+                          }}
+                          initial={{ opacity: 0, y: 16, scale: 0.95 }}
+                          animate={{
+                            x,
+                            scale,
+                            opacity,
+                            rotateY,
+                            filter: `blur(${blur}px)`,
+                            y: distance === 0 ? 0 : distance === 1 ? 10 : distance === 2 ? 16 : 22,
+                            zIndex: 20 - distance,
+                          }}
+                          exit={{ opacity: 0, scale: 0.9 }}
+                          transition={{
+                            type: 'spring',
+                            stiffness: 280,
+                            damping: 28,
+                            mass: 0.9,
+                          }}
+                          whileHover={distance <= 1 ? { scale: scale + 0.04, y: distance === 0 ? -7 : -1 } : undefined}
+                          whileTap={{ scale: scale * 0.97 }}
+                        >
+                          <div className="guide-floating-stage">
+                            <div className="guide-floating-frame" aria-hidden="true" />
+                            <div className="guide-floating-vehicle">
+                              {guide.image ? (
+                                <img src={buildImageUrl(guide.image)} alt={guide.name} loading="lazy" />
+                              ) : (
+                                <div className="guide-teaser-placeholder">CC</div>
+                              )}
+                            </div>
+                          </div>
+                        </Motion.article>
+                      )
+                    })}
+                  </AnimatePresence>
+                </Motion.div>
+
+                <button
+                  type="button"
+                  className="guides-carousel-arrow guides-carousel-arrow--right"
+                  onClick={goToNextGuide}
+                  aria-label={nextModelLabel}
+                >
+                  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                    <path d="M9 18l6-6-6-6" />
+                  </svg>
+                </button>
+              </div>
+
+              {activeGuide && (
+                <Motion.div
+                  key={activeGuide.slug}
+                  className="guides-active-meta"
+                  initial={{ opacity: 0, y: 14 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.24 }}
+                >
+                  <h2>{activeGuide.name}</h2>
+
+                  <div className="guides-active-meta-line">
+                    <span>{activeGuide.brand || brandUnknownLabel}</span>
+                    {activeGuide.coverage_note ? (
+                      <span>{formatText(coverageLabel, { coverage: activeGuide.coverage_note })}</span>
+                    ) : null}
+                  </div>
+
+                  <div className="guides-filters guides-filters--showcase">
+                    {brands.length > 0 && (
+                      <div className="guides-brand-filter">
+                        <p>{filterLabel}</p>
+                        <button
+                          type="button"
+                          className="guides-brand-trigger"
+                          onClick={() => {
+                            setBrandPickerOpen((prev) => {
+                              const next = !prev
+                              if (next) {
+                                setBrandDraftValue(selectedBrand)
+                                setBrandSearchTerm('')
+                              }
+                              return next
+                            })
+                          }}
+                          aria-expanded={brandPickerOpen}
+                          aria-haspopup="dialog"
+                        >
+                          <span>{selectedBrandLabel}</span>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                            <polyline points="6 9 12 15 18 9" />
+                          </svg>
+                        </button>
                       </div>
+                    )}
+                  </div>
+                </Motion.div>
+              )}
 
-                      <p className="guide-floating-name">{guide.name}</p>
-                    </Motion.article>
-                  )
-                })}
-              </AnimatePresence>
-            </Motion.div>
-
-            <button
-              type="button"
-              className="guides-carousel-arrow guides-carousel-arrow--right"
-              onClick={goToNextGuide}
-              aria-label={nextModelLabel}
-            >
-              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <path d="M9 18l6-6-6-6" />
-              </svg>
-            </button>
-
-            <p className="guides-carousel-hint">{swipeHintLabel}</p>
-          </div>
-        )}
+              <p className="guides-carousel-hint">{swipeHintLabel}</p>
+            </div>
+          )}
         </section>
       </div>
 
@@ -843,62 +865,69 @@ function GuidesPage() {
               transition={{ duration: 0.2, ease: 'easeOut' }}
               onClick={(event) => event.stopPropagation()}
             >
-              <h3>{filterLabel}</h3>
-              <div className="guides-brand-options">
-                <button
-                  type="button"
-                  className={`guides-brand-option${selectedBrand === ALL_BRANDS_VALUE ? ' guides-brand-option--active' : ''}`}
-                  onClick={() => handleBrandSelect(ALL_BRANDS_VALUE)}
-                >
-                  {allBrandsLabel}
-                </button>
-                {brands.map((brand) => (
-                  <button
-                    key={brand}
-                    type="button"
-                    className={`guides-brand-option${selectedBrand.toLowerCase() === brand.toLowerCase() ? ' guides-brand-option--active' : ''}`}
-                    onClick={() => handleBrandSelect(brand)}
-                  >
-                    {brand}
-                  </button>
-                ))}
-              </div>
-            </Motion.div>
-          </Motion.div>
-        )}
-      </AnimatePresence>
+              <div className="guides-pick-grid guides-pick-grid--brand">
+                <div className="guides-pick-pane guides-pick-pane--list">
+                  <p className="guides-pick-kicker">{popupSystemLabel}</p>
+                  <h3>{filterLabel}</h3>
 
-      <AnimatePresence>
-        {modelPickerOpen && filteredGuides.length > 0 && (
-          <Motion.div
-            className="guides-model-backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setModelPickerOpen(false)}
-          >
-            <Motion.div
-              className="guides-model-popup"
-              ref={modelPopupRef}
-              initial={{ opacity: 0, y: 18, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 14, scale: 0.98 }}
-              transition={{ duration: 0.2, ease: 'easeOut' }}
-              onClick={(event) => event.stopPropagation()}
-            >
-              <h3>{modelFilterLabel}</h3>
-              <div className="guides-model-options">
-                {filteredGuides.map((guide) => (
-                  <button
-                    key={guide.slug}
-                    type="button"
-                    className={`guides-model-option${guide.slug === activeGuideSlug ? ' guides-model-option--active' : ''}`}
-                    onClick={() => handleModelSelect(guide.slug)}
-                  >
-                    <span>{guide.name}</span>
-                    <small>{guide.brand || brandUnknownLabel}</small>
-                  </button>
-                ))}
+                  <div className="guides-pick-search-wrap">
+                    <input
+                      type="search"
+                      value={brandSearchTerm}
+                      onChange={(event) => setBrandSearchTerm(event.target.value)}
+                      placeholder={brandSearchPlaceholder}
+                    />
+                  </div>
+
+                  <div className="guides-brand-options guides-pick-options">
+                    {brandOptionsForPopup.length > 0 ? (
+                      brandOptionsForPopup.map((brandValue, index) => {
+                        const label = brandValue === ALL_BRANDS_VALUE ? allBrandsLabel : brandValue
+                        const isActive = brandValue === brandDraftValue
+
+                        return (
+                          <button
+                            key={brandValue}
+                            type="button"
+                            className={`guides-brand-option${isActive ? ' guides-brand-option--active' : ''}`}
+                            onClick={() => setBrandDraftValue(brandValue)}
+                          >
+                            <small>{String(index + 1).padStart(2, '0')}</small>
+                            <span>{label}</span>
+                          </button>
+                        )
+                      })
+                    ) : (
+                      <p className="guides-pick-empty">{noBrandMatch}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="guides-pick-pane guides-pick-pane--meta">
+                  <span className="guides-pick-badge">{popupFilterStatusLabel}</span>
+                  <h4>{brandDraftValue === ALL_BRANDS_VALUE ? allBrandsLabel : brandDraftValue}</h4>
+                  <p>{lang === 'fr' ? 'Sélectionnez une marque pour filtrer la liste des véhicules disponibles.' : lang === 'ko' ? '브랜드를 선택해 사용 가능한 차량 목록을 필터링하세요.' : 'Select a brand to filter the available vehicle list.'}</p>
+
+                  <div className="guides-pick-metrics">
+                    <div>
+                      <span>{lang === 'fr' ? 'Modèles détectés' : lang === 'ko' ? '감지된 모델' : 'Detected models'}</span>
+                      <strong>{brandDraftGuideCount}</strong>
+                    </div>
+                    <div>
+                      <span>{lang === 'fr' ? 'Marques indexées' : lang === 'ko' ? '인덱싱 브랜드' : 'Indexed brands'}</span>
+                      <strong>{brands.length}</strong>
+                    </div>
+                  </div>
+
+                  <div className="guides-pick-actions">
+                    <button type="button" className="guides-pick-btn guides-pick-btn--ghost" onClick={() => setBrandPickerOpen(false)}>
+                      {popupCloseLabel}
+                    </button>
+                    <button type="button" className="guides-pick-btn guides-pick-btn--solid" onClick={applyBrandSelection}>
+                      {popupApplyLabel}
+                    </button>
+                  </div>
+                </div>
               </div>
             </Motion.div>
           </Motion.div>
@@ -992,8 +1021,10 @@ function GuidesPage() {
               onClick={(event) => event.stopPropagation()}
             >
               <div className="guides-exit-top">
+                <span className="guides-exit-sigil" aria-hidden>{'\u25CE'}</span>
+                <p className="guides-exit-kicker">{exitConfirmKicker}</p>
                 <h2>{exitConfirmTitle}</h2>
-                <p>{exitConfirmText}</p>
+                <p className="guides-exit-text">{exitConfirmText}</p>
               </div>
 
               <div className="guides-exit-actions">
@@ -1004,6 +1035,11 @@ function GuidesPage() {
                   {exitConfirmAccept}
                 </button>
               </div>
+
+              <div className="guides-exit-foot">
+                <span>SYS.ID: AURIS-V3</span>
+                <span>{exitNodeLabel}: {activeGuide?.name || exitActiveNodeFallback}</span>
+              </div>
             </Motion.div>
           </Motion.div>
         )}
@@ -1013,4 +1049,5 @@ function GuidesPage() {
 }
 
 export default GuidesPage
+
 

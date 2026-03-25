@@ -7,6 +7,7 @@ from typing import Optional, List, Tuple, Dict
 import pickle
 import re
 import importlib.util
+import time
 from urllib.parse import quote_plus, urlparse
 from urllib.request import Request, urlopen
 
@@ -19,6 +20,8 @@ from .config import (
     LLM_MODEL,
     TOP_K_RESULTS,
     ENABLE_WEB_ENRICHMENT,
+    ENABLE_DEEP_WEB_ENRICHMENT,
+    ENRICHMENT_TIME_BUDGET_SECONDS,
     WEB_MAX_RESULTS,
     WEB_SEARCH_REGION,
 )
@@ -205,7 +208,9 @@ def _canonical_youtube_url(video_id: str) -> str:
     return f"https://www.youtube.com/watch?v={video_id}"
 
 
-def _youtube_html_search(query: str, max_results: int = 8) -> List[Dict[str, str]]:
+def _youtube_html_search(
+    query: str, max_results: int = 8, timeout_seconds: float = 2.0
+) -> List[Dict[str, str]]:
     """Fallback search from YouTube public results page (no API key)."""
     search_url = f"https://www.youtube.com/results?search_query={quote_plus(query)}"
     req = Request(
@@ -220,7 +225,7 @@ def _youtube_html_search(query: str, max_results: int = 8) -> List[Dict[str, str
     )
 
     try:
-        with urlopen(req, timeout=10) as response:
+        with urlopen(req, timeout=max(1.0, float(timeout_seconds))) as response:
             html = response.read().decode("utf-8", "ignore")
     except Exception:
         return []
@@ -336,19 +341,26 @@ def _relevance_score(query: str, title: str, snippet: str, url: str) -> int:
     return overlap
 
 
-def web_search_results(query: str, max_results: int = WEB_MAX_RESULTS) -> List[Dict[str, str]]:
+def web_search_results(
+    query: str,
+    max_results: int = WEB_MAX_RESULTS,
+    time_budget_seconds: float = ENRICHMENT_TIME_BUDGET_SECONDS,
+) -> List[Dict[str, str]]:
     """Fetch lightweight web snippets for enrichment only."""
-    if not ENABLE_WEB_ENRICHMENT or DDGS is None:
+    if not ENABLE_WEB_ENRICHMENT or DDGS is None or not ENABLE_DEEP_WEB_ENRICHMENT:
         return []
 
     found: List[Dict[str, str]] = []
     seen_urls = set()
     seen_domains = set()
+    started_at = time.perf_counter()
 
     try:
         with DDGS() as ddgs:
             results = ddgs.text(query, max_results=max(1, max_results * 3), region=WEB_SEARCH_REGION)
             for item in results:
+                if (time.perf_counter() - started_at) > max(0.2, time_budget_seconds):
+                    break
                 title = str(item.get("title", "")).strip()
                 url = str(item.get("href", "")).strip()
                 snippet = str(item.get("body", "")).strip()
@@ -392,7 +404,9 @@ def web_search_results(query: str, max_results: int = WEB_MAX_RESULTS) -> List[D
     return found
 
 
-def youtube_video_suggestion(query: str) -> Dict[str, str]:
+def youtube_video_suggestion(
+    query: str, time_budget_seconds: float = ENRICHMENT_TIME_BUDGET_SECONDS
+) -> Dict[str, str]:
     """Return one relevant YouTube video. No API key required."""
     if not ENABLE_WEB_ENRICHMENT:
         return {}
@@ -400,7 +414,9 @@ def youtube_video_suggestion(query: str) -> Dict[str, str]:
     candidates: List[Dict[str, str]] = []
     seen_urls = set()
 
-    if DDGS is not None:
+    started_at = time.perf_counter()
+
+    if DDGS is not None and ENABLE_DEEP_WEB_ENRICHMENT:
         try:
             search_queries = [
                 f"site:youtube.com/watch {query}",
@@ -409,8 +425,12 @@ def youtube_video_suggestion(query: str) -> Dict[str, str]:
             ]
             with DDGS() as ddgs:
                 for search_query in search_queries:
+                    if (time.perf_counter() - started_at) > max(0.2, time_budget_seconds):
+                        break
                     results = ddgs.text(search_query, max_results=10, region=WEB_SEARCH_REGION)
                     for item in results:
+                        if (time.perf_counter() - started_at) > max(0.2, time_budget_seconds):
+                            break
                         title = str(item.get("title", "")).strip()
                         url = str(item.get("href", "")).strip()
                         snippet = str(item.get("body", "")).strip()
@@ -435,7 +455,12 @@ def youtube_video_suggestion(query: str) -> Dict[str, str]:
             pass
 
     if not candidates:
-        fallback_results = _youtube_html_search(query, max_results=8)
+        remaining = max(0.2, time_budget_seconds - (time.perf_counter() - started_at))
+        fallback_results = _youtube_html_search(
+            query,
+            max_results=8,
+            timeout_seconds=remaining,
+        )
         for item in fallback_results:
             canonical_url = item.get("url", "")
             if not canonical_url or canonical_url in seen_urls:
@@ -550,6 +575,7 @@ def format_context(documents: List[Document]) -> str:
         source = doc.metadata.get("source_file", "Document")
         page = doc.metadata.get("page", "?")
         parts.append(f"[Source: {source}, Page {page}]\n{doc.page_content}")
+
     return "\n\n---\n\n".join(parts)
 
 
@@ -648,10 +674,28 @@ class GuideChatbot:
             docs = self._hybrid_search(question, k=TOP_K_RESULTS)
             context = format_context(docs)
 
-        enrichment_query = f"{self.guide.name} {question}".strip()
-        web_results = web_search_results(enrichment_query, max_results=WEB_MAX_RESULTS)
-        web_context = format_web_context(web_results, lang=lang)
-        video = youtube_video_suggestion(f"{self.guide.name} {question} tutorial")
+        web_results: List[Dict[str, str]] = []
+        video: Dict[str, str] = {}
+        web_context = ""
+
+        if ENABLE_WEB_ENRICHMENT:
+            enrichment_query = f"{self.guide.name} {question}".strip()
+            budget = max(0.5, ENRICHMENT_TIME_BUDGET_SECONDS)
+            enrichment_started = time.perf_counter()
+
+            web_results = web_search_results(
+                enrichment_query,
+                max_results=WEB_MAX_RESULTS,
+                time_budget_seconds=budget,
+            )
+            web_context = format_web_context(web_results, lang=lang)
+
+            elapsed = time.perf_counter() - enrichment_started
+            remaining = max(0.5, ENRICHMENT_TIME_BUDGET_SECONDS - elapsed)
+            video = youtube_video_suggestion(
+                f"{self.guide.name} {question} tutorial",
+                time_budget_seconds=remaining,
+            )
 
         sources_block = format_sources(docs, web_results=web_results)
         video_block = format_video_block(video, lang=lang)
@@ -682,6 +726,7 @@ Question: {question}
                 model=self.model_name,
                 contents=prompt,
             )
+
             raw_answer = (getattr(response, "text", "") or "").strip()
             clean_answer = clean_model_output(raw_answer)
             answer = trim_response(clean_answer)
