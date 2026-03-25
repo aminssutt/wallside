@@ -18,6 +18,13 @@ const FLAG_BY_LANG = {
 const QUICK_ICONS = [wrenchIcon, dashboardIcon, navigationIcon]
 const COMPACT_MENU_BREAKPOINT = 1024
 const CHAT_REQUEST_TIMEOUT_MS = 45000
+const MAX_INPUT_LENGTH = 3000
+
+const generateSessionId = () => {
+  const arr = new Uint8Array(16)
+  crypto.getRandomValues(arr)
+  return Array.from(arr, (b) => b.toString(16).padStart(2, '0')).join('')
+}
 const ASSISTANT_ALIAS_BANK = {
   fr: {
     prefix: ['Atelier', 'Circuit', 'Pitlane', 'Moteur', 'Garage', 'Turbo'],
@@ -117,7 +124,7 @@ const renderTextWithLinks = (text, keyPrefix) => {
   return chunks.map((chunk, index) => {
     if (/^https?:\/\/[^\s)]+$/i.test(chunk)) {
       return (
-        <a key={`${keyPrefix}-u-${index}`} href={chunk} target="_blank" rel="noreferrer">
+        <a key={`${keyPrefix}-u-${index}`} href={chunk} target="_blank" rel="noopener noreferrer">
           {chunk}
         </a>
       )
@@ -261,6 +268,7 @@ function RichBotMessage({ text, lang = 'fr' }) {
                     src={block.content.embed}
                     title={block.content.title}
                     loading="lazy"
+                    sandbox="allow-scripts allow-same-origin allow-presentation"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                     referrerPolicy="strict-origin-when-cross-origin"
                     allowFullScreen
@@ -333,6 +341,7 @@ function ChatPage() {
   const [isCompactNav, setIsCompactNav] = useState(
     typeof window !== 'undefined' ? window.innerWidth <= COMPACT_MENU_BREAKPOINT : false,
   )
+  const [sessionId] = useState(() => generateSessionId())
   const [assistantAliases] = useState(() => ({
     fr: generateAssistantAlias('fr'),
     en: generateAssistantAlias('en'),
@@ -568,7 +577,7 @@ function ChatPage() {
       const response = await fetch(`${API_URL}/guides/${slug}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, lang }),
+        body: JSON.stringify({ message: text, lang, session_id: sessionId }),
         signal: controller.signal,
       })
 
@@ -869,6 +878,8 @@ function ChatPage() {
               onKeyDown={handleKeyDown}
               placeholder={`> ${formatText(t.chat.placeholder, { vehicle: guide.name })}`}
               disabled={isLoading || isStreaming}
+              maxLength={MAX_INPUT_LENGTH}
+              aria-label={formatText(t.chat.placeholder, { vehicle: guide.name })}
             />
             <Motion.button
               className="chat-send-btn"

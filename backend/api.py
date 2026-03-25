@@ -2,6 +2,7 @@
 API Flask for the pre-indexed vehicle guide chatbot.
 """
 import csv
+import logging
 import os
 import re
 import sys
@@ -13,10 +14,19 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 from src.guide_manager import guide_manager
 from src.guide_chatbot import get_guide_chatbot, clear_guide_chatbot_cache
-from src.config import DATA_DIR
+from src.config import DATA_DIR, ALLOWED_ORIGINS, MAX_MESSAGE_LENGTH
+
+# Logging setup
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+log = logging.getLogger("auris")
 
 BACKEND_DIR = Path(__file__).parent
 PROJECT_ROOT = BACKEND_DIR.parent
@@ -25,8 +35,29 @@ FRONTEND_DIST_DIR = Path(
 )
 
 app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = 1 * 1024 * 1024  # 1 MB max request body
 
-CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
+CORS(app, resources={r"/api/*": {"origins": ALLOWED_ORIGINS}})
+
+# Rate limiting
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=["120 per minute"],
+    storage_uri="memory://",
+)
+
+
+@app.after_request
+def add_security_headers(response):
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    if request.is_secure:
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
 
 # Serve car images from data/vehicle_images first, then legacy manuel/voiture.
 IMAGE_DIRS = [
@@ -78,6 +109,7 @@ def get_guide(slug):
 # ============================================
 
 @app.route('/api/guides/<slug>/chat', methods=['POST'])
+@limiter.limit("15 per minute")
 def chat(slug):
     """Chat with a specific guide's chatbot."""
     guide = guide_manager.get_guide(slug)
@@ -101,13 +133,21 @@ def chat(slug):
             "error": "Message vide"
         }), 400
 
+    if len(question) > MAX_MESSAGE_LENGTH:
+        return jsonify({
+            "success": False,
+            "error": f"Message trop long (max {MAX_MESSAGE_LENGTH} caracteres)"
+        }), 400
+
     lang = data.get('lang') or None
     if lang and lang not in ('fr', 'en', 'ko'):
         lang = None
 
+    session_id = data.get('session_id') or "default"
+
     try:
         chatbot = get_guide_chatbot(slug)
-        response = chatbot.chat(question, lang=lang)
+        response = chatbot.chat(question, lang=lang, session_id=session_id)
 
         return jsonify({
             "success": True,
@@ -116,9 +156,10 @@ def chat(slug):
         })
 
     except Exception as e:
+        log.error("Chat error for guide %s: %s", slug, e)
         return jsonify({
             "success": False,
-            "error": str(e)
+            "error": "Une erreur interne est survenue. Veuillez reessayer."
         }), 500
 
 
@@ -132,24 +173,43 @@ def get_history(slug):
             "error": "Guide introuvable"
         }), 404
 
+    session_id = request.args.get("session_id", "default")
+
     try:
         chatbot = get_guide_chatbot(slug)
         return jsonify({
             "success": True,
-            "history": chatbot.get_history(),
+            "history": chatbot.get_history(session_id=session_id),
             "vehicle_name": guide.name,
         })
     except Exception as e:
+        log.error("History error for guide %s: %s", slug, e)
         return jsonify({
             "success": False,
-            "error": str(e)
+            "error": "Une erreur interne est survenue."
         }), 500
 
 
 @app.route('/api/guides/<slug>/reset', methods=['POST'])
+@limiter.limit("10 per minute")
 def reset_chat(slug):
-    """Reset conversation history for a guide."""
-    clear_guide_chatbot_cache(slug)
+    """Reset conversation history for a guide session."""
+    data = request.get_json(silent=True) or {}
+    session_id = data.get("session_id")
+
+    guide = guide_manager.get_guide(slug)
+    if not guide or not guide.is_indexed:
+        return jsonify({
+            "success": False,
+            "error": "Guide introuvable"
+        }), 404
+
+    try:
+        chatbot = get_guide_chatbot(slug)
+        chatbot.clear_history(session_id=session_id)
+    except Exception:
+        pass
+
     return jsonify({
         "success": True,
         "message": "Conversation reinitialisee"
@@ -163,10 +223,17 @@ def reset_chat(slug):
 @app.route('/api/images/<path:filename>', methods=['GET'])
 def serve_image(filename):
     """Serve car images from configured image directories."""
+    if '..' in filename or filename.startswith('/'):
+        return jsonify({"error": "Invalid filename"}), 400
+
     for image_dir in IMAGE_DIRS:
         if not image_dir.exists():
             continue
         candidate = image_dir / filename
+        try:
+            candidate.resolve().relative_to(image_dir.resolve())
+        except ValueError:
+            return jsonify({"error": "Invalid filename"}), 400
         if candidate.exists() and candidate.is_file():
             return send_from_directory(str(image_dir), filename)
     return jsonify({"error": "Image not found"}), 404
@@ -204,6 +271,7 @@ def get_suggestions():
 
 
 @app.route('/api/waitlist/premium', methods=['POST'])
+@limiter.limit("5 per minute")
 def save_premium_waitlist_email():
     """Save a premium waitlist email in backend/data/waitlist/premium_waitlist.csv."""
     data = request.get_json(silent=True) or {}
@@ -300,4 +368,5 @@ if __name__ == '__main__':
     for g in guides:
         print(f"   - {g['name']} ({g['slug']})")
     print(f" Server starting on http://localhost:{port}\n")
-    app.run(host='0.0.0.0', port=port, debug=True, use_reloader=False)
+    is_debug = os.getenv("FLASK_DEBUG", "false").lower() in ("true", "1", "yes")
+    app.run(host='127.0.0.1', port=port, debug=is_debug, use_reloader=False)

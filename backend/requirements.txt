@@ -24,6 +24,7 @@ duckduckgo-search>=6.2.13
 # API
 flask>=3.0.0
 flask-cors>=4.0.0
+flask-limiter>=3.5.0
 
 # Server WSGI pour production
 gunicorn>=21.0.0

@@ -8,8 +8,13 @@
 **/*.pyd
 
 backend/.env
+backend/.env.*
 backend/.venv
 backend/venv
+.env.prod
+.env.prod.save
+*.pem
+*.key
 
 frontend/node_modules
 frontend/dist
