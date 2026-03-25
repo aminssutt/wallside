@@ -4,10 +4,14 @@ Works with pre-indexed guides instead of user sessions.
 Supports multilingual responses (French, English, Korean).
 """
 from typing import Optional, List, Tuple, Dict
+from collections import OrderedDict
+import logging
 import pickle
 import re
 import importlib.util
 import time
+import hashlib
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import quote_plus, urlparse
 from urllib.request import Request, urlopen
 
@@ -18,15 +22,21 @@ from langchain_community.vectorstores import FAISS
 from .config import (
     GOOGLE_API_KEY,
     LLM_MODEL,
+    LLM_TIMEOUT_SECONDS,
     TOP_K_RESULTS,
     ENABLE_WEB_ENRICHMENT,
     ENABLE_DEEP_WEB_ENRICHMENT,
     ENRICHMENT_TIME_BUDGET_SECONDS,
     WEB_MAX_RESULTS,
     WEB_SEARCH_REGION,
+    RELEVANCE_THRESHOLD,
+    MAX_CONVERSATION_HISTORY,
+    MAX_CACHED_GUIDES,
 )
 from .vector_store import get_embeddings
 from .guide_manager import guide_manager, Guide
+
+log = logging.getLogger("auris")
 
 try:
     from duckduckgo_search import DDGS
@@ -34,8 +44,8 @@ except Exception:
     DDGS = None
 
 
-MAX_RESPONSE_CHARS = 900
-MAX_RESPONSE_LINES = 14
+MAX_RESPONSE_CHARS = 1800
+MAX_RESPONSE_LINES = 30
 
 LANGUAGE_PATTERNS = {
     "ko": re.compile(r"[\uac00-\ud7af\u1100-\u11ff\u3130-\u318f]"),
@@ -398,7 +408,8 @@ def web_search_results(
                 )
                 if len(found) >= max_results:
                     break
-    except Exception:
+    except Exception as exc:
+        log.warning("Web search failed for query '%s': %s", query, exc)
         return []
 
     return found
@@ -451,8 +462,8 @@ def youtube_video_suggestion(
                                 "score": str(score),
                             }
                         )
-        except Exception:
-            pass
+        except Exception as exc:
+            log.warning("YouTube DDG search failed: %s", exc)
 
     if not candidates:
         remaining = max(0.2, time_budget_seconds - (time.perf_counter() - started_at))
@@ -588,7 +599,8 @@ class GuideChatbot:
         self.bm25_index, self.bm25_chunks = self._load_bm25()
         self.client = genai.Client(api_key=GOOGLE_API_KEY)
         self.model_name = LLM_MODEL.replace("models/", "", 1)
-        self.conversation_history: List[dict] = []
+        # Per-session conversation histories: {session_id: [messages]}
+        self._session_histories: Dict[str, List[dict]] = {}
 
     def _load_vector_store(self) -> Optional[FAISS]:
         vs_dir = self.guide.vector_store_dir
@@ -615,24 +627,39 @@ class GuideChatbot:
             with open(bm25_path, "rb") as f:
                 data = pickle.load(f)
             return data["bm25"], data["chunks"]
-        except Exception:
+        except Exception as exc:
+            log.warning("Failed to load BM25 index for %s: %s", self.guide.slug, exc)
             return None, []
 
+    def _get_session_history(self, session_id: str) -> List[dict]:
+        if session_id not in self._session_histories:
+            self._session_histories[session_id] = []
+        return self._session_histories[session_id]
+
+    def _trim_session_history(self, session_id: str):
+        history = self._session_histories.get(session_id, [])
+        if len(history) > MAX_CONVERSATION_HISTORY:
+            self._session_histories[session_id] = history[-MAX_CONVERSATION_HISTORY:]
+
     def _hybrid_search(self, question: str, k: int = TOP_K_RESULTS) -> List[Document]:
-        """Combine FAISS semantic search + BM25 lexical search."""
+        """Combine FAISS semantic search + BM25 lexical search with relevance threshold."""
         seen_contents = set()
         results: List[Tuple[Document, float]] = []
 
         if self.vector_store:
-            faiss_docs = self.vector_store.similarity_search_with_score(question, k=k)
-            for doc, score in faiss_docs:
-                key = doc.page_content[:200]
-                if key not in seen_contents:
-                    seen_contents.add(key)
-                    results.append((doc, 1.0 / (1.0 + score)))
+            try:
+                faiss_docs = self.vector_store.similarity_search_with_score(question, k=k)
+                for doc, score in faiss_docs:
+                    key = hashlib.md5(doc.page_content.encode()).hexdigest()
+                    if key not in seen_contents:
+                        seen_contents.add(key)
+                        norm_score = 1.0 / (1.0 + score)
+                        results.append((doc, norm_score))
+            except Exception as exc:
+                log.warning("FAISS search failed: %s", exc)
 
         if self.bm25_index and self.bm25_chunks:
-            tokens = re.findall(r"[a-z0-9]{2,}", question.lower())
+            tokens = re.findall(r"[a-z0-9\u3130-\u318f\uac00-\ud7af]{2,}", question.lower())
             if tokens:
                 scores = self.bm25_index.get_scores(tokens)
                 top_indices = sorted(
@@ -645,15 +672,22 @@ class GuideChatbot:
                     if scores[idx] <= 0:
                         continue
                     doc = self.bm25_chunks[idx]
-                    key = doc.page_content[:200]
+                    key = hashlib.md5(doc.page_content.encode()).hexdigest()
                     if key not in seen_contents:
                         seen_contents.add(key)
                         results.append((doc, scores[idx] / max_score * 0.8))
 
         results.sort(key=lambda x: x[1], reverse=True)
-        return [doc for doc, _ in results[:k]]
 
-    def chat(self, question: str, lang: str = None) -> str:
+        # Apply relevance threshold to avoid injecting irrelevant chunks
+        filtered = [(doc, s) for doc, s in results if s >= RELEVANCE_THRESHOLD]
+        if not filtered and results:
+            # Keep at least the best result if nothing passes threshold
+            filtered = [results[0]]
+
+        return [doc for doc, _ in filtered[:k]]
+
+    def chat(self, question: str, lang: str = None, session_id: str = "default") -> str:
         """Generate a response. If lang is provided, use it; otherwise auto-detect."""
         if not lang:
             lang = detect_language(question)
@@ -668,12 +702,17 @@ class GuideChatbot:
                 vehicle=self.guide.name
             )
 
+        # --- Hybrid retrieval with relevance threshold ---
         docs: List[Document] = []
         context = ""
+        has_relevant_context = False
         if self.vector_store or self.bm25_index:
             docs = self._hybrid_search(question, k=TOP_K_RESULTS)
-            context = format_context(docs)
+            if docs:
+                has_relevant_context = True
+                context = format_context(docs)
 
+        # --- Web enrichment (parallel) ---
         web_results: List[Dict[str, str]] = []
         video: Dict[str, str] = {}
         web_context = ""
@@ -681,57 +720,90 @@ class GuideChatbot:
         if ENABLE_WEB_ENRICHMENT:
             enrichment_query = f"{self.guide.name} {question}".strip()
             budget = max(0.5, ENRICHMENT_TIME_BUDGET_SECONDS)
-            enrichment_started = time.perf_counter()
 
-            web_results = web_search_results(
-                enrichment_query,
-                max_results=WEB_MAX_RESULTS,
-                time_budget_seconds=budget,
-            )
+            def _fetch_web():
+                return web_search_results(
+                    enrichment_query,
+                    max_results=WEB_MAX_RESULTS,
+                    time_budget_seconds=budget,
+                )
+
+            def _fetch_video():
+                return youtube_video_suggestion(
+                    f"{self.guide.name} {question} tutorial",
+                    time_budget_seconds=budget,
+                )
+
+            try:
+                with ThreadPoolExecutor(max_workers=2) as executor:
+                    web_future = executor.submit(_fetch_web)
+                    video_future = executor.submit(_fetch_video)
+                    web_results = web_future.result(timeout=budget + 2)
+                    video = video_future.result(timeout=budget + 2)
+            except Exception as exc:
+                log.warning("Enrichment failed: %s", exc)
+
             web_context = format_web_context(web_results, lang=lang)
-
-            elapsed = time.perf_counter() - enrichment_started
-            remaining = max(0.5, ENRICHMENT_TIME_BUDGET_SECONDS - elapsed)
-            video = youtube_video_suggestion(
-                f"{self.guide.name} {question} tutorial",
-                time_budget_seconds=remaining,
-            )
 
         sources_block = format_sources(docs, web_results=web_results)
         video_block = format_video_block(video, lang=lang)
         lang_instruction = LANG_INSTRUCTIONS.get(lang, LANG_INSTRUCTIONS["fr"])
 
-        prompt = f"""Tu es un assistant expert pour le vehicule {self.guide.name}.
+        # --- Build conversation context from session history ---
+        history = self._get_session_history(session_id)
+        history_block = ""
+        if history:
+            recent = history[-(min(len(history), 6)):]  # last 3 exchanges (6 messages)
+            parts = []
+            for msg in recent:
+                role = "Utilisateur" if msg["role"] == "user" else "Assistant"
+                parts.append(f"{role}: {msg['content'][:300]}")
+            history_block = "\n".join(parts)
 
-Regles:
+        # --- System instruction (separated from user content for Gemini) ---
+        system_instruction = f"""Tu es un assistant technique expert et precis, specialise pour le vehicule {self.guide.name}.
+
+REGLES STRICTES:
 1) {lang_instruction}
-2) Base-toi sur le contexte fourni en priorite.
-3) Le contexte web est un enrichissement uniquement. En cas de conflit, le manuel prime toujours.
-4) Si le contexte est incomplet, complete avec des connaissances automobiles generales fiables.
-5) Reponse concise: 80 a 130 mots max.
-6) Pas de markdown (pas de ###, **, ```, etc.). Texte brut uniquement.
-7) N'ajoute pas de section "Sources" (elle sera ajoutee automatiquement).
-8) Orthographe, grammaire et ponctuation impeccables. Utilise des phrases claires et naturelles.
+2) Base-toi UNIQUEMENT sur le contexte fourni (manuel du vehicule et web).
+3) JAMAIS d'invention: si une information (valeur technique, procedure, specification) n'est PAS dans le contexte fourni, dis-le clairement. Exemple: "Cette information n'est pas disponible dans le manuel fourni."
+4) Ne JAMAIS inventer de valeurs chiffrees (couples de serrage, pressions, capacites, intervalles) qui ne sont pas explicitement dans le contexte.
+5) Le contexte web est un complement. En cas de conflit avec le manuel, le manuel prime TOUJOURS.
+6) Reponds de facon complete et detaillee. Pour les procedures en etapes, donne TOUTES les etapes.
+7) Pas de markdown (pas de ###, **, ```, etc.). Texte brut uniquement avec des listes numerotees pour les etapes.
+8) N'ajoute PAS de section "Sources" (elle sera ajoutee automatiquement).
+9) Orthographe, grammaire et ponctuation impeccables. Phrases claires et naturelles.
+10) Personnalise chaque reponse pour le {self.guide.name}: mentionne le nom du vehicule quand c'est pertinent."""
 
-Contexte:
-{context}
+        # --- User content ---
+        user_parts = []
+        if history_block:
+            user_parts.append(f"Historique recent de la conversation:\n{history_block}")
+        if context:
+            user_parts.append(f"Contexte du manuel du vehicule:\n{context}")
+        else:
+            user_parts.append("Aucun passage pertinent trouve dans le manuel du vehicule pour cette question.")
+        if web_context:
+            user_parts.append(f"<web_enrichment>\n{web_context}\n</web_enrichment>")
+        user_parts.append(f"Question de l'utilisateur: {question}")
 
-{web_context}
-
-Question: {question}
-"""
+        user_content = "\n\n---\n\n".join(user_parts)
 
         try:
             response = self.client.models.generate_content(
                 model=self.model_name,
-                contents=prompt,
+                contents=user_content,
+                config={
+                    "system_instruction": system_instruction,
+                    "http_options": {"timeout": LLM_TIMEOUT_SECONDS * 1000},
+                },
             )
 
             raw_answer = (getattr(response, "text", "") or "").strip()
             clean_answer = clean_model_output(raw_answer)
             answer = trim_response(clean_answer)
             if not answer:
-                answer = "Je n'ai pas trouve de reponse exploitable."
+                answer = "Je n'ai pas trouve de reponse exploitable dans le manuel."
 
             blocks = [answer]
             if video_block:
@@ -739,39 +811,56 @@ Question: {question}
             blocks.append(sources_block)
             final_answer = "\n\n".join(blocks)
 
-            self.conversation_history.append({"role": "user", "content": question})
-            self.conversation_history.append({"role": "assistant", "content": final_answer})
+            # Save to session history
+            history.append({"role": "user", "content": question})
+            history.append({"role": "assistant", "content": answer})
+            self._trim_session_history(session_id)
+
             return final_answer
 
         except Exception as exc:
+            log.error("LLM generation failed for %s: %s", self.guide.slug, exc)
             return (
                 "Erreur:\n"
-                f"Impossible de generer une reponse ({str(exc)}).\n\n"
+                "Impossible de generer une reponse. Veuillez reessayer.\n\n"
                 "Sources:\n"
                 "- Indisponibles (erreur interne)."
             )
 
-    def get_history(self) -> list:
-        return self.conversation_history
+    def get_history(self, session_id: str = "default") -> list:
+        return self._get_session_history(session_id)
 
-    def clear_history(self):
-        self.conversation_history = []
+    def clear_history(self, session_id: str = None):
+        if session_id:
+            self._session_histories.pop(session_id, None)
+        else:
+            self._session_histories.clear()
 
 
-# Cache chatbots by guide slug + a simple instance id
-_guide_chatbot_cache: dict[str, GuideChatbot] = {}
+# LRU cache for chatbot instances (bounded by MAX_CACHED_GUIDES)
+_guide_chatbot_cache: OrderedDict[str, GuideChatbot] = OrderedDict()
 
 
 def get_guide_chatbot(slug: str) -> GuideChatbot:
-    """Get or create a chatbot for a guide slug."""
-    if slug not in _guide_chatbot_cache:
-        guide = guide_manager.get_guide(slug)
-        if not guide:
-            raise ValueError(f"Guide '{slug}' not found")
-        if not guide.is_indexed:
-            raise ValueError(f"Guide '{slug}' is not indexed yet")
-        _guide_chatbot_cache[slug] = GuideChatbot(guide)
-    return _guide_chatbot_cache[slug]
+    """Get or create a chatbot for a guide slug with LRU eviction."""
+    if slug in _guide_chatbot_cache:
+        _guide_chatbot_cache.move_to_end(slug)
+        return _guide_chatbot_cache[slug]
+
+    guide = guide_manager.get_guide(slug)
+    if not guide:
+        raise ValueError(f"Guide '{slug}' not found")
+    if not guide.is_indexed:
+        raise ValueError(f"Guide '{slug}' is not indexed yet")
+
+    # Evict oldest if at capacity
+    while len(_guide_chatbot_cache) >= MAX_CACHED_GUIDES:
+        evicted_slug, _ = _guide_chatbot_cache.popitem(last=False)
+        log.info("Evicted chatbot cache for guide: %s", evicted_slug)
+
+    chatbot = GuideChatbot(guide)
+    _guide_chatbot_cache[slug] = chatbot
+    return chatbot
 
 
 def clear_guide_chatbot_cache(slug: str = None):

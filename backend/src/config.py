@@ -1,9 +1,12 @@
 ﻿"""
 Configuration du projet Auris Chatbot
 """
+import logging
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+
+log = logging.getLogger("auris")
 
 # Charger les variables d'environnement
 load_dotenv()
@@ -22,9 +25,9 @@ VECTOR_STORE_DIR.mkdir(parents=True, exist_ok=True)
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
 if not GOOGLE_API_KEY:
-    raise ValueError(
+    log.warning(
         "GOOGLE_API_KEY non configuree. "
-        "Creez un fichier .env avec votre cle API Google."
+        "Le chatbot ne fonctionnera pas sans cle API Google."
     )
 
 # Configuration du modèle
@@ -81,4 +84,22 @@ ENRICHMENT_TIME_BUDGET_SECONDS = float(
 )
 WEB_MAX_RESULTS = int(os.getenv("WEB_MAX_RESULTS", "3"))
 WEB_SEARCH_REGION = os.getenv("WEB_SEARCH_REGION", "wt-wt")
+
+# Rate limiting & validation
+MAX_MESSAGE_LENGTH = int(os.getenv("MAX_MESSAGE_LENGTH", "3000"))
+MAX_CONVERSATION_HISTORY = int(os.getenv("MAX_CONVERSATION_HISTORY", "20"))
+MAX_CACHED_GUIDES = int(os.getenv("MAX_CACHED_GUIDES", "5"))
+
+# RAG quality
+RELEVANCE_THRESHOLD = float(os.getenv("RELEVANCE_THRESHOLD", "0.15"))
+
+# CORS
+ALLOWED_ORIGINS = [
+    o.strip()
+    for o in os.getenv(
+        "ALLOWED_ORIGINS",
+        "https://carchat.online,https://www.carchat.online,http://localhost:5173,http://localhost:5002",
+    ).split(",")
+    if o.strip()
+]
 
