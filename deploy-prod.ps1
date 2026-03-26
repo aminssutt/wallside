@@ -51,6 +51,8 @@ if ($LASTEXITCODE -ne 0) {
 $remoteCmd = @(
   "set -euo pipefail"
   "mkdir -p '$RemoteDir'"
+  "case '$RemoteDir' in *auris-training*) ;; *) echo 'unsafe-remote-dir'; exit 1 ;; esac"
+  "find '$RemoteDir' -mindepth 1 -maxdepth 1 ! -name '.env.prod' -exec rm -rf {} +"
   "tar -xzf '$remoteArchive' -C '$RemoteDir'"
   "cd '$RemoteDir'"
   "if [ ! -f '$RemoteDir/.env.prod' ]; then echo '.env.prod missing on server'; exit 1; fi"
