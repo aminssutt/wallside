@@ -56,6 +56,32 @@ _CANONICAL_BRANDS = {
     "alfa romeo": "Alfa Romeo",
     "alfa rom\u00e9o": "Alfa Romeo",
 }
+IMAGE_DIR = DATA_DIR / "vehicle_images"
+_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
+_GENERIC_MANUAL_TOKENS = {
+    "infotainment",
+    "multimedia",
+    "media",
+    "nav",
+    "navigation",
+    "guide",
+    "manual",
+    "owner",
+    "owners",
+    "system",
+    "live",
+    "quick",
+    "reference",
+    "mbux",
+    "easy",
+    "link",
+    "carnet",
+    "entretien",
+    "garanties",
+    "warranty",
+    "maintenance",
+    "et",
+}
 _MANUAL_SLUG_SUFFIXES = (
     "infotainment-system",
     "multimedia-system",
@@ -176,6 +202,76 @@ def _clean_vehicle_name(name: str) -> str:
     return cleaned.strip(" -:|/")
 
 
+def _image_exists(filename: Optional[str]) -> bool:
+    if not filename:
+        return False
+    candidate = IMAGE_DIR / filename
+    return candidate.exists() and candidate.is_file()
+
+
+def _load_image_candidates() -> List[str]:
+    if not IMAGE_DIR.exists():
+        return []
+    return sorted(
+        [
+            p.name
+            for p in IMAGE_DIR.iterdir()
+            if p.is_file() and p.suffix.lower() in _IMAGE_EXTENSIONS
+        ]
+    )
+
+
+def _fallback_image_for_vehicle(slug: str, brand: str, image_candidates: List[str]) -> Optional[str]:
+    if not image_candidates:
+        return None
+
+    target_tokens = [t for t in slug.split("-") if t and not re.fullmatch(r"\d{4}", t)]
+    if not target_tokens:
+        return None
+
+    brand_tokens = [t for t in slugify(brand).split("-") if t]
+    best_name: Optional[str] = None
+    best_score = 0
+
+    for image_name in image_candidates:
+        image_slug = slugify(Path(image_name).stem)
+        image_tokens = set(image_slug.split("-"))
+        overlap = len([t for t in target_tokens if t in image_tokens])
+        if overlap == 0:
+            continue
+
+        score = overlap * 2
+        if brand_tokens and all(token in image_tokens for token in brand_tokens):
+            score += 1
+        if image_slug.startswith("-".join(target_tokens[:2])):
+            score += 1
+
+        if score > best_score:
+            best_score = score
+            best_name = image_name
+
+    return best_name if best_score >= 3 else None
+
+
+def _is_generic_manual_entry(slug: str, brand: str) -> bool:
+    if any(ch.isdigit() for ch in slug):
+        return False
+
+    slug_tokens = [t for t in slug.split("-") if t]
+    if not slug_tokens:
+        return False
+
+    brand_tokens = [t for t in slugify(brand).split("-") if t]
+    remaining = slug_tokens
+    if brand_tokens and slug_tokens[: len(brand_tokens)] == brand_tokens:
+        remaining = slug_tokens[len(brand_tokens):]
+
+    if not remaining:
+        return False
+
+    return all(token in _GENERIC_MANUAL_TOKENS for token in remaining)
+
+
 class Guide:
     """Represents a vehicle-level guide built from one or multiple manuals."""
 
@@ -249,7 +345,7 @@ class GuideManager:
         score = 0
         if entry.get("slug") == canonical_slug:
             score += 100
-        if entry.get("image"):
+        if _image_exists(entry.get("image")):
             score += 20
         if entry.get("segment"):
             score += 10
@@ -275,24 +371,30 @@ class GuideManager:
             return
 
         normalized_entries: List[dict] = []
+        skipped_generic = 0
         for entry in entries:
             if not isinstance(entry, dict):
                 continue
             slug = _clean_text(entry.get("slug", ""))
             if not slug or not re.match(r"^[a-z0-9-]+$", slug):
                 continue
+            brand = _clean_text(entry.get("brand"), "Autres")
+            if _is_generic_manual_entry(slug, brand):
+                skipped_generic += 1
+                continue
             normalized_entries.append(
                 {
                     "slug": slug,
                     "name": _clean_text(entry.get("name"), slug),
                     "image": _clean_text(entry.get("image")) or None,
-                    "brand": _clean_text(entry.get("brand"), "Autres"),
+                    "brand": brand,
                     "segment": _clean_text(entry.get("segment"), "autre"),
                 }
             )
 
         known_slugs = {entry["slug"] for entry in normalized_entries}
         groups: Dict[str, List[dict]] = {}
+        image_candidates = _load_image_candidates()
 
         for entry in normalized_entries:
             source_slug = entry["slug"]
@@ -315,19 +417,33 @@ class GuideManager:
             source_slugs = [entry["slug"] for entry in ranked]
             self.slug_aliases[canonical_slug] = canonical_slug
 
+            image_name = None
+            for entry in ranked:
+                candidate_image = entry.get("image")
+                if _image_exists(candidate_image):
+                    image_name = candidate_image
+                    break
+            if not image_name:
+                image_name = _fallback_image_for_vehicle(
+                    canonical_slug,
+                    primary.get("brand", ""),
+                    image_candidates,
+                )
+
             self.guides[canonical_slug] = Guide(
                 slug=canonical_slug,
                 name=display_name,
-                image=primary.get("image"),
+                image=image_name,
                 brand=primary.get("brand"),
                 segment=primary.get("segment"),
                 source_slugs=source_slugs,
             )
 
         log.info(
-            "GuideManager: %d manuals grouped into %d vehicle chats",
+            "GuideManager: %d manuals grouped into %d vehicle chats (%d generic manuals skipped)",
             len(normalized_entries),
             len(self.guides),
+            skipped_generic,
         )
 
     def list_guides(self, brand: Optional[str] = None) -> List[dict]:
