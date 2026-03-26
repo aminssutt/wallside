@@ -600,42 +600,60 @@ class GuideChatbot:
 
     def __init__(self, guide: Guide):
         self.guide = guide
-        self.vector_store = self._load_vector_store()
-        self.bm25_index, self.bm25_chunks = self._load_bm25()
+        self.vector_stores = self._load_vector_stores()
+        self.bm25_indices = self._load_bm25_indices()
         self.client = genai.Client(api_key=GOOGLE_API_KEY)
         self.model_name = LLM_MODEL.replace("models/", "", 1)
         # Per-session conversation histories with bounded size
         self._session_histories: OrderedDict[str, List[dict]] = OrderedDict()
         self._max_sessions = 1000
 
-    def _load_vector_store(self) -> Optional[FAISS]:
-        vs_dir = self.guide.vector_store_dir
-        index_path = vs_dir / "index.faiss"
-        if not index_path.exists():
-            return None
-
+    def _load_vector_stores(self) -> List[FAISS]:
         if importlib.util.find_spec("faiss") is None:
-            return None
+            return []
 
+        stores: List[FAISS] = []
         embeddings = get_embeddings()
-        try:
-            return FAISS.load_local(
-                str(vs_dir), embeddings, allow_dangerous_deserialization=True
-            )
-        except ImportError:
-            return None
+        for vs_dir in self.guide.vector_store_dirs:
+            index_path = vs_dir / "index.faiss"
+            if not index_path.exists():
+                continue
+            try:
+                stores.append(
+                    FAISS.load_local(
+                        str(vs_dir), embeddings, allow_dangerous_deserialization=True
+                    )
+                )
+            except Exception as exc:
+                log.warning(
+                    "Failed to load FAISS index for %s (%s): %s",
+                    self.guide.slug,
+                    vs_dir,
+                    exc,
+                )
+        return stores
 
-    def _load_bm25(self):
-        bm25_path = self.guide.vector_store_dir / "bm25_index.pkl"
-        if not bm25_path.exists():
-            return None, []
-        try:
-            with open(bm25_path, "rb") as f:
-                data = pickle.load(f)
-            return data["bm25"], data["chunks"]
-        except Exception as exc:
-            log.warning("Failed to load BM25 index for %s: %s", self.guide.slug, exc)
-            return None, []
+    def _load_bm25_indices(self) -> List[Tuple[object, List[Document]]]:
+        indices: List[Tuple[object, List[Document]]] = []
+        for vs_dir in self.guide.vector_store_dirs:
+            bm25_path = vs_dir / "bm25_index.pkl"
+            if not bm25_path.exists():
+                continue
+            try:
+                with open(bm25_path, "rb") as f:
+                    data = pickle.load(f)
+                bm25_index = data.get("bm25")
+                chunks = data.get("chunks") or []
+                if bm25_index and chunks:
+                    indices.append((bm25_index, chunks))
+            except Exception as exc:
+                log.warning(
+                    "Failed to load BM25 index for %s (%s): %s",
+                    self.guide.slug,
+                    vs_dir,
+                    exc,
+                )
+        return indices
 
     def _get_session_history(self, session_id: str) -> List[dict]:
         if session_id not in self._session_histories:
@@ -658,30 +676,34 @@ class GuideChatbot:
 
         # --- FAISS retrieval ---
         faiss_ranked: List[Document] = []
-        if self.vector_store:
+        for vector_store in self.vector_stores:
             try:
-                faiss_docs = self.vector_store.similarity_search_with_score(question, k=k * 2)
+                faiss_docs = vector_store.similarity_search_with_score(question, k=k * 2)
                 faiss_docs.sort(key=lambda x: x[1])  # lower L2 = better
-                faiss_ranked = [doc for doc, _ in faiss_docs]
+                faiss_ranked.extend(doc for doc, _ in faiss_docs)
             except Exception as exc:
                 log.warning("FAISS search failed: %s", exc)
 
         # --- BM25 retrieval ---
         bm25_ranked: List[Document] = []
-        if self.bm25_index and self.bm25_chunks:
-            tokens = re.findall(r"[a-z\u00e0-\u00ff0-9\u3130-\u318f\uac00-\ud7af]{2,}", question.lower())
-            if tokens:
-                scores = self.bm25_index.get_scores(tokens)
+        tokens = re.findall(r"[a-z\u00e0-\u00ff0-9\u3130-\u318f\uac00-\ud7af]{2,}", question.lower())
+        if tokens:
+            for bm25_index, bm25_chunks in self.bm25_indices:
+                try:
+                    scores = bm25_index.get_scores(tokens)
+                except Exception as exc:
+                    log.warning("BM25 scoring failed: %s", exc)
+                    continue
                 top_indices = sorted(
                     range(len(scores)),
                     key=lambda i: scores[i],
                     reverse=True,
                 )[:k * 2]
-                bm25_ranked = [
-                    self.bm25_chunks[idx]
+                bm25_ranked.extend(
+                    bm25_chunks[idx]
                     for idx in top_indices
                     if scores[idx] > 0
-                ]
+                )
 
         # --- Reciprocal Rank Fusion ---
         rrf_scores: Dict[str, float] = {}
@@ -728,7 +750,7 @@ class GuideChatbot:
         docs: List[Document] = []
         context = ""
         has_relevant_context = False
-        if self.vector_store or self.bm25_index:
+        if self.vector_stores or self.bm25_indices:
             docs = self._hybrid_search(question, k=TOP_K_RESULTS)
             if docs:
                 has_relevant_context = True
@@ -877,7 +899,7 @@ _cache_lock = threading.Lock()
 
 
 def get_guide_chatbot(slug: str) -> GuideChatbot:
-    """Get or create a chatbot for a guide slug with LRU eviction (thread-safe)."""
+    """Get or create a chatbot for a vehicle slug with LRU eviction (thread-safe)."""
     with _cache_lock:
         if slug in _guide_chatbot_cache:
             _guide_chatbot_cache.move_to_end(slug)
@@ -889,26 +911,30 @@ def get_guide_chatbot(slug: str) -> GuideChatbot:
     if not guide.is_indexed:
         raise ValueError(f"Guide '{slug}' is not indexed yet")
 
+    cache_key = guide.slug
+
     chatbot = GuideChatbot(guide)
 
     with _cache_lock:
         # Check again in case another thread created it
-        if slug in _guide_chatbot_cache:
-            _guide_chatbot_cache.move_to_end(slug)
-            return _guide_chatbot_cache[slug]
+        if cache_key in _guide_chatbot_cache:
+            _guide_chatbot_cache.move_to_end(cache_key)
+            return _guide_chatbot_cache[cache_key]
 
         while len(_guide_chatbot_cache) >= MAX_CACHED_GUIDES:
             evicted_slug, _ = _guide_chatbot_cache.popitem(last=False)
             log.info("Evicted chatbot cache for guide: %s", evicted_slug)
 
-        _guide_chatbot_cache[slug] = chatbot
+        _guide_chatbot_cache[cache_key] = chatbot
         return chatbot
 
 
 def clear_guide_chatbot_cache(slug: str = None):
     with _cache_lock:
         if slug:
-            _guide_chatbot_cache.pop(slug, None)
+            guide = guide_manager.get_guide(slug)
+            cache_key = guide.slug if guide else slug
+            _guide_chatbot_cache.pop(cache_key, None)
         else:
             _guide_chatbot_cache.clear()
 
