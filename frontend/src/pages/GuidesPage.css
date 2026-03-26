@@ -5,9 +5,9 @@
   --guides-text-muted: rgba(205, 209, 216, 0.84);
   --guides-border-soft: rgba(188, 194, 206, 0.24);
   --guides-border-strong: rgba(202, 208, 219, 0.36);
-  min-height: 100vh;
-  min-height: 100svh;
-  min-height: 100dvh;
+  height: 100vh;
+  height: 100svh;
+  height: 100dvh;
   position: relative;
   overflow-x: hidden;
   overflow-y: hidden;
@@ -353,6 +353,173 @@
   align-items: flex-end;
 }
 
+/* Search bar */
+.guides-search-bar {
+  display: flex;
+  justify-content: center;
+  margin: 0 auto 6px;
+  max-width: min(300px, 80vw);
+}
+
+.guides-search-input {
+  width: 100%;
+  border-radius: 11px;
+  border: 1px solid rgba(214, 223, 236, 0.24);
+  background: linear-gradient(165deg, rgba(24, 30, 39, 0.9), rgba(14, 18, 26, 0.84));
+  color: rgba(233, 241, 252, 0.95);
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  font-size: 0.58rem;
+  font-weight: 600;
+  padding: 9px 12px;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  box-shadow:
+    0 16px 28px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  font-family: inherit;
+}
+
+.guides-search-input::placeholder {
+  color: rgba(197, 206, 215, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.guides-search-input:focus {
+  border-color: rgba(229, 237, 247, 0.46);
+  box-shadow:
+    0 20px 30px rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+/* Segment popup (same pattern as brand popup) */
+.guides-segment-popup {
+  position: relative;
+  width: min(320px, 90vw);
+  border-radius: 16px;
+  border: 1px solid rgba(214, 223, 236, 0.2);
+  background: linear-gradient(170deg, rgba(22, 28, 38, 0.97), rgba(10, 13, 19, 0.96));
+  backdrop-filter: blur(20px);
+  box-shadow:
+    0 32px 56px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  padding: 20px;
+}
+
+.guides-segment-popup-header {
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 0.56rem;
+  font-weight: 700;
+  color: rgba(197, 206, 215, 0.66);
+  margin-bottom: 14px;
+  text-align: center;
+}
+
+.guides-segment-popup-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.guides-segment-option {
+  width: 100%;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: rgba(220, 228, 240, 0.82);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.6rem;
+  font-weight: 600;
+  padding: 11px 14px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  font-family: inherit;
+  text-align: left;
+}
+
+.guides-segment-option:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(214, 223, 236, 0.14);
+  color: rgba(240, 245, 255, 0.98);
+}
+
+.guides-segment-option--active {
+  background: linear-gradient(165deg, rgba(80, 140, 255, 0.18), rgba(60, 100, 200, 0.1));
+  border-color: rgba(100, 160, 255, 0.36);
+  color: #fff;
+  box-shadow: 0 0 10px rgba(80, 140, 255, 0.1);
+}
+
+.guides-segment-popup-search {
+  margin-bottom: 12px;
+}
+
+.guides-segment-popup-search .guides-search-input {
+  font-size: 0.58rem;
+  padding: 9px 12px;
+}
+
+.guides-segment-popup-list {
+  max-height: min(320px, 50vh);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+
+.guides-segment-popup-empty {
+  text-align: center;
+  color: rgba(197, 206, 215, 0.5);
+  font-size: 0.58rem;
+  padding: 16px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* Reset search button */
+.guides-reset-search {
+  margin-top: 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(214, 223, 236, 0.24);
+  background: rgba(18, 22, 30, 0.7);
+  color: rgba(197, 206, 215, 0.8);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.58rem;
+  font-weight: 700;
+  padding: 10px 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.guides-reset-search:hover {
+  border-color: rgba(229, 237, 247, 0.4);
+  color: rgba(233, 241, 252, 0.95);
+}
+
+/* Segment badge on active card */
+.guides-segment-badge {
+  display: inline-block;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 0.5rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  line-height: 1.4;
+}
+
+.guides-segment-badge--citadine { background: rgba(76, 175, 80, 0.2); color: #81c784; border: 1px solid rgba(76, 175, 80, 0.3); }
+.guides-segment-badge--suv { background: rgba(255, 152, 0, 0.2); color: #ffb74d; border: 1px solid rgba(255, 152, 0, 0.3); }
+.guides-segment-badge--berline { background: rgba(33, 150, 243, 0.2); color: #64b5f6; border: 1px solid rgba(33, 150, 243, 0.3); }
+.guides-segment-badge--sportive { background: rgba(244, 67, 54, 0.2); color: #ef5350; border: 1px solid rgba(244, 67, 54, 0.3); }
+.guides-segment-badge--classique { background: rgba(156, 39, 176, 0.2); color: #ba68c8; border: 1px solid rgba(156, 39, 176, 0.3); }
+.guides-segment-badge--utilitaire { background: rgba(121, 85, 72, 0.2); color: #a1887f; border: 1px solid rgba(121, 85, 72, 0.3); }
+.guides-segment-badge--autre { background: rgba(158, 158, 158, 0.2); color: #bdbdbd; border: 1px solid rgba(158, 158, 158, 0.3); }
+
 .guides-brand-filter {
   min-width: min(280px, 92vw);
 }
@@ -689,7 +856,7 @@
 
 .guides-carousel-viewport {
   position: relative;
-  height: min(clamp(238px, 31.5vw, 320px), calc(100dvh - 250px));
+  height: min(clamp(220px, 28vw, 290px), calc(100dvh - 310px));
   overflow: hidden;
   perspective: 1800px;
   touch-action: pan-y;
@@ -836,7 +1003,7 @@
   transform-style: preserve-3d;
   backface-visibility: hidden;
   width: min(700px, calc(100% - 140px));
-  height: clamp(220px, 33vw, 320px);
+  height: clamp(200px, 28vw, 280px);
   cursor: pointer;
   display: flex;
   flex-direction: column;
@@ -857,7 +1024,7 @@
 .guide-floating-stage {
   position: relative;
   width: min(100%, 680px);
-  height: clamp(190px, 28vw, 270px);
+  height: clamp(170px, 25vw, 240px);
   border: none;
   background: none;
   box-shadow: none;
@@ -1464,7 +1631,7 @@
 
 @media (max-width: 700px) {
   .guides-page {
-    overflow-y: auto;
+    overflow-y: hidden;
   }
 
   .guides-header {

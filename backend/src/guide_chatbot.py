@@ -734,14 +734,18 @@ class GuideChatbot:
                     time_budget_seconds=budget,
                 )
 
+            executor = ThreadPoolExecutor(max_workers=2)
+            web_future = executor.submit(_fetch_web)
+            video_future = executor.submit(_fetch_video)
             try:
-                with ThreadPoolExecutor(max_workers=2) as executor:
-                    web_future = executor.submit(_fetch_web)
-                    video_future = executor.submit(_fetch_video)
-                    web_results = web_future.result(timeout=budget + 2)
-                    video = video_future.result(timeout=budget + 2)
-            except Exception as exc:
-                log.warning("Enrichment failed: %s", exc)
+                web_results = web_future.result(timeout=budget)
+            except Exception:
+                web_results = []
+            try:
+                video = video_future.result(timeout=max(1.0, budget))
+            except Exception:
+                video = {}
+            executor.shutdown(wait=False)
 
             web_context = format_web_context(web_results, lang=lang)
 
@@ -790,13 +794,14 @@ REGLES STRICTES:
         user_content = "\n\n---\n\n".join(user_parts)
 
         try:
+            from google.genai import types as genai_types
             response = self.client.models.generate_content(
                 model=self.model_name,
                 contents=user_content,
-                config={
-                    "system_instruction": system_instruction,
-                    "http_options": {"timeout": LLM_TIMEOUT_SECONDS * 1000},
-                },
+                config=genai_types.GenerateContentConfig(
+                    system_instruction=system_instruction,
+                    http_options=genai_types.HttpOptions(timeout=LLM_TIMEOUT_SECONDS * 1000),
+                ),
             )
 
             raw_answer = (getattr(response, "text", "") or "").strip()

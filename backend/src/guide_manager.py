@@ -37,11 +37,13 @@ class Guide:
         name: str,
         image: Optional[str] = None,
         brand: Optional[str] = None,
+        segment: Optional[str] = None,
     ):
         self.slug = slug
         self.name = name
         self.image = image  # filename like "clio-4.png"
         self.brand = (brand or "").strip() or "Autres"
+        self.segment = (segment or "").strip() or "autre"
 
     @property
     def dir(self) -> Path:
@@ -64,6 +66,7 @@ class Guide:
             "name": self.name,
             "brand": self.brand,
             "image": self.image,
+            "segment": self.segment,
             "indexed": self.is_indexed,
         }
 
@@ -91,6 +94,7 @@ class GuideManager:
                 name=entry["name"],
                 image=entry.get("image"),
                 brand=entry.get("brand"),
+                segment=entry.get("segment"),
             )
 
         print(f"GuideManager: {len(self.guides)} guides loaded")

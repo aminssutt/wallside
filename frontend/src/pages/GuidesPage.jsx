@@ -47,7 +47,7 @@ const wrapIndex = (value, total) => ((value % total) + total) % total
 const getShortestOffset = (targetIndex, currentIndex, total) => {
   if (total <= 1) return 0
   let offset = targetIndex - currentIndex
-  if (offset > total / 2) offset -= total
+  if (offset >= total / 2) offset -= total
   if (offset < -total / 2) offset += total
   return offset
 }
@@ -59,6 +59,9 @@ function GuidesPage() {
   const [guides, setGuides] = useState([])
   const [brands, setBrands] = useState([])
   const [selectedBrand, setSelectedBrand] = useState(ALL_BRANDS_VALUE)
+  const [selectedSegment, setSelectedSegment] = useState(ALL_BRANDS_VALUE)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [segments, setSegments] = useState([])
   const [loading, setLoading] = useState(true)
   const [errorKey, setErrorKey] = useState('')
   const [pendingGuide, setPendingGuide] = useState(null)
@@ -67,6 +70,7 @@ function GuidesPage() {
   const [langOpen, setLangOpen] = useState(false)
   const [navMenuOpen, setNavMenuOpen] = useState(false)
   const [brandPickerOpen, setBrandPickerOpen] = useState(false)
+  const [segmentPickerOpen, setSegmentPickerOpen] = useState(false)
   const [brandSearchTerm, setBrandSearchTerm] = useState('')
   const [brandDraftValue, setBrandDraftValue] = useState(ALL_BRANDS_VALUE)
   const [showExitConfirm, setShowExitConfirm] = useState(false)
@@ -135,6 +139,7 @@ function GuidesPage() {
 
         setGuides(sortedGuides)
         setBrands(sortedBrands)
+        setSegments(data.segments || [])
       } catch {
         setErrorKey('serverError')
       } finally {
@@ -231,13 +236,26 @@ function GuidesPage() {
   }, [showExitConfirm])
 
   const filteredGuides = useMemo(() => {
-    if (selectedBrand === ALL_BRANDS_VALUE) {
-      return guides
+    let result = guides
+    if (selectedBrand !== ALL_BRANDS_VALUE) {
+      result = result.filter(
+        (guide) => (guide.brand || '').toLowerCase() === selectedBrand.toLowerCase(),
+      )
     }
-    return guides.filter(
-      (guide) => (guide.brand || '').toLowerCase() === selectedBrand.toLowerCase(),
-    )
-  }, [guides, selectedBrand])
+    if (selectedSegment !== ALL_BRANDS_VALUE) {
+      result = result.filter((guide) => (guide.segment || '') === selectedSegment)
+    }
+    if (searchTerm.trim()) {
+      const q = searchTerm.trim().toLowerCase()
+      result = result.filter(
+        (guide) =>
+          (guide.name || '').toLowerCase().includes(q) ||
+          (guide.brand || '').toLowerCase().includes(q) ||
+          (guide.slug || '').toLowerCase().includes(q),
+      )
+    }
+    return result
+  }, [guides, selectedBrand, selectedSegment, searchTerm])
 
   const brandOptionsForPopup = useMemo(() => {
     const query = brandSearchTerm.trim().toLowerCase()
@@ -259,15 +277,18 @@ function GuidesPage() {
     ).length
   }, [guides, brandDraftValue])
 
+  const activeGuideSlugRef = useRef(activeGuideSlug)
+  activeGuideSlugRef.current = activeGuideSlug
+
   useEffect(() => {
     if (filteredGuides.length === 0) {
       setActiveGuideSlug('')
       return
     }
-    if (!filteredGuides.some((guide) => guide.slug === activeGuideSlug)) {
+    if (!filteredGuides.some((guide) => guide.slug === activeGuideSlugRef.current)) {
       setActiveGuideSlug(filteredGuides[0].slug)
     }
-  }, [filteredGuides, activeGuideSlug])
+  }, [filteredGuides])
 
   useEffect(() => {
     const viewport = carouselViewportRef.current
@@ -480,7 +501,7 @@ function GuidesPage() {
 
     window.setTimeout(() => {
       draggingCarouselRef.current = false
-    }, 0)
+    }, 80)
   }
 
   const handleCardClick = (guide, offset) => {
@@ -678,9 +699,31 @@ function GuidesPage() {
           </div>
         )}
 
+        {!loading && !errorKey && guides.length > 0 && (
+          <div className="guides-search-bar">
+            <input
+              type="text"
+              className="guides-search-input"
+              placeholder={t.guides.searchPlaceholder || 'Search...'}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              aria-label={t.guides.searchPlaceholder}
+            />
+          </div>
+        )}
+
         {!loading && !errorKey && guides.length > 0 && filteredGuides.length === 0 && (
           <div className="guides-state-block">
             <p>{noBrandMatch}</p>
+            {searchTerm.trim() && (
+              <button
+                type="button"
+                className="guides-reset-search"
+                onClick={() => { setSearchTerm(''); setSelectedSegment(ALL_BRANDS_VALUE); setSelectedBrand(ALL_BRANDS_VALUE) }}
+              >
+                {lang === 'fr' ? 'Reinitialiser les filtres' : lang === 'ko' ? '필터 초기화' : 'Reset filters'}
+              </button>
+            )}
           </div>
         )}
 
@@ -719,7 +762,7 @@ function GuidesPage() {
                     }
                   }}
                 >
-                  <AnimatePresence initial={false}>
+                  <AnimatePresence initial={false} mode="popLayout">
                     {carouselCards.map(({ guide, offset, index }) => {
                       const distance = Math.abs(offset)
                       const scale = distance === 0 ? 1 : distance === 1 ? 0.56 : distance === 2 ? 0.34 : 0.2
@@ -730,7 +773,8 @@ function GuidesPage() {
 
                       return (
                         <Motion.article
-                          key={guide.slug}
+                          key={`${guide.slug}-${offset}`}
+                          layout
                           className={`guide-teaser${offset === 0 ? ' guide-teaser--active' : ''}`}
                           role="button"
                           tabIndex={0}
@@ -769,7 +813,7 @@ function GuidesPage() {
                             <div className="guide-floating-frame" aria-hidden="true" />
                             <div className="guide-floating-vehicle">
                               {guide.image ? (
-                                <img src={buildImageUrl(guide.image)} alt={guide.name} loading="lazy" />
+                                <img key={guide.image} src={buildImageUrl(guide.image)} alt={guide.name} loading="eager" />
                               ) : (
                                 <div className="guide-teaser-placeholder">CC</div>
                               )}
@@ -805,6 +849,11 @@ function GuidesPage() {
 
                   <div className="guides-active-meta-line">
                     <span>{activeGuide.brand || brandUnknownLabel}</span>
+                    {activeGuide.segment && (
+                      <span className={`guides-segment-badge guides-segment-badge--${activeGuide.segment}`}>
+                        {(t.guides.segments || {})[activeGuide.segment] || activeGuide.segment}
+                      </span>
+                    )}
                     {activeGuide.coverage_note ? (
                       <span>{formatText(coverageLabel, { coverage: activeGuide.coverage_note })}</span>
                     ) : null}
@@ -818,19 +867,31 @@ function GuidesPage() {
                           type="button"
                           className="guides-brand-trigger"
                           onClick={() => {
-                            setBrandPickerOpen((prev) => {
-                              const next = !prev
-                              if (next) {
-                                setBrandDraftValue(selectedBrand)
-                                setBrandSearchTerm('')
-                              }
-                              return next
-                            })
+                            setBrandSearchTerm('')
+                            setBrandPickerOpen((prev) => !prev)
                           }}
                           aria-expanded={brandPickerOpen}
-                          aria-haspopup="dialog"
+                          aria-haspopup="listbox"
                         >
                           <span>{selectedBrandLabel}</span>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                            <polyline points="6 9 12 15 18 9" />
+                          </svg>
+                        </button>
+                      </div>
+                    )}
+
+                    {segments.length > 0 && (
+                      <div className="guides-brand-filter">
+                        <p>{lang === 'fr' ? 'Type de vehicule' : lang === 'ko' ? '차량 유형' : 'Vehicle type'}</p>
+                        <button
+                          type="button"
+                          className="guides-brand-trigger"
+                          onClick={() => setSegmentPickerOpen((prev) => !prev)}
+                          aria-expanded={segmentPickerOpen}
+                          aria-haspopup="listbox"
+                        >
+                          <span>{selectedSegment === ALL_BRANDS_VALUE ? (t.guides.allSegments || 'Tous') : ((t.guides.segments || {})[selectedSegment] || selectedSegment)}</span>
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                             <polyline points="6 9 12 15 18 9" />
                           </svg>
@@ -857,77 +918,92 @@ function GuidesPage() {
             onClick={() => setBrandPickerOpen(false)}
           >
             <Motion.div
-              className="guides-brand-popup"
-              ref={brandPopupRef}
+              className="guides-segment-popup"
               initial={{ opacity: 0, y: 18, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 14, scale: 0.98 }}
-              transition={{ duration: 0.2, ease: 'easeOut' }}
+              exit={{ opacity: 0, y: 12, scale: 0.98 }}
+              transition={{ duration: 0.22 }}
               onClick={(event) => event.stopPropagation()}
             >
-              <div className="guides-pick-grid guides-pick-grid--brand">
-                <div className="guides-pick-pane guides-pick-pane--list">
-                  <p className="guides-pick-kicker">{popupSystemLabel}</p>
-                  <h3>{filterLabel}</h3>
-
-                  <div className="guides-pick-search-wrap">
-                    <input
-                      type="search"
-                      value={brandSearchTerm}
-                      onChange={(event) => setBrandSearchTerm(event.target.value)}
-                      placeholder={brandSearchPlaceholder}
-                    />
-                  </div>
-
-                  <div className="guides-brand-options guides-pick-options">
-                    {brandOptionsForPopup.length > 0 ? (
-                      brandOptionsForPopup.map((brandValue, index) => {
-                        const label = brandValue === ALL_BRANDS_VALUE ? allBrandsLabel : brandValue
-                        const isActive = brandValue === brandDraftValue
-
-                        return (
-                          <button
-                            key={brandValue}
-                            type="button"
-                            className={`guides-brand-option${isActive ? ' guides-brand-option--active' : ''}`}
-                            onClick={() => setBrandDraftValue(brandValue)}
-                          >
-                            <small>{String(index + 1).padStart(2, '0')}</small>
-                            <span>{label}</span>
-                          </button>
-                        )
-                      })
-                    ) : (
-                      <p className="guides-pick-empty">{noBrandMatch}</p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="guides-pick-pane guides-pick-pane--meta">
-                  <span className="guides-pick-badge">{popupFilterStatusLabel}</span>
-                  <h4>{brandDraftValue === ALL_BRANDS_VALUE ? allBrandsLabel : brandDraftValue}</h4>
-                  <p>{lang === 'fr' ? 'Sélectionnez une marque pour filtrer la liste des véhicules disponibles.' : lang === 'ko' ? '브랜드를 선택해 사용 가능한 차량 목록을 필터링하세요.' : 'Select a brand to filter the available vehicle list.'}</p>
-
-                  <div className="guides-pick-metrics">
-                    <div>
-                      <span>{lang === 'fr' ? 'Modèles détectés' : lang === 'ko' ? '감지된 모델' : 'Detected models'}</span>
-                      <strong>{brandDraftGuideCount}</strong>
-                    </div>
-                    <div>
-                      <span>{lang === 'fr' ? 'Marques indexées' : lang === 'ko' ? '인덱싱 브랜드' : 'Indexed brands'}</span>
-                      <strong>{brands.length}</strong>
-                    </div>
-                  </div>
-
-                  <div className="guides-pick-actions">
-                    <button type="button" className="guides-pick-btn guides-pick-btn--ghost" onClick={() => setBrandPickerOpen(false)}>
-                      {popupCloseLabel}
+              <div className="guides-segment-popup-header">
+                <span>{filterLabel}</span>
+              </div>
+              <div className="guides-segment-popup-search">
+                <input
+                  type="text"
+                  className="guides-search-input"
+                  value={brandSearchTerm}
+                  onChange={(event) => setBrandSearchTerm(event.target.value)}
+                  placeholder={brandSearchPlaceholder}
+                  autoFocus
+                />
+              </div>
+              <div className="guides-segment-popup-list">
+                {brandOptionsForPopup.map((brandValue) => {
+                  const label = brandValue === ALL_BRANDS_VALUE ? allBrandsLabel : brandValue
+                  const isActive = brandValue === selectedBrand
+                  return (
+                    <button
+                      key={brandValue}
+                      type="button"
+                      className={`guides-segment-option${isActive ? ' guides-segment-option--active' : ''}`}
+                      onClick={() => {
+                        setSelectedBrand(brandValue)
+                        setBrandPickerOpen(false)
+                        setBrandSearchTerm('')
+                      }}
+                    >
+                      {label}
                     </button>
-                    <button type="button" className="guides-pick-btn guides-pick-btn--solid" onClick={applyBrandSelection}>
-                      {popupApplyLabel}
-                    </button>
-                  </div>
-                </div>
+                  )
+                })}
+                {brandOptionsForPopup.length === 0 && (
+                  <p className="guides-segment-popup-empty">{noBrandMatch}</p>
+                )}
+              </div>
+            </Motion.div>
+          </Motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {segmentPickerOpen && (
+          <Motion.div
+            className="guides-brand-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setSegmentPickerOpen(false)}
+          >
+            <Motion.div
+              className="guides-segment-popup"
+              initial={{ opacity: 0, y: 18, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 12, scale: 0.98 }}
+              transition={{ duration: 0.22 }}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="guides-segment-popup-header">
+                <span>{lang === 'fr' ? 'TYPE DE VEHICULE' : lang === 'ko' ? '차량 유형' : 'VEHICLE TYPE'}</span>
+              </div>
+              <div className="guides-segment-popup-list">
+                <button
+                  type="button"
+                  className={`guides-segment-option${selectedSegment === ALL_BRANDS_VALUE ? ' guides-segment-option--active' : ''}`}
+                  onClick={() => { setSelectedSegment(ALL_BRANDS_VALUE); setSegmentPickerOpen(false) }}
+                >
+                  {t.guides.allSegments || 'Tous'}
+                </button>
+                {segments.map((seg) => (
+                  <button
+                    key={seg}
+                    type="button"
+                    className={`guides-segment-option${selectedSegment === seg ? ' guides-segment-option--active' : ''}`}
+                    onClick={() => { setSelectedSegment(seg); setSegmentPickerOpen(false) }}
+                  >
+                    {(t.guides.segments || {})[seg] || seg}
+                  </button>
+                ))}
               </div>
             </Motion.div>
           </Motion.div>

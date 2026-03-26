@@ -80,11 +80,16 @@ EMAIL_REGEX = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 def list_guides():
     """List all available pre-indexed guides."""
     brand = request.args.get("brand", "").strip() or None
+    segment = request.args.get("segment", "").strip() or None
     guides = guide_manager.list_guides(brand=brand)
+    if segment:
+        guides = [g for g in guides if g.get("segment") == segment]
+    segments = sorted({g.get("segment", "autre") for g in guide_manager.list_guides()})
     return jsonify({
         "success": True,
         "guides": guides,
         "brands": guide_manager.list_brands(),
+        "segments": segments,
     })
 
 
