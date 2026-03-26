@@ -11,7 +11,8 @@ import re
 import importlib.util
 import time
 import hashlib
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import quote_plus, urlparse
 from urllib.request import Request, urlopen
 
@@ -39,9 +40,13 @@ from .guide_manager import guide_manager, Guide
 log = logging.getLogger("auris")
 
 try:
-    from duckduckgo_search import DDGS
+    # Preferred package name (duckduckgo-search was renamed to ddgs).
+    from ddgs import DDGS  # type: ignore
 except Exception:
-    DDGS = None
+    try:
+        from duckduckgo_search import DDGS  # type: ignore
+    except Exception:
+        DDGS = None
 
 
 MAX_RESPONSE_CHARS = 1800
@@ -70,7 +75,7 @@ def detect_language(text: str) -> str:
 LANG_INSTRUCTIONS = {
     "fr": "Reponds en francais.",
     "en": "Answer in English.",
-    "ko": "한국어로 답변하세요.",
+    "ko": "\ud55c\uad6d\uc5b4\ub85c \ub2f5\ubcc0\ud558\uc138\uc694.",
 }
 
 LANG_OFF_TOPIC = {
@@ -95,14 +100,14 @@ LANG_OFF_TOPIC = {
         "- No specific manual page found for this question (general response)."
     ),
     "ko": (
-        "주제와 관련 없는 질문:\n"
-        "{vehicle} 전문 어시스턴트입니다.\n\n"
-        "유용한 질문 예시:\n"
-        "- 브레이크 시스템은 어떻게 작동하나요?\n"
-        "- 권장 타이어 공기압은 얼마인가요?\n"
-        "- 엔진 경고등은 무엇을 의미하나요?\n\n"
+        "\uc8fc\uc81c\uc640 \uad00\ub828 \uc5c6\ub294 \uc9c8\ubb38\uc785\ub2c8\ub2e4:\n"
+        "{vehicle} \uc804\uc6a9 \uc5b4\uc2dc\uc2a4\ud134\ud2b8\uc785\ub2c8\ub2e4.\n\n"
+        "\uc720\uc6a9\ud55c \uc9c8\ubb38 \uc608\uc2dc:\n"
+        "- \ube0c\ub808\uc774\ud06c \uc2dc\uc2a4\ud15c\uc740 \uc5b4\ub5bb\uac8c \uc791\ub3d9\ud558\ub098\uc694?\n"
+        "- \uad8c\uc7a5 \ud0c0\uc774\uc5b4 \uacf5\uae30\uc555\uc740 \uc5bc\ub9c8\uc778\uac00\uc694?\n"
+        "- \uc5d4\uc9c4 \uacbd\uace0\ub4f1\uc740 \ubb34\uc5c7\uc744 \uc758\ubbf8\ud558\ub098\uc694?\n\n"
         "Sources:\n"
-        "- 이 질문에 대한 매뉴얼 페이지를 찾을 수 없습니다 (일반 응답)."
+        "- \uc774 \uc9c8\ubb38\uc5d0 \ub300\ud55c \ub9e4\ub274\uc5bc \ud398\uc774\uc9c0\ub97c \ucc3e\uc744 \uc218 \uc5c6\uc2b5\ub2c8\ub2e4 (\uc77c\ubc18 \uc751\ub2f5)."
     ),
 }
 
@@ -115,24 +120,50 @@ VEHICLE_KEYWORDS = [
     "climatisation", "air conditioning", "carburant", "fuel",
     "clio", "renault", "demarrage", "demarrer", "start",
     # Korean car terms
-    "자동차", "엔진", "브레이크", "타이어", "정비", "경고등",
+    "\uc790\ub3d9\ucc28", "\uc5d4\uc9c4", "\ube0c\ub808\uc774\ud06c", "\ud0c0\uc774\uc5b4",
+    "\uc815\ube44", "\uacbd\uace0\ub4f1", "\ubc30\ud130\ub9ac", "\uc5f0\ub8cc", "\uc2dc\ub3d9",
 ]
 
 NON_VEHICLE_KEYWORDS = [
     "recette", "cuisine", "gateau", "pizza", "soupe",
     "meteo", "pluie", "neige", "president", "election",
     "football", "basket", "film", "musique", "hopital",
+    # Korean non-vehicle terms
+    "\ub808\uc2dc\ud53c", "\uc694\ub9ac", "\ub0a0\uc528", "\ud1b5\ub839", "\uc120\uac70",
+    "\ucd95\uad6c", "\ub18d\uad6c", "\uc601\ud654", "\uc74c\uc545", "\ubcd1\uc6d0",
 ]
 
 LANG_QUESTION_PATTERNS = re.compile(
     r"(?:parle|parler|speak|talk|answer|respond|repondre|reponds)"
-    r".*(?:anglais|english|francais|french|coreen|korean|langue|language)"
-    r"|(?:anglais|english|francais|french|coreen|korean)"
+    r".*(?:anglais|english|francais|french|coreen|korean|langue|language|"
+    r"\ud55c\uad6d\uc5b4|\uc601\uc5b4|\ud504\ub791\uc2a4\uc5b4|\uc5b8\uc5b4)"
+    r"|(?:anglais|english|francais|french|coreen|korean|"
+    r"\ud55c\uad6d\uc5b4|\uc601\uc5b4|\ud504\ub791\uc2a4\uc5b4|\uc5b8\uc5b4)"
     r".*(?:parle|speak|talk|answer|respond|repondre|reponds)"
-    r"|(?:can you|peux.tu|tu peux|do you).*(?:anglais|english|francais|french|coreen|korean|langue|language)"
-    r"|(?:change|switch|changer).*(?:langue|language)",
+    r"|(?:can you|peux.tu|tu peux|do you).*(?:anglais|english|francais|french|coreen|korean|langue|language|"
+    r"\ud55c\uad6d\uc5b4|\uc601\uc5b4|\ud504\ub791\uc2a4\uc5b4|\uc5b8\uc5b4)"
+    r"|(?:change|switch|changer).*(?:langue|language|\uc5b8\uc5b4)",
     re.IGNORECASE,
 )
+
+_KO_LANGUAGE_HINTS = (
+    "\ud55c\uad6d\uc5b4", "\uc601\uc5b4", "\ud504\ub791\uc2a4\uc5b4", "\uc5b8\uc5b4",
+)
+_KO_LANGUAGE_ACTIONS = (
+    "\ub9d0\ud574", "\ub9d0\ud558", "\ub9d0\ud560", "\ub300\ub2f5",
+    "\uc751\ub2f5", "\ubc14\uafd4", "\ubcc0\uacbd",
+)
+
+
+def is_language_capability_question(question: str) -> bool:
+    lower_question = (question or "").lower()
+    if LANG_QUESTION_PATTERNS.search(lower_question):
+        return True
+    has_language_hint = any(token in question for token in _KO_LANGUAGE_HINTS)
+    has_action_hint = any(token in question for token in _KO_LANGUAGE_ACTIONS)
+    capability_hint = bool(re.search(r"\ud560\s*\uc218|\uac00\ub2a5", question))
+    return has_language_hint and (has_action_hint or capability_hint)
+
 
 LANG_QUESTION_RESPONSE = {
     "fr": (
@@ -150,38 +181,12 @@ LANG_QUESTION_RESPONSE = {
         "- No specific manual page found for this question (general response)."
     ),
     "ko": (
-        "네, 프랑스어, 영어, 한국어로 답변할 수 있습니다!\n"
-        "언어를 변경하려면 채팅 오른쪽 상단의 언어 선택 버튼을 사용하세요.\n\n"
+        "\ub124, \ud504\ub791\uc2a4\uc5b4, \uc601\uc5b4, \ud55c\uad6d\uc5b4\ub85c \ub2f5\ubcc0\ud560 \uc218 \uc788\uc2b5\ub2c8\ub2e4!\n"
+        "\uc5b8\uc5b4\ub97c \ubcc0\uacbd\ud558\ub824\uba74 \ucc44\ud305 \uc624\ub978\ucabd \uc0c1\ub2e8\uc758 \uc5b8\uc5b4 \uc120\ud0dd \ubc84\ud2bc\uc744 \uc0ac\uc6a9\ud558\uc138\uc694.\n\n"
         "Sources:\n"
-        "- 이 질문에 대한 매뉴얼 페이지를 찾을 수 없습니다 (일반 응답)."
+        "- \uc774 \uc9c8\ubb38\uc5d0 \ub300\ud55c \ub9e4\ub274\uc5bc \ud398\uc774\uc9c0\ub97c \ucc3e\uc744 \uc218 \uc5c6\uc2b5\ub2c8\ub2e4 (\uc77c\ubc18 \uc751\ub2f5)."
     ),
 }
-
-# Normalize Korean runtime strings to avoid mojibake on some Windows encodings.
-LANG_INSTRUCTIONS["ko"] = "Answer in Korean."
-
-LANG_OFF_TOPIC["ko"] = (
-    "관련 없는 질문입니다:\n"
-    "{vehicle} 전용 어시스턴트입니다.\n\n"
-    "유용한 질문 예시:\n"
-    "- 브레이크 시스템은 어떻게 작동하나요?\n"
-    "- 권장 타이어 공기압은 얼마인가요?\n"
-    "- 엔진 경고등은 무엇을 의미하나요?\n\n"
-    "Sources:\n"
-    "- 이 질문에 대한 매뉴얼 페이지를 찾을 수 없습니다 (일반 응답)."
-)
-
-LANG_QUESTION_RESPONSE["ko"] = (
-    "네, 프랑스어, 영어, 한국어로 답변할 수 있습니다.\n"
-    "언어를 변경하려면 채팅 오른쪽 상단의 언어 선택 버튼을 사용하세요.\n\n"
-    "Sources:\n"
-    "- 이 질문에 대한 매뉴얼 페이지를 찾을 수 없습니다 (일반 응답)."
-)
-
-for keyword in ("자동차", "엔진", "브레이크", "타이어", "정비", "경고등"):
-    if keyword not in VEHICLE_KEYWORDS:
-        VEHICLE_KEYWORDS.append(keyword)
-
 
 VIDEO_LABELS = {
     "fr": "Video YouTube recommandee:",
@@ -599,8 +604,9 @@ class GuideChatbot:
         self.bm25_index, self.bm25_chunks = self._load_bm25()
         self.client = genai.Client(api_key=GOOGLE_API_KEY)
         self.model_name = LLM_MODEL.replace("models/", "", 1)
-        # Per-session conversation histories: {session_id: [messages]}
-        self._session_histories: Dict[str, List[dict]] = {}
+        # Per-session conversation histories with bounded size
+        self._session_histories: OrderedDict[str, List[dict]] = OrderedDict()
+        self._max_sessions = 1000
 
     def _load_vector_store(self) -> Optional[FAISS]:
         vs_dir = self.guide.vector_store_dir
@@ -633,7 +639,12 @@ class GuideChatbot:
 
     def _get_session_history(self, session_id: str) -> List[dict]:
         if session_id not in self._session_histories:
+            # Evict oldest session if at capacity
+            while len(self._session_histories) >= self._max_sessions:
+                self._session_histories.popitem(last=False)
             self._session_histories[session_id] = []
+        else:
+            self._session_histories.move_to_end(session_id)
         return self._session_histories[session_id]
 
     def _trim_session_history(self, session_id: str):
@@ -642,57 +653,68 @@ class GuideChatbot:
             self._session_histories[session_id] = history[-MAX_CONVERSATION_HISTORY:]
 
     def _hybrid_search(self, question: str, k: int = TOP_K_RESULTS) -> List[Document]:
-        """Combine FAISS semantic search + BM25 lexical search with relevance threshold."""
-        seen_contents = set()
-        results: List[Tuple[Document, float]] = []
+        """Combine FAISS + BM25 with Reciprocal Rank Fusion (RRF)."""
+        RRF_K = 60  # standard RRF constant
 
+        # --- FAISS retrieval ---
+        faiss_ranked: List[Document] = []
         if self.vector_store:
             try:
-                faiss_docs = self.vector_store.similarity_search_with_score(question, k=k)
-                for doc, score in faiss_docs:
-                    key = hashlib.md5(doc.page_content.encode()).hexdigest()
-                    if key not in seen_contents:
-                        seen_contents.add(key)
-                        norm_score = 1.0 / (1.0 + score)
-                        results.append((doc, norm_score))
+                faiss_docs = self.vector_store.similarity_search_with_score(question, k=k * 2)
+                faiss_docs.sort(key=lambda x: x[1])  # lower L2 = better
+                faiss_ranked = [doc for doc, _ in faiss_docs]
             except Exception as exc:
                 log.warning("FAISS search failed: %s", exc)
 
+        # --- BM25 retrieval ---
+        bm25_ranked: List[Document] = []
         if self.bm25_index and self.bm25_chunks:
-            tokens = re.findall(r"[a-z0-9\u3130-\u318f\uac00-\ud7af]{2,}", question.lower())
+            tokens = re.findall(r"[a-z\u00e0-\u00ff0-9\u3130-\u318f\uac00-\ud7af]{2,}", question.lower())
             if tokens:
                 scores = self.bm25_index.get_scores(tokens)
                 top_indices = sorted(
                     range(len(scores)),
                     key=lambda i: scores[i],
                     reverse=True,
-                )[:k]
-                max_score = max(scores) if len(scores) > 0 and max(scores) > 0 else 1.0
-                for idx in top_indices:
-                    if scores[idx] <= 0:
-                        continue
-                    doc = self.bm25_chunks[idx]
-                    key = hashlib.md5(doc.page_content.encode()).hexdigest()
-                    if key not in seen_contents:
-                        seen_contents.add(key)
-                        results.append((doc, scores[idx] / max_score * 0.8))
+                )[:k * 2]
+                bm25_ranked = [
+                    self.bm25_chunks[idx]
+                    for idx in top_indices
+                    if scores[idx] > 0
+                ]
 
-        results.sort(key=lambda x: x[1], reverse=True)
+        # --- Reciprocal Rank Fusion ---
+        rrf_scores: Dict[str, float] = {}
+        doc_map: Dict[str, Document] = {}
 
-        # Apply relevance threshold to avoid injecting irrelevant chunks
-        filtered = [(doc, s) for doc, s in results if s >= RELEVANCE_THRESHOLD]
-        if not filtered and results:
-            # Keep at least the best result if nothing passes threshold
-            filtered = [results[0]]
+        for rank, doc in enumerate(faiss_ranked):
+            key = hashlib.sha256(doc.page_content.encode()).hexdigest()
+            rrf_scores[key] = rrf_scores.get(key, 0.0) + 1.0 / (RRF_K + rank + 1)
+            doc_map[key] = doc
 
-        return [doc for doc, _ in filtered[:k]]
+        for rank, doc in enumerate(bm25_ranked):
+            key = hashlib.sha256(doc.page_content.encode()).hexdigest()
+            rrf_scores[key] = rrf_scores.get(key, 0.0) + 1.0 / (RRF_K + rank + 1)
+            doc_map[key] = doc
+
+        # Sort by RRF score descending
+        sorted_keys = sorted(rrf_scores, key=rrf_scores.get, reverse=True)
+
+        # Apply relevance threshold (RRF score for rank 0 in one list = ~0.016)
+        min_rrf = RELEVANCE_THRESHOLD * 0.1  # ~0.015 threshold
+        filtered = [doc_map[k] for k in sorted_keys if rrf_scores[k] >= min_rrf]
+
+        if not filtered and sorted_keys:
+            filtered = [doc_map[sorted_keys[0]]]
+
+        return filtered[:k]
 
     def chat(self, question: str, lang: str = None, session_id: str = "default") -> str:
         """Generate a response. If lang is provided, use it; otherwise auto-detect."""
         if not lang:
             lang = detect_language(question)
 
-        if LANG_QUESTION_PATTERNS.search(question):
+        if is_language_capability_question(question):
             return LANG_QUESTION_RESPONSE.get(lang, LANG_QUESTION_RESPONSE["fr"])
 
         is_vehicle, confidence = is_vehicle_related(question)
@@ -738,14 +760,19 @@ class GuideChatbot:
             web_future = executor.submit(_fetch_web)
             video_future = executor.submit(_fetch_video)
             try:
-                web_results = web_future.result(timeout=budget)
-            except Exception:
-                web_results = []
-            try:
-                video = video_future.result(timeout=max(1.0, budget))
-            except Exception:
-                video = {}
-            executor.shutdown(wait=False)
+                try:
+                    web_results = web_future.result(timeout=budget)
+                except Exception:
+                    web_results = []
+                try:
+                    video = video_future.result(timeout=max(1.0, budget))
+                except Exception:
+                    video = {}
+            finally:
+                for future in (web_future, video_future):
+                    if not future.done():
+                        future.cancel()
+                executor.shutdown(wait=False, cancel_futures=True)
 
             web_context = format_web_context(web_results, lang=lang)
 
@@ -800,6 +827,8 @@ REGLES STRICTES:
                 contents=user_content,
                 config=genai_types.GenerateContentConfig(
                     system_instruction=system_instruction,
+                    temperature=0.15,
+                    max_output_tokens=800,
                     http_options=genai_types.HttpOptions(timeout=LLM_TIMEOUT_SECONDS * 1000),
                 ),
             )
@@ -844,13 +873,15 @@ REGLES STRICTES:
 
 # LRU cache for chatbot instances (bounded by MAX_CACHED_GUIDES)
 _guide_chatbot_cache: OrderedDict[str, GuideChatbot] = OrderedDict()
+_cache_lock = threading.Lock()
 
 
 def get_guide_chatbot(slug: str) -> GuideChatbot:
-    """Get or create a chatbot for a guide slug with LRU eviction."""
-    if slug in _guide_chatbot_cache:
-        _guide_chatbot_cache.move_to_end(slug)
-        return _guide_chatbot_cache[slug]
+    """Get or create a chatbot for a guide slug with LRU eviction (thread-safe)."""
+    with _cache_lock:
+        if slug in _guide_chatbot_cache:
+            _guide_chatbot_cache.move_to_end(slug)
+            return _guide_chatbot_cache[slug]
 
     guide = guide_manager.get_guide(slug)
     if not guide:
@@ -858,18 +889,26 @@ def get_guide_chatbot(slug: str) -> GuideChatbot:
     if not guide.is_indexed:
         raise ValueError(f"Guide '{slug}' is not indexed yet")
 
-    # Evict oldest if at capacity
-    while len(_guide_chatbot_cache) >= MAX_CACHED_GUIDES:
-        evicted_slug, _ = _guide_chatbot_cache.popitem(last=False)
-        log.info("Evicted chatbot cache for guide: %s", evicted_slug)
-
     chatbot = GuideChatbot(guide)
-    _guide_chatbot_cache[slug] = chatbot
-    return chatbot
+
+    with _cache_lock:
+        # Check again in case another thread created it
+        if slug in _guide_chatbot_cache:
+            _guide_chatbot_cache.move_to_end(slug)
+            return _guide_chatbot_cache[slug]
+
+        while len(_guide_chatbot_cache) >= MAX_CACHED_GUIDES:
+            evicted_slug, _ = _guide_chatbot_cache.popitem(last=False)
+            log.info("Evicted chatbot cache for guide: %s", evicted_slug)
+
+        _guide_chatbot_cache[slug] = chatbot
+        return chatbot
 
 
 def clear_guide_chatbot_cache(slug: str = None):
-    if slug:
-        _guide_chatbot_cache.pop(slug, None)
-    else:
-        _guide_chatbot_cache.clear()
+    with _cache_lock:
+        if slug:
+            _guide_chatbot_cache.pop(slug, None)
+        else:
+            _guide_chatbot_cache.clear()
+

@@ -72,7 +72,6 @@ function GuidesPage() {
   const [brandPickerOpen, setBrandPickerOpen] = useState(false)
   const [segmentPickerOpen, setSegmentPickerOpen] = useState(false)
   const [brandSearchTerm, setBrandSearchTerm] = useState('')
-  const [brandDraftValue, setBrandDraftValue] = useState(ALL_BRANDS_VALUE)
   const [showExitConfirm, setShowExitConfirm] = useState(false)
   const [activeGuideSlug, setActiveGuideSlug] = useState('')
   const [carouselWidth, setCarouselWidth] = useState(0)
@@ -106,11 +105,7 @@ function GuidesPage() {
   const exitConfirmKicker = lang === 'fr' ? 'TERMINER LA LIAISON ?' : lang === 'ko' ? '링크를 종료하시겠습니까?' : 'TERMINATE NEURAL LINK?'
   const exitNodeLabel = lang === 'fr' ? 'NOEUD.ACTIF' : lang === 'ko' ? '활성 노드' : 'ACTIVE.NODE'
   const exitActiveNodeFallback = selectedBrandLabel || 'HOME'
-  const popupCloseLabel = lang === 'fr' ? 'Fermer' : lang === 'ko' ? '닫기' : 'Close'
-  const popupApplyLabel = lang === 'fr' ? 'Appliquer' : lang === 'ko' ? '적용' : 'Apply'
   const brandSearchPlaceholder = lang === 'fr' ? 'Rechercher une marque...' : lang === 'ko' ? '브랜드 검색...' : 'Search brand...'
-  const popupSystemLabel = lang === 'fr' ? 'Interface système' : lang === 'ko' ? '시스템 인터페이스' : 'System interface'
-  const popupFilterStatusLabel = lang === 'fr' ? 'Filtre actif' : lang === 'ko' ? '활성 필터' : 'Filter active'
   const isGuideFocusActive = Boolean(pendingGuide)
 
   useEffect(() => {
@@ -179,12 +174,6 @@ function GuidesPage() {
       document.removeEventListener('keydown', handleEscape)
     }
   }, [langOpen, brandPickerOpen])
-
-  useEffect(() => {
-    if (!brandPickerOpen) return
-    setBrandDraftValue(selectedBrand)
-    setBrandSearchTerm('')
-  }, [brandPickerOpen, selectedBrand])
 
   useEffect(() => {
     const handleResize = () => {
@@ -269,13 +258,6 @@ function GuidesPage() {
       return value.toLowerCase().includes(query)
     })
   }, [brands, brandSearchTerm, allBrandsLabel])
-
-  const brandDraftGuideCount = useMemo(() => {
-    if (brandDraftValue === ALL_BRANDS_VALUE) return guides.length
-    return guides.filter(
-      (guide) => (guide.brand || '').toLowerCase() === brandDraftValue.toLowerCase(),
-    ).length
-  }, [guides, brandDraftValue])
 
   const activeGuideSlugRef = useRef(activeGuideSlug)
   activeGuideSlugRef.current = activeGuideSlug
@@ -454,15 +436,6 @@ function GuidesPage() {
     setLang(nextLang)
     setLangOpen(false)
     setNavMenuOpen(false)
-  }
-
-  const handleBrandSelect = (brandValue) => {
-    setSelectedBrand(brandValue)
-    setBrandPickerOpen(false)
-  }
-
-  const applyBrandSelection = () => {
-    handleBrandSelect(brandDraftValue || ALL_BRANDS_VALUE)
   }
 
   const setActiveGuideByIndex = (nextIndex) => {

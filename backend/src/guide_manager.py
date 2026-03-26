@@ -5,27 +5,117 @@ Each guide lives under data/guides/<slug>/ with FAISS + BM25 indexes.
 from __future__ import annotations
 
 import json
+import logging
 import re
+import unicodedata
 from pathlib import Path
 from typing import Dict, List, Optional
 
 from .config import DATA_DIR
 
+log = logging.getLogger("auris")
+
 GUIDES_DIR = DATA_DIR / "guides"
 GUIDES_DIR.mkdir(parents=True, exist_ok=True)
+
+_MOJIBAKE_MARKERS = ("\u00c3", "\u00c2", "\u00e3", "\ufffd")
+_COMMON_MOJIBAKE_REPLACEMENTS = {
+    "Ã©": "é",
+    "Ã¨": "è",
+    "Ãª": "ê",
+    "Ã«": "ë",
+    "Ã ": "à",
+    "Ã¢": "â",
+    "Ã¤": "ä",
+    "Ã®": "î",
+    "Ã¯": "ï",
+    "Ã´": "ô",
+    "Ã¶": "ö",
+    "Ã¹": "ù",
+    "Ã»": "û",
+    "Ã¼": "ü",
+    "Ã§": "ç",
+    "ã©": "é",
+    "ã¨": "è",
+    "ãª": "ê",
+    "ã«": "ë",
+    "ã ": "à",
+    "ã¢": "â",
+    "ã¤": "ä",
+    "ã®": "î",
+    "ã¯": "ï",
+    "ã´": "ô",
+    "ã¶": "ö",
+    "ã¹": "ù",
+    "ã»": "û",
+    "ã¼": "ü",
+    "ã§": "ç",
+}
+_CANONICAL_BRANDS = {
+    "bmw": "BMW",
+    "alfa romeo": "Alfa Romeo",
+    "alfa roméo": "Alfa Romeo",
+}
+
+
+def _mojibake_score(text: str) -> int:
+    return sum(text.count(marker) for marker in _MOJIBAKE_MARKERS)
+
+
+def _replace_common_mojibake(text: str) -> str:
+    repaired = text
+    for broken, fixed in _COMMON_MOJIBAKE_REPLACEMENTS.items():
+        repaired = repaired.replace(broken, fixed)
+    return repaired
+
+
+def _repair_mojibake(text: str) -> str:
+    """Best-effort fix for strings decoded with the wrong codec."""
+    if not text:
+        return ""
+
+    best = _replace_common_mojibake(text)
+    best_score = _mojibake_score(best)
+    candidate = text
+
+    # Try one or two latin1->utf8 repair passes for double-decoding cases.
+    for _ in range(2):
+        try:
+            candidate = candidate.encode("latin1").decode("utf-8")
+        except UnicodeError:
+            break
+
+        candidate = _replace_common_mojibake(candidate)
+        score = _mojibake_score(candidate)
+        if score < best_score:
+            best = candidate
+            best_score = score
+
+    return best
+
+
+def _clean_text(value: Optional[str], default: str = "") -> str:
+    if value is None:
+        return default
+    text = str(value).strip()
+    if not text:
+        return default
+    text = _repair_mojibake(text)
+    return text or default
+
+
+def _normalize_brand(brand: str) -> str:
+    key = (brand or "").casefold()
+    return _CANONICAL_BRANDS.get(key, brand)
 
 
 def slugify(name: str) -> str:
     """Convert a guide name to a filesystem-safe slug."""
-    s = name.lower().strip()
-    s = re.sub(r"[àâä]", "a", s)
-    s = re.sub(r"[éèêë]", "e", s)
-    s = re.sub(r"[îï]", "i", s)
-    s = re.sub(r"[ôö]", "o", s)
-    s = re.sub(r"[ùûü]", "u", s)
-    s = re.sub(r"[ç]", "c", s)
+    s = _clean_text(name).lower()
+    s = unicodedata.normalize("NFKD", s)
+    s = s.encode("ascii", "ignore").decode("ascii")
     s = re.sub(r"[^a-z0-9]+", "-", s)
-    return s.strip("-")
+    return s.strip("-") or "guide"
 
 
 class Guide:
@@ -40,10 +130,10 @@ class Guide:
         segment: Optional[str] = None,
     ):
         self.slug = slug
-        self.name = name
-        self.image = image  # filename like "clio-4.png"
-        self.brand = (brand or "").strip() or "Autres"
-        self.segment = (segment or "").strip() or "autre"
+        self.name = _clean_text(name, slug)
+        self.image = _clean_text(image) or None  # filename like "clio-4.png"
+        self.brand = _normalize_brand(_clean_text(brand, "Autres"))
+        self.segment = _clean_text(segment, "autre")
 
     @property
     def dir(self) -> Path:
@@ -55,10 +145,16 @@ class Guide:
 
     @property
     def is_indexed(self) -> bool:
-        """Check if FAISS or BM25 index exists."""
+        """Check if FAISS or BM25 index exists (cached after first check)."""
+        cached = getattr(self, "_is_indexed_cache", None)
+        if cached is not None:
+            return cached
         faiss_ok = (self.vector_store_dir / "index.faiss").exists()
         bm25_ok = (self.vector_store_dir / "bm25_index.pkl").exists()
-        return faiss_ok or bm25_ok
+        result = faiss_ok or bm25_ok
+        if result:
+            self._is_indexed_cache = True
+        return result
 
     def to_dict(self) -> dict:
         return {
@@ -84,24 +180,36 @@ class GuideManager:
         if not manifest_path.exists():
             return
 
-        with manifest_path.open("r", encoding="utf-8") as f:
-            entries = json.load(f)
+        try:
+            with manifest_path.open("r", encoding="utf-8") as f:
+                entries = json.load(f)
+        except (json.JSONDecodeError, OSError) as exc:
+            log.error("Failed to load manifest.json: %s", exc)
+            return
+
+        if not isinstance(entries, list):
+            log.error("Invalid manifest format: expected list, got %s", type(entries).__name__)
+            return
 
         for entry in entries:
-            slug = entry["slug"]
+            if not isinstance(entry, dict):
+                continue
+            slug = _clean_text(entry.get("slug", ""))
+            if not slug or not re.match(r"^[a-z0-9-]+$", slug):
+                continue
             self.guides[slug] = Guide(
                 slug=slug,
-                name=entry["name"],
+                name=_clean_text(entry.get("name"), slug),
                 image=entry.get("image"),
                 brand=entry.get("brand"),
                 segment=entry.get("segment"),
             )
 
-        print(f"GuideManager: {len(self.guides)} guides loaded")
+        log.info("GuideManager: %d guides loaded", len(self.guides))
 
     def list_guides(self, brand: Optional[str] = None) -> List[dict]:
         """Return all indexed guides as dicts."""
-        normalized_brand = (brand or "").strip().lower()
+        normalized_brand = _clean_text(brand).lower()
 
         guides = []
         for guide in self.guides.values():

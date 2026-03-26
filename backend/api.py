@@ -55,8 +55,16 @@ def add_security_headers(response):
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
-    if request.is_secure:
+    if request.is_secure or request.headers.get("X-Forwarded-Proto") == "https":
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self'; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com; "
+        "img-src 'self' data: blob:; "
+        "connect-src 'self' https://carchat.online https://www.carchat.online"
+    )
     return response
 
 # Serve car images from data/vehicle_images first, then legacy manuel/voiture.
@@ -76,19 +84,40 @@ EMAIL_REGEX = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 # GUIDE ENDPOINTS
 # ============================================
 
+_SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+
+
 @app.route('/api/guides', methods=['GET'])
 def list_guides():
     """List all available pre-indexed guides."""
     brand = request.args.get("brand", "").strip() or None
     segment = request.args.get("segment", "").strip() or None
-    guides = guide_manager.list_guides(brand=brand)
+    all_guides = guide_manager.list_guides()
+    filtered = all_guides
+    if brand:
+        brand_norm = brand.casefold()
+        filtered = [
+            g for g in all_guides
+            if str(g.get("brand", "")).casefold() == brand_norm
+        ]
     if segment:
-        guides = [g for g in guides if g.get("segment") == segment]
-    segments = sorted({g.get("segment", "autre") for g in guide_manager.list_guides()})
+        segment_norm = segment.casefold()
+        filtered = [
+            g for g in filtered
+            if str(g.get("segment", "")).casefold() == segment_norm
+        ]
+    segments = sorted(
+        {str(g.get("segment", "autre")) for g in all_guides},
+        key=str.casefold,
+    )
+    brands = sorted(
+        {str(g.get("brand")) for g in all_guides if g.get("brand")},
+        key=str.casefold,
+    )
     return jsonify({
         "success": True,
-        "guides": guides,
-        "brands": guide_manager.list_brands(),
+        "guides": filtered,
+        "brands": brands,
         "segments": segments,
     })
 
@@ -96,6 +125,8 @@ def list_guides():
 @app.route('/api/guides/<slug>', methods=['GET'])
 def get_guide(slug):
     """Get details for a specific guide."""
+    if not _SLUG_RE.match(slug):
+        return jsonify({"success": False, "error": "Invalid slug"}), 400
     guide = guide_manager.get_guide(slug)
     if not guide or not guide.is_indexed:
         return jsonify({
@@ -117,6 +148,8 @@ def get_guide(slug):
 @limiter.limit("15 per minute")
 def chat(slug):
     """Chat with a specific guide's chatbot."""
+    if not _SLUG_RE.match(slug):
+        return jsonify({"success": False, "error": "Invalid slug"}), 400
     guide = guide_manager.get_guide(slug)
     if not guide or not guide.is_indexed:
         return jsonify({

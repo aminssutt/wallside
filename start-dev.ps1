@@ -61,7 +61,9 @@ if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
 }
 
 Stop-PortProcess -Port 5002
-Stop-PortProcess -Port 5173
+foreach ($p in 5173, 5174, 5175, 5176) {
+  Stop-PortProcess -Port $p
+}
 
 $pythonExe = Resolve-PythonExe -BackendPath $backendDir
 
@@ -74,7 +76,7 @@ Start-Process `
 
 Start-Process `
   -FilePath "npm.cmd" `
-  -ArgumentList "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173" `
+  -ArgumentList "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173", "--strictPort" `
   -WorkingDirectory $frontendDir `
   -RedirectStandardOutput $frontendLog `
   -RedirectStandardError $frontendErrLog | Out-Null
