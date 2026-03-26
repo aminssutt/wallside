@@ -60,8 +60,8 @@ LLM_MODEL = _normalize_model_name(
 )
 
 # Configuration du chunking
-CHUNK_SIZE = 2000
-CHUNK_OVERLAP = 300
+CHUNK_SIZE = 1200
+CHUNK_OVERLAP = 200
 
 # Configuration du RAG
 TOP_K_RESULTS = int(os.getenv("TOP_K_RESULTS", "5"))
@@ -94,12 +94,25 @@ MAX_CACHED_GUIDES = int(os.getenv("MAX_CACHED_GUIDES", "5"))
 RELEVANCE_THRESHOLD = float(os.getenv("RELEVANCE_THRESHOLD", "0.15"))
 
 # CORS
-ALLOWED_ORIGINS = [
-    o.strip()
-    for o in os.getenv(
-        "ALLOWED_ORIGINS",
-        "https://carchat.online,https://www.carchat.online,http://localhost:5173,http://localhost:5002",
-    ).split(",")
-    if o.strip()
+_DEFAULT_ORIGINS = [
+    "https://carchat.online",
+    "https://www.carchat.online",
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://localhost:5175",
+    "http://localhost:5176",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:5174",
+    "http://127.0.0.1:5175",
+    "http://127.0.0.1:5176",
+    "http://localhost:5002",
+    "http://127.0.0.1:5002",
 ]
+
+_raw_allowed_origins = os.getenv("ALLOWED_ORIGINS", ",".join(_DEFAULT_ORIGINS))
+ALLOWED_ORIGINS = []
+for origin in _raw_allowed_origins.split(","):
+    clean = origin.strip()
+    if clean and clean not in ALLOWED_ORIGINS:
+        ALLOWED_ORIGINS.append(clean)
 

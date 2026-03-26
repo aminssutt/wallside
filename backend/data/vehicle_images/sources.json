@@ -24,6 +24,12 @@
     "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1f/Alpine_A390_IMG_4939.jpg/960px-Alpine_A390_IMG_4939.jpg"
   },
   {
+    "vehicle": "Bmw 3 Series 2024",
+    "image": "bmw 3 series 2024.png",
+    "source_page": "https://en.wikipedia.org/wiki/BMW_3_Series",
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/91/BMW_G20_%282022%29_IMG_7316_%282%29.jpg/1280px-BMW_G20_%282022%29_IMG_7316_%282%29.jpg"
+  },
+  {
     "vehicle": "Chevrolet Avalanche 2001-2006",
     "image": "chevrolet avalanche 2001-2006.png",
     "source_page": "https://en.wikipedia.org/wiki/Chevrolet_Avalanche",
@@ -48,10 +54,70 @@
     "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/2023_Dacia_Sandero_III_DSC_6012.jpg/1280px-2023_Dacia_Sandero_III_DSC_6012.jpg"
   },
   {
+    "vehicle": "Genesis G80 2024",
+    "image": "genesis g80 2024.png",
+    "source_page": "https://en.wikipedia.org/wiki/Genesis_G80",
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f7/Genesis_G80_IAA_2021_1X7A0229.jpg/1280px-Genesis_G80_IAA_2021_1X7A0229.jpg"
+  },
+  {
     "vehicle": "Honda Civic 11",
     "image": "honda civic 11.png",
     "source_page": "https://en.wikipedia.org/wiki/Honda_Civic_(eleventh_generation)",
     "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b5/2022_Honda_Civic_Touring_in_Lunar_Silver_Metallic%2C_Front_Left%2C_05-10-2022.jpg/960px-2022_Honda_Civic_Touring_in_Lunar_Silver_Metallic%2C_Front_Left%2C_05-10-2022.jpg"
+  },
+  {
+    "vehicle": "Hyundai Elantra 2024",
+    "image": "hyundai elantra 2024.png",
+    "source_page": "https://en.wikipedia.org/wiki/Hyundai_Elantra",
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/17/Hyundai_Avante_CN7_white_%2810%29_%28cropped%29.jpg/1280px-Hyundai_Avante_CN7_white_%2810%29_%28cropped%29.jpg"
+  },
+  {
+    "vehicle": "Hyundai Grandeur 2024",
+    "image": "hyundai grandeur 2024.png",
+    "source_page": "https://en.wikipedia.org/wiki/Hyundai_Grandeur",
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Hyundai_Grandeur_Calligraphy_GN7_Biophilic_Blue_Pearl_%285%29_%28cropped%29.jpg/1280px-Hyundai_Grandeur_Calligraphy_GN7_Biophilic_Blue_Pearl_%285%29_%28cropped%29.jpg"
+  },
+  {
+    "vehicle": "Hyundai Palisade 2024",
+    "image": "hyundai palisade 2024.png",
+    "source_page": "https://en.wikipedia.org/wiki/Hyundai_Palisade",
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7c/Hyundai_Palisade_2.5T_Calligraphy_LX3_Creamy_White_Pearl_%2846%29_%28cropped%29.jpg/1280px-Hyundai_Palisade_2.5T_Calligraphy_LX3_Creamy_White_Pearl_%2846%29_%28cropped%29.jpg"
+  },
+  {
+    "vehicle": "Hyundai Santa Fe 2024",
+    "image": "hyundai santa fe 2024.png",
+    "source_page": "https://en.wikipedia.org/wiki/Hyundai_Santa_Fe",
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e6/2024_Hyundai_Santa_Fe_Luxury_AWD_in_Hampton_Grey%2C_front_left%2C_2024-06-30.jpg/1280px-2024_Hyundai_Santa_Fe_Luxury_AWD_in_Hampton_Grey%2C_front_left%2C_2024-06-30.jpg"
+  },
+  {
+    "vehicle": "Hyundai Tucson 2024",
+    "image": "hyundai tucson 2024.png",
+    "source_page": "https://en.wikipedia.org/wiki/Hyundai_Tucson",
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c6/2022_Hyundai_Tucson_Preferred%2C_Front_Right%2C_05-24-2021.jpg/1280px-2022_Hyundai_Tucson_Preferred%2C_Front_Right%2C_05-24-2021.jpg"
+  },
+  {
+    "vehicle": "Kia Seltos 2023",
+    "image": "kia seltos 2023.png",
+    "source_page": "https://en.wikipedia.org/wiki/Kia_Seltos",
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6c/Kia_Seltos_SP2_PE_Snow_White_Pearl_%2817%29_%28cropped%29.jpg/1280px-Kia_Seltos_SP2_PE_Snow_White_Pearl_%2817%29_%28cropped%29.jpg"
+  },
+  {
+    "vehicle": "Kia Sorento 2023",
+    "image": "kia sorento 2023.png",
+    "source_page": "https://en.wikipedia.org/wiki/Kia_Sorento",
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/84/2024_Kia_Sorento_X-Line_SX_Prestige_%28facelift%29%2C_front_12.20.24.jpg/1280px-2024_Kia_Sorento_X-Line_SX_Prestige_%28facelift%29%2C_front_12.20.24.jpg"
+  },
+  {
+    "vehicle": "Kia Sportage 2023",
+    "image": "kia sportage 2023.png",
+    "source_page": "https://en.wikipedia.org/wiki/Kia_Sportage",
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/2022_Kia_Sportage_GT-Line_ISG_HEV_Automatic_1.6_Front.jpg/1280px-2022_Kia_Sportage_GT-Line_ISG_HEV_Automatic_1.6_Front.jpg"
+  },
+  {
+    "vehicle": "Mercedes C Class 2022",
+    "image": "mercedes c class 2022.png",
+    "source_page": "https://en.wikipedia.org/wiki/Mercedes-Benz_C-Class",
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/be/Mercedes-Benz_W206_IMG_6380.jpg/1280px-Mercedes-Benz_W206_IMG_6380.jpg"
   },
   {
     "vehicle": "Peugeot 2008 2019",
@@ -82,6 +148,12 @@
     "image": "peugeot 508 2019.png",
     "source_page": "https://en.wikipedia.org/wiki/Peugeot_508",
     "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/01/2019_Peugeot_508_GT-Line_BlueHDi_1.5_%28130_PS%29_Front.jpg/1280px-2019_Peugeot_508_GT-Line_BlueHDi_1.5_%28130_PS%29_Front.jpg"
+  },
+  {
+    "vehicle": "Range Rover Evoque 2024",
+    "image": "range rover evoque 2024.png",
+    "source_page": "https://en.wikipedia.org/wiki/Range_Rover_Evoque",
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/84/2019_Land_Rover_Range_Rover_Evoque_R-Dynamic_2.0.jpg/1280px-2019_Land_Rover_Range_Rover_Evoque_R-Dynamic_2.0.jpg"
   },
   {
     "vehicle": "Renault Captur 2024",

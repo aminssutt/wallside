@@ -11,9 +11,15 @@ from langchain_core.documents import Document
 from .config import VECTOR_STORE_DIR, TOP_K_RESULTS, EMBEDDING_MODEL
 
 
+_embeddings_instance: Optional[GoogleGenerativeAIEmbeddings] = None
+
+
 def get_embeddings() -> GoogleGenerativeAIEmbeddings:
-    """Initialise le modele d'embeddings Google."""
-    return GoogleGenerativeAIEmbeddings(model=EMBEDDING_MODEL)
+    """Return a singleton embeddings instance."""
+    global _embeddings_instance
+    if _embeddings_instance is None:
+        _embeddings_instance = GoogleGenerativeAIEmbeddings(model=EMBEDDING_MODEL)
+    return _embeddings_instance
 
 
 def _faiss_available() -> bool:

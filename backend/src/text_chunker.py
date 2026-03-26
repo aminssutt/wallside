@@ -12,7 +12,7 @@ from langchain_core.documents import Document
 _HEADING_PATTERNS = re.compile(
     r"^(?:"
     r"\d+[\.\-]\d*\s+\S"                  # "1.2 Title" or "3-1 Title"
-    r"|[A-Z][A-Z\s]{4,}$"                 # ALL CAPS LINE (5+ chars)
+    r"|(?:[A-Z]{2,}\s+)+[A-Z]{2,}$"       # ALL CAPS (2+ words, letters only)
     r"|(?:CHAPITRE|CHAPTER|SECTION|PARTIE|PART)\s"
     r"|#{1,3}\s"                           # Markdown headings
     r")",
@@ -30,7 +30,7 @@ _JUNK_PAGE_PATTERNS = re.compile(
 )
 
 MIN_PAGE_CHARS = 60          # skip pages with less meaningful text
-MIN_CHUNK_CHARS = 80         # drop tiny chunks after splitting
+MIN_CHUNK_CHARS = 150        # drop tiny chunks after splitting
 MAX_HEADER_ONLY_RATIO = 0.6  # skip chunks that are mostly whitespace/punctuation
 
 
