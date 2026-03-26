@@ -9,7 +9,8 @@
     "page_count": 53,
     "chunk_count": 107,
     "extraction_mode": "ocr",
-    "indexed_at": "2026-03-15T11:52:31.535773+00:00"
+    "indexed_at": "2026-03-15T11:52:31.535773+00:00",
+    "segment": "classique"
   },
   {
     "slug": "alfa-romeo-4c-2013-2020",
@@ -21,7 +22,8 @@
     "page_count": 202,
     "chunk_count": 345,
     "extraction_mode": "pypdf",
-    "indexed_at": "2026-03-15T11:52:59.463120+00:00"
+    "indexed_at": "2026-03-15T11:52:59.463120+00:00",
+    "segment": "sportive"
   },
   {
     "slug": "alfa-romeo-8c-competizione",
@@ -33,7 +35,8 @@
     "page_count": 223,
     "chunk_count": 415,
     "extraction_mode": "pypdf",
-    "indexed_at": "2026-03-15T11:53:33.317498+00:00"
+    "indexed_at": "2026-03-15T11:53:33.317498+00:00",
+    "segment": "sportive"
   },
   {
     "slug": "chevrolet-avalanche-2001-2006",
@@ -45,7 +48,8 @@
     "page_count": 603,
     "chunk_count": 1087,
     "extraction_mode": "pypdf",
-    "indexed_at": "2026-03-15T11:54:11.559073+00:00"
+    "indexed_at": "2026-03-15T11:54:11.559073+00:00",
+    "segment": "classique"
   },
   {
     "slug": "citroen-c3-2024",
@@ -57,7 +61,8 @@
     "page_count": 328,
     "chunk_count": 327,
     "extraction_mode": "pypdf",
-    "indexed_at": "2026-03-25T23:02:05.168640+00:00"
+    "indexed_at": "2026-03-25T23:02:05.168640+00:00",
+    "segment": "citadine"
   },
   {
     "slug": "dacia-duster-2024",
@@ -69,7 +74,8 @@
     "page_count": 406,
     "chunk_count": 450,
     "extraction_mode": "pypdf",
-    "indexed_at": "2026-03-25T23:02:29.531743+00:00"
+    "indexed_at": "2026-03-25T23:02:29.531743+00:00",
+    "segment": "suv"
   },
   {
     "slug": "dacia-sandero-2023",
@@ -81,7 +87,8 @@
     "page_count": 472,
     "chunk_count": 452,
     "extraction_mode": "pypdf",
-    "indexed_at": "2026-03-25T23:02:59.098675+00:00"
+    "indexed_at": "2026-03-25T23:02:59.098675+00:00",
+    "segment": "citadine"
   },
   {
     "slug": "honda-civic-11",
@@ -93,7 +100,8 @@
     "page_count": 754,
     "chunk_count": 954,
     "extraction_mode": "pypdf",
-    "indexed_at": "2026-03-15T08:27:14.144316+00:00"
+    "indexed_at": "2026-03-15T08:27:14.144316+00:00",
+    "segment": "citadine"
   },
   {
     "slug": "peugeot-2008-2019",
@@ -105,7 +113,8 @@
     "page_count": 260,
     "chunk_count": 468,
     "extraction_mode": "pypdf",
-    "indexed_at": "2026-03-25T22:27:11.598545+00:00"
+    "indexed_at": "2026-03-25T22:27:11.598545+00:00",
+    "segment": "suv"
   },
   {
     "slug": "peugeot-208-2023",
@@ -117,7 +126,8 @@
     "page_count": 308,
     "chunk_count": 561,
     "extraction_mode": "pypdf",
-    "indexed_at": "2026-03-25T22:27:50.870909+00:00"
+    "indexed_at": "2026-03-25T22:27:50.870909+00:00",
+    "segment": "citadine"
   },
   {
     "slug": "peugeot-3008-2018",
@@ -129,7 +139,8 @@
     "page_count": 578,
     "chunk_count": 589,
     "extraction_mode": "pypdf",
-    "indexed_at": "2026-03-25T22:28:47.014363+00:00"
+    "indexed_at": "2026-03-25T22:28:47.014363+00:00",
+    "segment": "suv"
   },
   {
     "slug": "peugeot-308-2022",
@@ -141,7 +152,8 @@
     "page_count": 260,
     "chunk_count": 452,
     "extraction_mode": "pypdf",
-    "indexed_at": "2026-03-25T22:29:18.140906+00:00"
+    "indexed_at": "2026-03-25T22:29:18.140906+00:00",
+    "segment": "berline"
   },
   {
     "slug": "peugeot-508-2019",
@@ -153,7 +165,8 @@
     "page_count": 371,
     "chunk_count": 394,
     "extraction_mode": "pypdf",
-    "indexed_at": "2026-03-25T22:29:54.444954+00:00"
+    "indexed_at": "2026-03-25T22:29:54.444954+00:00",
+    "segment": "berline"
   },
   {
     "slug": "alpine-a390-2025",
@@ -165,14 +178,16 @@
     "page_count": 432,
     "chunk_count": 469,
     "extraction_mode": "pypdf",
-    "indexed_at": "2026-03-15T08:27:39.790807+00:00"
+    "indexed_at": "2026-03-15T08:27:39.790807+00:00",
+    "segment": "sportive"
   },
   {
     "slug": "clio-4",
     "name": "Clio 4",
     "brand": "Renault",
     "image": "clio 4.png",
-    "source_pdf": null
+    "source_pdf": null,
+    "segment": "citadine"
   },
   {
     "slug": "renault-captur-2024",
@@ -184,21 +199,24 @@
     "page_count": 442,
     "chunk_count": 487,
     "extraction_mode": "pypdf",
-    "indexed_at": "2026-03-25T23:03:26.928175+00:00"
+    "indexed_at": "2026-03-25T23:03:26.928175+00:00",
+    "segment": "suv"
   },
   {
     "slug": "tesla-model-y",
     "name": "Tesla Model Y",
     "brand": "Tesla",
     "image": "tesla model Y.png",
-    "source_pdf": null
+    "source_pdf": null,
+    "segment": "suv"
   },
   {
     "slug": "toyota-auris-hybride-2015",
     "name": "Toyota Auris Hybride 2015",
     "brand": "Toyota",
     "image": "toyota auris hybride 2015.png",
-    "source_pdf": null
+    "source_pdf": null,
+    "segment": "suv"
   },
   {
     "slug": "volkswagen-golf-6-phase-1",
@@ -210,7 +228,8 @@
     "page_count": 372,
     "chunk_count": 555,
     "extraction_mode": "ocr",
-    "indexed_at": "2026-03-15T08:50:59.604570+00:00"
+    "indexed_at": "2026-03-15T08:50:59.604570+00:00",
+    "segment": "berline"
   },
   {
     "slug": "volkswagen-golf-8-2020",
@@ -222,6 +241,7 @@
     "page_count": 789,
     "chunk_count": 1145,
     "extraction_mode": "pypdf",
-    "indexed_at": "2026-03-15T08:28:52.124913+00:00"
+    "indexed_at": "2026-03-15T08:28:52.124913+00:00",
+    "segment": "berline"
   }
 ]

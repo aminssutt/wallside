@@ -80,7 +80,7 @@ ENABLE_DEEP_WEB_ENRICHMENT = _as_bool(
     os.getenv("ENABLE_DEEP_WEB_ENRICHMENT"), default=True
 )
 ENRICHMENT_TIME_BUDGET_SECONDS = float(
-    os.getenv("ENRICHMENT_TIME_BUDGET_SECONDS", "8")
+    os.getenv("ENRICHMENT_TIME_BUDGET_SECONDS", "3")
 )
 WEB_MAX_RESULTS = int(os.getenv("WEB_MAX_RESULTS", "3"))
 WEB_SEARCH_REGION = os.getenv("WEB_SEARCH_REGION", "wt-wt")
