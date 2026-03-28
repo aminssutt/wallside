@@ -13,8 +13,8 @@
   },
   {
     "slug": "alfa-romeo-33-phase-3-1989-1995",
-    "name": "Alfa RomÃ©o 33 Phase 3 1989 1995",
-    "brand": "Alfa Romã©O",
+    "name": "Alfa Romeo 33 Phase 3 1989-1995",
+    "brand": "Alfa Romeo",
     "image": "alfa romeo 33 phase 3 1989-1995.png",
     "source_pdf": "car data/Alfa RomÃ©o/Alfa RomÃ©o 33 Phase 3 1989-1995.pdf",
     "source_hash": "d42cea38762d6b5cebfaded47af49e9448c684d87c11cb0f4539547116a5098c",
@@ -26,8 +26,8 @@
   },
   {
     "slug": "alfa-romeo-4c-2013-2020",
-    "name": "Alfa RomÃ©o 4C 2013 2020",
-    "brand": "Alfa Romã©O",
+    "name": "Alfa Romeo 4C 2013-2020",
+    "brand": "Alfa Romeo",
     "image": "alfa romeo 4c 2013-2020.png",
     "source_pdf": "car data/Alfa RomÃ©o/Alfa RomÃ©o 4C 2013-2020.pdf",
     "source_hash": "f7cd9021b46d1960a46d1b0d7d20ad2f4cbfb1149fd373071a10da8ce56deb31",
@@ -39,8 +39,8 @@
   },
   {
     "slug": "alfa-romeo-8c-competizione",
-    "name": "Alfa RomÃ©o 8C Competizione",
-    "brand": "Alfa Romã©O",
+    "name": "Alfa Romeo 8C Competizione",
+    "brand": "Alfa Romeo",
     "image": "alfa romeo 8c competizione.png",
     "source_pdf": "car data/Alfa RomÃ©o/Alfa RomÃ©o 8C Competizione.pdf",
     "source_hash": "ee43a4bdfbb6a76986f2ed9ce2fd7c432a79ffc21e3e804c2e142ddd0caa46f0",
@@ -64,8 +64,8 @@
   },
   {
     "slug": "bmw-3-series-2024",
-    "name": "Bmw 3 Series 2024",
-    "brand": "Bmw",
+    "name": "BMW 3 Series 2024",
+    "brand": "BMW",
     "image": "bmw 3 series 2024.png",
     "source_pdf": "car data/BMW/BMW 3 Series 2024.pdf",
     "source_hash": "e9fb34fb024b4d6ba18eac6416216d52610b801b2854562a3fc680623d6edbf5",
@@ -77,7 +77,7 @@
   },
   {
     "slug": "chevrolet-avalanche-2001-2006",
-    "name": "Chevrolet Avalanche 2001 2006",
+    "name": "Chevrolet Avalanche 2001-2006",
     "brand": "Chevrolet",
     "image": "chevrolet avalanche 2001-2006.png",
     "source_pdf": "car data/Chevrolet/Chevrolet Avalanche 2001-2006.pdf",
@@ -90,8 +90,8 @@
   },
   {
     "slug": "citroen-c3-2024",
-    "name": "Citroen C3 2024",
-    "brand": "Citroen",
+    "name": "Citroën C3 2024",
+    "brand": "Citroën",
     "image": "citroen c3 2024.png",
     "source_pdf": "car data/Citroen/Citroen C3 2024.pdf",
     "source_hash": "6c9b8788d10fa1ba3d0a3abbdcfbda1e4438940ffa065857eb226cb450ff80e5",
@@ -338,7 +338,8 @@
     "page_count": 532,
     "chunk_count": 1146,
     "extraction_mode": "pypdf",
-    "indexed_at": "2026-03-26T10:15:29.198879+00:00"
+    "indexed_at": "2026-03-26T10:15:29.198879+00:00",
+    "segment": "suv"
   },
   {
     "slug": "range-rover-evoque-2024",
@@ -356,7 +357,7 @@
   {
     "slug": "mercedes-c-class-2022",
     "name": "Mercedes C Class 2022",
-    "brand": "Mercedes",
+    "brand": "Mercedes-Benz",
     "image": "mercedes c class 2022.png",
     "source_pdf": "car data/Mercedes/Mercedes C-Class 2022.pdf",
     "source_hash": "5c218a819b037ad26809d77a250dcc2f1f9c4e4f26d65518b0b962ff5296219d",
@@ -369,7 +370,7 @@
   {
     "slug": "mercedes-c-class-2022-mbux-multimedia",
     "name": "Mercedes C Class 2022 Mbux Multimedia",
-    "brand": "Mercedes",
+    "brand": "Mercedes-Benz",
     "image": "mercedes c class 2022.png",
     "source_pdf": "car data/Mercedes/Mercedes C-Class 2022 - MBUX Multimedia.pdf",
     "source_hash": "e589993335bd67448bf42cd4af21e5691cad6efc326f77a4f048d58255c9b354",
@@ -458,7 +459,7 @@
   {
     "slug": "alpine-a390-2025",
     "name": "Alpine A390 2025",
-    "brand": "Renault",
+    "brand": "Alpine",
     "image": "alpine a390 2025.png",
     "source_pdf": "car data/Renault/Alpine A390 2025.pdf",
     "source_hash": "e2b1153e79975609c135f6e55d08b9914b9f62c0b3684ba6e1bbdabd73e8da81",
@@ -515,7 +516,8 @@
     "page_count": 342,
     "chunk_count": 1359,
     "extraction_mode": "pypdf",
-    "indexed_at": "2026-03-26T13:28:12.615476+00:00"
+    "indexed_at": "2026-03-26T13:28:12.615476+00:00",
+    "segment": "suv"
   },
   {
     "slug": "volkswagen-golf-6-phase-1",

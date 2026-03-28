@@ -55,6 +55,11 @@ _CANONICAL_BRANDS = {
     "bmw": "BMW",
     "alfa romeo": "Alfa Romeo",
     "alfa rom\u00e9o": "Alfa Romeo",
+    "alfa rom\u00e3\u00a9o": "Alfa Romeo",
+    "citroen": "Citro\u00ebn",
+    "citro\u00ebn": "Citro\u00ebn",
+    "mercedes": "Mercedes-Benz",
+    "mercedes-benz": "Mercedes-Benz",
 }
 IMAGE_DIR = DATA_DIR / "vehicle_images"
 _IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif"}

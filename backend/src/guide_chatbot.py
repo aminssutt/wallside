@@ -49,8 +49,8 @@ except Exception:
         DDGS = None
 
 
-MAX_RESPONSE_CHARS = 1800
-MAX_RESPONSE_LINES = 30
+MAX_RESPONSE_CHARS = 30000
+MAX_RESPONSE_LINES = 500
 
 LANGUAGE_PATTERNS = {
     "ko": re.compile(r"[\uac00-\ud7af\u1100-\u11ff\u3130-\u318f]"),
@@ -85,9 +85,7 @@ LANG_OFF_TOPIC = {
         "Exemples utiles:\n"
         "- Comment fonctionne le systeme de freinage ?\n"
         "- Quelle est la pression recommandee des pneus ?\n"
-        "- Que signifie le voyant moteur ?\n\n"
-        "Sources:\n"
-        "- Aucune page precise du manuel retrouvee pour cette question (reponse generale)."
+        "- Que signifie le voyant moteur ?"
     ),
     "en": (
         "Off-topic question:\n"
@@ -95,9 +93,7 @@ LANG_OFF_TOPIC = {
         "Useful examples:\n"
         "- How does the braking system work?\n"
         "- What is the recommended tire pressure?\n"
-        "- What does the engine warning light mean?\n\n"
-        "Sources:\n"
-        "- No specific manual page found for this question (general response)."
+        "- What does the engine warning light mean?"
     ),
     "ko": (
         "\uc8fc\uc81c\uc640 \uad00\ub828 \uc5c6\ub294 \uc9c8\ubb38\uc785\ub2c8\ub2e4:\n"
@@ -105,9 +101,7 @@ LANG_OFF_TOPIC = {
         "\uc720\uc6a9\ud55c \uc9c8\ubb38 \uc608\uc2dc:\n"
         "- \ube0c\ub808\uc774\ud06c \uc2dc\uc2a4\ud15c\uc740 \uc5b4\ub5bb\uac8c \uc791\ub3d9\ud558\ub098\uc694?\n"
         "- \uad8c\uc7a5 \ud0c0\uc774\uc5b4 \uacf5\uae30\uc555\uc740 \uc5bc\ub9c8\uc778\uac00\uc694?\n"
-        "- \uc5d4\uc9c4 \uacbd\uace0\ub4f1\uc740 \ubb34\uc5c7\uc744 \uc758\ubbf8\ud558\ub098\uc694?\n\n"
-        "Sources:\n"
-        "- \uc774 \uc9c8\ubb38\uc5d0 \ub300\ud55c \ub9e4\ub274\uc5bc \ud398\uc774\uc9c0\ub97c \ucc3e\uc744 \uc218 \uc5c6\uc2b5\ub2c8\ub2e4 (\uc77c\ubc18 \uc751\ub2f5)."
+        "- \uc5d4\uc9c4 \uacbd\uace0\ub4f1\uc740 \ubb34\uc5c7\uc744 \uc758\ubbf8\ud558\ub098\uc694?"
     ),
 }
 
@@ -169,22 +163,16 @@ LANG_QUESTION_RESPONSE = {
     "fr": (
         "Oui, je peux repondre en francais, anglais et coreen !\n"
         "Pour changer la langue, utilisez le bouton de selection de langue "
-        "en haut a droite du chat.\n\n"
-        "Sources:\n"
-        "- Aucune page precise du manuel retrouvee pour cette question (reponse generale)."
+        "en haut a droite du chat."
     ),
     "en": (
         "Yes, I can respond in French, English and Korean!\n"
         "To change the language, use the language selector button "
-        "in the top right corner of the chat.\n\n"
-        "Sources:\n"
-        "- No specific manual page found for this question (general response)."
+        "in the top right corner of the chat."
     ),
     "ko": (
         "\ub124, \ud504\ub791\uc2a4\uc5b4, \uc601\uc5b4, \ud55c\uad6d\uc5b4\ub85c \ub2f5\ubcc0\ud560 \uc218 \uc788\uc2b5\ub2c8\ub2e4!\n"
-        "\uc5b8\uc5b4\ub97c \ubcc0\uacbd\ud558\ub824\uba74 \ucc44\ud305 \uc624\ub978\ucabd \uc0c1\ub2e8\uc758 \uc5b8\uc5b4 \uc120\ud0dd \ubc84\ud2bc\uc744 \uc0ac\uc6a9\ud558\uc138\uc694.\n\n"
-        "Sources:\n"
-        "- \uc774 \uc9c8\ubb38\uc5d0 \ub300\ud55c \ub9e4\ub274\uc5bc \ud398\uc774\uc9c0\ub97c \ucc3e\uc744 \uc218 \uc5c6\uc2b5\ub2c8\ub2e4 (\uc77c\ubc18 \uc751\ub2f5)."
+        "\uc5b8\uc5b4\ub97c \ubcc0\uacbd\ud558\ub824\uba74 \ucc44\ud305 \uc624\ub978\ucabd \uc0c1\ub2e8\uc758 \uc5b8\uc5b4 \uc120\ud0dd \ubc84\ud2bc\uc744 \uc0ac\uc6a9\ud558\uc138\uc694."
     ),
 }
 
@@ -210,6 +198,20 @@ WEB_STOPWORDS = {
 
 
 YOUTUBE_ID_REGEX = re.compile(r"(?:v=|/shorts/|/embed/|youtu\.be/)([A-Za-z0-9_-]{6,})")
+
+# Fetch YouTube for procedural, technical, and diagnostic questions
+_YOUTUBE_ELIGIBLE_PATTERNS = re.compile(
+    r"(?i)\b(comment|how|tutoriel|tutorial|etapes?|steps?|procedure|"
+    r"remplacer|replace|changer|change|installer|install|reparer|repair|"
+    r"fix|demonter|monter|regler|ajuster|vidanger|purger|nettoyer|"
+    r"configurer|activer|desactiver|brancher|debrancher|"
+    r"fonctionne|works?|marche|signifie|means?|voyant|warning|"
+    r"pression|pressure|niveau|level|capacite|capacity|"
+    r"entretien|maintenance|diagnostic|reset|reinitialiser|"
+    r"connecter|connect|bluetooth|demarrer|start|ouvrir|open)\b"
+)
+
+YOUTUBE_MIN_RELEVANCE_SCORE = 3
 
 
 def _extract_youtube_id(url: str) -> str:
@@ -302,7 +304,7 @@ def trim_response(answer: str) -> str:
 
 
 def clean_model_output(text: str) -> str:
-    """Normalize model output into plain text."""
+    """Strip only LLM-generated Sources blocks and URLs; preserve all formatting."""
     if not text:
         return ""
 
@@ -316,15 +318,15 @@ def clean_model_output(text: str) -> str:
             cleaned_lines.append("")
             continue
 
-        line = re.sub(r"^#{1,6}\s*", "", line)
-        line = line.replace("**", "").replace("`", "")
-        if line.startswith("_") and line.endswith("_") and len(line) > 2:
-            line = line[1:-1].strip()
-
         if re.match(r"(?i)^sources?\s*:", line):
             skip_sources_block = True
             continue
         if skip_sources_block:
+            continue
+
+        # Strip any URLs the LLM may have included (they are added separately)
+        line = re.sub(r"https?://[^\s)]+", "", line).strip()
+        if not line:
             continue
 
         cleaned_lines.append(line)
@@ -362,7 +364,7 @@ def web_search_results(
     time_budget_seconds: float = ENRICHMENT_TIME_BUDGET_SECONDS,
 ) -> List[Dict[str, str]]:
     """Fetch lightweight web snippets for enrichment only."""
-    if not ENABLE_WEB_ENRICHMENT or DDGS is None or not ENABLE_DEEP_WEB_ENRICHMENT:
+    if not ENABLE_WEB_ENRICHMENT or DDGS is None:
         return []
 
     found: List[Dict[str, str]] = []
@@ -497,7 +499,11 @@ def youtube_video_suggestion(
 
     candidates.sort(key=lambda item: int(item.get("score", "0")), reverse=True)
     best = candidates[0]
-    return {"title": best.get("title", "YouTube"), "url": best.get("url", "")}
+    return {
+        "title": best.get("title", "YouTube"),
+        "url": best.get("url", ""),
+        "score": best.get("score", "0"),
+    }
 
 
 def format_video_block(video: Dict[str, str], lang: str) -> str:
@@ -549,10 +555,7 @@ def format_sources(documents: List[Document], web_results: Optional[List[Dict[st
             refs.append(ref)
 
     if not refs:
-        return (
-            "Sources:\n"
-            "- Aucune page precise du manuel retrouvee pour cette question (reponse generale)."
-        )
+        return ""
 
     return "Sources:\n" + "\n".join(f"- {ref}" for ref in refs[:8])
 
@@ -593,6 +596,9 @@ def format_context(documents: List[Document]) -> str:
         parts.append(f"[Source: {source}, Page {page}]\n{doc.page_content}")
 
     return "\n\n---\n\n".join(parts)
+
+
+_enrichment_executor = ThreadPoolExecutor(max_workers=4)
 
 
 class GuideChatbot:
@@ -773,28 +779,23 @@ class GuideChatbot:
                 )
 
             def _fetch_video():
+                if not _YOUTUBE_ELIGIBLE_PATTERNS.search(question):
+                    return {}
                 return youtube_video_suggestion(
-                    f"{self.guide.name} {question} tutorial",
+                    f"{self.guide.name} {question}",
                     time_budget_seconds=budget,
                 )
 
-            executor = ThreadPoolExecutor(max_workers=2)
-            web_future = executor.submit(_fetch_web)
-            video_future = executor.submit(_fetch_video)
+            web_future = _enrichment_executor.submit(_fetch_web)
+            video_future = _enrichment_executor.submit(_fetch_video)
             try:
-                try:
-                    web_results = web_future.result(timeout=budget)
-                except Exception:
-                    web_results = []
-                try:
-                    video = video_future.result(timeout=max(1.0, budget))
-                except Exception:
-                    video = {}
-            finally:
-                for future in (web_future, video_future):
-                    if not future.done():
-                        future.cancel()
-                executor.shutdown(wait=False, cancel_futures=True)
+                web_results = web_future.result(timeout=budget)
+            except Exception:
+                web_results = []
+            try:
+                video = video_future.result(timeout=max(1.0, budget))
+            except Exception:
+                video = {}
 
             web_context = format_web_context(web_results, lang=lang)
 
@@ -810,7 +811,7 @@ class GuideChatbot:
             parts = []
             for msg in recent:
                 role = "Utilisateur" if msg["role"] == "user" else "Assistant"
-                parts.append(f"{role}: {msg['content'][:300]}")
+                parts.append(f"{role}: {msg['content'][:800]}")
             history_block = "\n".join(parts)
 
         # --- System instruction (separated from user content for Gemini) ---
@@ -822,11 +823,12 @@ REGLES STRICTES:
 3) JAMAIS d'invention: si une information (valeur technique, procedure, specification) n'est PAS dans le contexte fourni, dis-le clairement. Exemple: "Cette information n'est pas disponible dans le manuel fourni."
 4) Ne JAMAIS inventer de valeurs chiffrees (couples de serrage, pressions, capacites, intervalles) qui ne sont pas explicitement dans le contexte.
 5) Le contexte web est un complement. En cas de conflit avec le manuel, le manuel prime TOUJOURS.
-6) Reponds de facon complete et detaillee. Pour les procedures en etapes, donne TOUTES les etapes.
-7) Pas de markdown (pas de ###, **, ```, etc.). Texte brut uniquement avec des listes numerotees pour les etapes.
+6) Reponds de facon complete et detaillee. Pour les procedures en etapes, donne TOUTES les etapes. Ne tronque JAMAIS ta reponse.
+7) Utilise un formatage clair et structure: listes numerotees pour les etapes, listes a puces pour les points cles, **gras** pour les termes importants. Pas de blocs de code (```).
 8) N'ajoute PAS de section "Sources" (elle sera ajoutee automatiquement).
 9) Orthographe, grammaire et ponctuation impeccables. Phrases claires et naturelles.
-10) Personnalise chaque reponse pour le {self.guide.name}: mentionne le nom du vehicule quand c'est pertinent."""
+10) Personnalise chaque reponse pour le {self.guide.name}: mentionne le nom du vehicule quand c'est pertinent.
+11) Ta reponse doit etre une explication textuelle complete et autonome. Ne mentionne AUCUN lien, URL, ou video dans ta reponse -- ils seront ajoutes automatiquement apres."""
 
         # --- User content ---
         user_parts = []
@@ -850,7 +852,7 @@ REGLES STRICTES:
                 config=genai_types.GenerateContentConfig(
                     system_instruction=system_instruction,
                     temperature=0.15,
-                    max_output_tokens=800,
+                    max_output_tokens=4096,
                     http_options=genai_types.HttpOptions(timeout=LLM_TIMEOUT_SECONDS * 1000),
                 ),
             )
@@ -862,9 +864,11 @@ REGLES STRICTES:
                 answer = "Je n'ai pas trouve de reponse exploitable dans le manuel."
 
             blocks = [answer]
-            if video_block:
+            if sources_block:
+                blocks.append(sources_block)
+            video_score = int(video.get("score", "0")) if video else 0
+            if video_block and video_score >= YOUTUBE_MIN_RELEVANCE_SCORE:
                 blocks.append(video_block)
-            blocks.append(sources_block)
             final_answer = "\n\n".join(blocks)
 
             # Save to session history
@@ -876,12 +880,7 @@ REGLES STRICTES:
 
         except Exception as exc:
             log.error("LLM generation failed for %s: %s", self.guide.slug, exc)
-            return (
-                "Erreur:\n"
-                "Impossible de generer une reponse. Veuillez reessayer.\n\n"
-                "Sources:\n"
-                "- Indisponibles (erreur interne)."
-            )
+            return "Impossible de generer une reponse. Veuillez reessayer."
 
     def get_history(self, session_id: str = "default") -> list:
         return self._get_session_history(session_id)

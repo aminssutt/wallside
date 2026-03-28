@@ -150,7 +150,7 @@ const formatInline = (text) => {
 
 const normalizeAssistantText = (rawText) => {
   const clean = (rawText || '').trim()
-  return clean.replace(/^[^\p{L}\p{N}]+/u, '').trim()
+  return clean.replace(/^[\s:*"]+/u, '').trim()
 }
 
 function RichBotMessage({ text, lang = 'fr' }) {
@@ -219,7 +219,7 @@ function RichBotMessage({ text, lang = 'fr' }) {
       return
     }
 
-    if (line.length <= 70 && line.endsWith(':') && !line.startsWith('- ')) {
+    if (line.length <= 50 && line.endsWith(':') && !line.startsWith('- ') && !/[.!?,;]/.test(line.slice(0, -1))) {
       flushList()
       blocks.push({ type: 'heading', content: line.slice(0, -1) })
       pendingVideoLabel = ''
@@ -262,29 +262,19 @@ function RichBotMessage({ text, lang = 'fr' }) {
         if (block.type === 'video') {
           return (
             <div className="bot-video-card" key={`v-${index}`}>
-              <div className="bot-video-thumb">
-                {block.content.embed ? (
-                  <iframe
-                    src={block.content.embed}
-                    title={block.content.title}
-                    loading="lazy"
-                    sandbox="allow-scripts allow-same-origin allow-presentation"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    referrerPolicy="strict-origin-when-cross-origin"
-                    allowFullScreen
-                  />
-                ) : block.content.thumb ? (
+              <a className="bot-video-thumb" href={block.content.url} target="_blank" rel="noopener noreferrer">
+                {block.content.thumb ? (
                   <img src={block.content.thumb} alt={block.content.title} loading="lazy" />
                 ) : (
                   <div className="bot-video-thumb-fallback">
                     <span>YouTube</span>
                   </div>
                 )}
+                <span className="bot-video-play-icon" aria-hidden="true">&#9654;</span>
                 <span className="bot-video-badge">{videoUi.badge}</span>
-              </div>
+              </a>
               <div className="bot-video-content">
                 <p className="bot-video-title">{block.content.title}</p>
-                <span className="bot-video-url">{block.content.url}</span>
               </div>
               <a className="bot-video-action" href={block.content.url} target="_blank" rel="noreferrer">
                 {videoUi.action}
@@ -297,8 +287,8 @@ function RichBotMessage({ text, lang = 'fr' }) {
           if (block.listType === 'ordered') {
             return (
               <ol className="bot-list" key={`l-${index}`}>
-                {block.items.map((item) => (
-                  <li key={item}>{formatInline(item)}</li>
+                {block.items.map((item, i) => (
+                  <li key={`${i}-${item.slice(0, 30)}`}>{formatInline(item)}</li>
                 ))}
               </ol>
             )
@@ -523,8 +513,8 @@ function ChatPage() {
         return
       }
 
-      const step = chars.length > 1400 ? 20 : chars.length > 800 ? 14 : chars.length > 420 ? 10 : 7
-      const intervalMs = chars.length > 900 ? 14 : 18
+      const step = chars.length > 1400 ? 40 : chars.length > 800 ? 25 : chars.length > 420 ? 15 : 10
+      const intervalMs = chars.length > 900 ? 12 : 16
       let index = 0
 
       if (tokenFlushTimerRef.current) {
@@ -828,23 +818,32 @@ function ChatPage() {
             </AnimatePresence>
 
             <AnimatePresence initial={false}>
-              {messages.map((msg, index) => (
-                <Motion.div
-                  key={`${msg.type}-${index}`}
-                  className={`msg ${msg.type}`}
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.28 }}
-                >
-                  <div className="msg-avatar">
-                    <span className="msg-avatar-tag">{msg.type === 'user' ? 'USR' : 'AI'}</span>
-                  </div>
+              {messages.map((msg, index) => {
+                const isLastBotStreaming = isStreaming && msg.type === 'bot' && index === messages.length - 1
+                return (
+                  <Motion.div
+                    key={`${msg.type}-${index}`}
+                    className={`msg ${msg.type}`}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.28 }}
+                  >
+                    <div className="msg-avatar">
+                      <span className="msg-avatar-tag">{msg.type === 'user' ? 'USR' : 'AI'}</span>
+                    </div>
 
-                  <div className="msg-bubble">
-                    {msg.type === 'bot' ? <RichBotMessage text={msg.content} lang={lang} /> : msg.content}
-                  </div>
-                </Motion.div>
-              ))}
+                    <div className="msg-bubble">
+                      {msg.type === 'bot' ? (
+                        isLastBotStreaming ? (
+                          <div className="bot-rich-message"><p className="bot-paragraph">{msg.content}</p></div>
+                        ) : (
+                          <RichBotMessage text={msg.content} lang={lang} />
+                        )
+                      ) : msg.content}
+                    </div>
+                  </Motion.div>
+                )
+              })}
             </AnimatePresence>
 
             <AnimatePresence>
