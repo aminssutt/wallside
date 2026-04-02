@@ -1343,15 +1343,16 @@
   background: transparent;
   font-family: 'Manrope', system-ui, sans-serif;
   color: #edf4fe;
-  font-size: 0.72rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 0.82rem;
+  line-height: 1.56;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .chat-input-wrap input::placeholder {
   color: rgba(190, 205, 224, 0.66);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 .chat-input-wrap input:focus {
@@ -1562,6 +1563,11 @@
     padding: 10px 11px;
   }
 
+  .chat-input-wrap input {
+    font-size: 0.74rem;
+    line-height: 1.56;
+  }
+
   .chat-intro-card {
     padding: 14px 10px 10px;
   }
@@ -1570,7 +1576,6 @@
     font-size: 0.82rem;
   }
 }
-
 
 
 

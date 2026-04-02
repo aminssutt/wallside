@@ -19,6 +19,7 @@ const QUICK_ICONS = [wrenchIcon, dashboardIcon, navigationIcon]
 const COMPACT_MENU_BREAKPOINT = 1024
 const CHAT_REQUEST_TIMEOUT_MS = 45000
 const MAX_INPUT_LENGTH = 3000
+const KNOWN_STREAM_EVENTS = new Set(['start', 'chunk', 'end', 'error'])
 
 const generateSessionId = () => {
   const arr = new Uint8Array(16)
@@ -151,6 +152,91 @@ const formatInline = (text) => {
 const normalizeAssistantText = (rawText) => {
   const clean = (rawText || '').trim()
   return clean.replace(/^[\s:*"]+/u, '').trim()
+}
+
+const stripMarkdownForStreaming = (rawText) => {
+  if (!rawText) return ''
+  return rawText
+    .replace(/^#{1,3}\s+/gm, '')
+    .replace(/\*\*([^*]*)\*\*/g, '$1')
+    .replace(/\*([^*]*)\*/g, '$1')
+    .replace(/`([^`]*)`/g, '$1')
+    .replace(/^[-*]\s+/gm, '  \u2022 ')
+    .replace(/^\d+\.\s+/gm, (match) => `  ${match.trim()} `)
+}
+
+const parseSseEventBlock = (rawBlock) => {
+  const lines = String(rawBlock || '').split('\n')
+  let event = 'message'
+  const dataLines = []
+
+  lines.forEach((line) => {
+    if (!line || line.startsWith(':')) return
+    if (line.startsWith('event:')) {
+      event = line.slice(6).trim().toLowerCase() || 'message'
+      return
+    }
+    if (line.startsWith('data:')) {
+      let value = line.slice(5)
+      if (value.startsWith(' ')) {
+        value = value.slice(1)
+      }
+      dataLines.push(value)
+    }
+  })
+
+  const rawData = dataLines.join('\n')
+  if (!rawData) {
+    return { event, data: '' }
+  }
+
+  try {
+    return { event, data: JSON.parse(rawData) }
+  } catch {
+    return { event, data: rawData }
+  }
+}
+
+const normalizeStreamEventName = (eventName, payload) => {
+  const normalizedEvent = String(eventName || '').toLowerCase()
+  if (KNOWN_STREAM_EVENTS.has(normalizedEvent)) {
+    return normalizedEvent
+  }
+
+  if (payload && typeof payload === 'object') {
+    const hintedEvent = String(payload.event || payload.type || '').toLowerCase()
+    if (KNOWN_STREAM_EVENTS.has(hintedEvent)) {
+      return hintedEvent
+    }
+  }
+
+  return normalizedEvent || 'message'
+}
+
+const extractStreamText = (payload) => {
+  if (typeof payload === 'string') {
+    return payload
+  }
+  if (!payload || typeof payload !== 'object') {
+    return ''
+  }
+
+  const textCandidates = [payload.text, payload.chunk, payload.delta, payload.content, payload.response]
+  const firstText = textCandidates.find((value) => typeof value === 'string')
+  return firstText || ''
+}
+
+const extractStreamError = (payload) => {
+  if (typeof payload === 'string') {
+    return payload.trim()
+  }
+  if (!payload || typeof payload !== 'object') {
+    return ''
+  }
+
+  const errorCandidates = [payload.error, payload.message, payload.detail]
+  const firstError = errorCandidates.find((value) => typeof value === 'string' && value.trim())
+  return firstError ? firstError.trim() : ''
 }
 
 function RichBotMessage({ text, lang = 'fr' }) {
@@ -504,7 +590,13 @@ function ChatPage() {
       const safeText = normalizeAssistantText(fullText || '') || t.chat.unavailable
       const chars = Array.from(safeText)
 
-      setMessages((previous) => [...previous, { type: 'bot', content: '' }])
+      setMessages((previous) => {
+        const lastMessage = previous[previous.length - 1]
+        if (lastMessage && lastMessage.type === 'bot' && !lastMessage.content) {
+          return previous
+        }
+        return [...previous, { type: 'bot', content: '' }]
+      })
       setIsStreaming(true)
 
       if (chars.length === 0) {
@@ -550,6 +642,176 @@ function ChatPage() {
       }, intervalMs)
     })
 
+  const appendBotChunk = (chunkText) => {
+    const nextChunk = String(chunkText || '')
+    if (!nextChunk) return
+
+    setMessages((previous) => {
+      if (previous.length === 0) {
+        return [{ type: 'bot', content: nextChunk }]
+      }
+
+      const updated = [...previous]
+      const lastMessage = updated[updated.length - 1]
+
+      if (!lastMessage || lastMessage.type !== 'bot') {
+        updated.push({ type: 'bot', content: nextChunk })
+        return updated
+      }
+
+      updated[updated.length - 1] = {
+        ...lastMessage,
+        content: `${lastMessage.content || ''}${nextChunk}`,
+      }
+      return updated
+    })
+  }
+
+
+  const requestChatJson = async ({ text, signal }) => {
+    const response = await fetch(`${API_URL}/guides/${slug}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: text, lang, session_id: sessionId }),
+      signal,
+    })
+
+    const data = await response.json()
+    if (data.success) {
+      return data.response || ''
+    }
+
+    return (data.error || '').trim() || t.chat.unavailable
+  }
+
+  const consumeChatStream = async ({ text, signal }) => {
+    let hasChunkContent = false
+
+    const response = await fetch(`${API_URL}/guides/${slug}/chat/stream`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'text/event-stream',
+      },
+      body: JSON.stringify({ message: text, lang, session_id: sessionId }),
+      signal,
+    })
+
+    if (!response.ok) {
+      const streamError = new Error(`stream endpoint unavailable (${response.status})`)
+      streamError.allowFallback = true
+      throw streamError
+    }
+
+    const contentType = (response.headers.get('content-type') || '').toLowerCase()
+    if (!contentType.includes('text/event-stream') || !response.body) {
+      const streamError = new Error('invalid stream response')
+      streamError.allowFallback = true
+      throw streamError
+    }
+
+    const ensureStreamingMessage = () => {
+      setIsStreaming(true)
+      setMessages((previous) => {
+        const lastMessage = previous[previous.length - 1]
+        if (lastMessage && lastMessage.type === 'bot') {
+          return previous
+        }
+        return [...previous, { type: 'bot', content: '' }]
+      })
+    }
+
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+
+    const handleStreamEvent = ({ event, data }) => {
+      const eventName = normalizeStreamEventName(event, data)
+
+      if (eventName === 'start') {
+        // Don't create the bot message yet — wait for first chunk
+        return
+      }
+
+      if (eventName === 'chunk') {
+        const chunkText = extractStreamText(data)
+        if (!chunkText) return
+        ensureStreamingMessage()
+        hasChunkContent = true
+        appendBotChunk(chunkText)
+        return
+      }
+
+      if (eventName === 'end') {
+        // Replace streamed text with the clean final response from backend
+        const finalResponse = (data && typeof data === 'object') ? data.response : ''
+        if (typeof finalResponse === 'string' && finalResponse.trim()) {
+          setMessages((previous) => {
+            if (previous.length === 0) return previous
+            const updated = [...previous]
+            const lastMessage = updated[updated.length - 1]
+            if (lastMessage && lastMessage.type === 'bot') {
+              updated[updated.length - 1] = { ...lastMessage, content: finalResponse }
+            }
+            return updated
+          })
+        }
+        return
+      }
+
+      if (eventName === 'error') {
+        const message = extractStreamError(data) || t.chat.serverUnavailable
+        const streamError = new Error(message)
+        streamError.allowFallback = !hasChunkContent
+        streamError.hasChunkContent = hasChunkContent
+        streamError.streamErrorMessage = message
+        throw streamError
+      }
+
+      const fallbackChunk = extractStreamText(data)
+      if (!fallbackChunk) return
+      ensureStreamingMessage()
+      hasChunkContent = true
+      appendBotChunk(fallbackChunk)
+    }
+
+    try {
+      while (true) {
+        const { value, done } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true }).replace(/\r/g, '')
+        let separatorIndex = buffer.indexOf('\n\n')
+
+        while (separatorIndex >= 0) {
+          const rawBlock = buffer.slice(0, separatorIndex)
+          buffer = buffer.slice(separatorIndex + 2)
+
+          if (rawBlock.trim()) {
+            handleStreamEvent(parseSseEventBlock(rawBlock))
+          }
+
+          separatorIndex = buffer.indexOf('\n\n')
+        }
+      }
+
+      buffer += decoder.decode().replace(/\r/g, '')
+      if (buffer.trim()) {
+        handleStreamEvent(parseSseEventBlock(buffer))
+      }
+
+      if (!hasChunkContent) {
+        const streamError = new Error('empty stream response')
+        streamError.allowFallback = true
+        streamError.hasChunkContent = false
+        throw streamError
+      }
+    } finally {
+      reader.releaseLock()
+      setIsStreaming(false)
+    }
+  }
+
   const sendMessage = async (messageText) => {
     const text = (messageText || input).trim()
     if (!text || isLoading || isStreaming) return
@@ -563,21 +825,25 @@ function ChatPage() {
     try {
       const controller = new AbortController()
       timeoutId = window.setTimeout(() => controller.abort(), CHAT_REQUEST_TIMEOUT_MS)
+      try {
+        await consumeChatStream({ text, signal: controller.signal })
+      } catch (streamError) {
+        if (streamError?.name === 'AbortError') {
+          throw streamError
+        }
 
-      const response = await fetch(`${API_URL}/guides/${slug}/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, lang, session_id: sessionId }),
-        signal: controller.signal,
-      })
+        if (streamError?.allowFallback) {
+          const fallbackResponse = await requestChatJson({ text, signal: controller.signal })
+          await streamBotMessage(fallbackResponse)
+          return
+        }
 
-      const data = await response.json()
-
-      if (data.success) {
-        await streamBotMessage(data.response || '')
-      } else {
-        const fallback = (data.error || '').trim() || t.chat.unavailable
-        await streamBotMessage(fallback)
+        const streamErrorText = streamError?.streamErrorMessage || t.chat.serverUnavailable
+        if (streamError?.hasChunkContent) {
+          appendBotChunk(`\n\n${streamErrorText}`)
+        } else {
+          await streamBotMessage(streamErrorText)
+        }
       }
     } catch (error) {
       if (error?.name === 'AbortError') {
@@ -835,7 +1101,7 @@ function ChatPage() {
                     <div className="msg-bubble">
                       {msg.type === 'bot' ? (
                         isLastBotStreaming ? (
-                          <div className="bot-rich-message"><p className="bot-paragraph">{msg.content}</p></div>
+                          <div className="bot-rich-message"><p className="bot-paragraph">{stripMarkdownForStreaming(msg.content)}</p></div>
                         ) : (
                           <RichBotMessage text={msg.content} lang={lang} />
                         )

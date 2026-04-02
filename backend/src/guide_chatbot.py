@@ -3,7 +3,7 @@ Guide-scoped RAG chatbot with hybrid retrieval (FAISS + BM25).
 Works with pre-indexed guides instead of user sessions.
 Supports multilingual responses (French, English, Korean).
 """
-from typing import Optional, List, Tuple, Dict
+from typing import Optional, List, Tuple, Dict, Iterator, Any
 from collections import OrderedDict
 import logging
 import pickle
@@ -211,7 +211,7 @@ _YOUTUBE_ELIGIBLE_PATTERNS = re.compile(
     r"connecter|connect|bluetooth|demarrer|start|ouvrir|open)\b"
 )
 
-YOUTUBE_MIN_RELEVANCE_SCORE = 3
+YOUTUBE_MIN_RELEVANCE_SCORE = 4
 
 
 def _extract_youtube_id(url: str) -> str:
@@ -473,32 +473,12 @@ def youtube_video_suggestion(
             log.warning("YouTube DDG search failed: %s", exc)
 
     if not candidates:
-        remaining = max(0.2, time_budget_seconds - (time.perf_counter() - started_at))
-        fallback_results = _youtube_html_search(
-            query,
-            max_results=8,
-            timeout_seconds=remaining,
-        )
-        for item in fallback_results:
-            canonical_url = item.get("url", "")
-            if not canonical_url or canonical_url in seen_urls:
-                continue
-            seen_urls.add(canonical_url)
-            title = item.get("title", "").strip() or "YouTube"
-            score = _relevance_score(query, title, "", canonical_url)
-            candidates.append(
-                {
-                    "title": title,
-                    "url": canonical_url,
-                    "score": str(score),
-                }
-            )
-
-    if not candidates:
         return {}
 
     candidates.sort(key=lambda item: int(item.get("score", "0")), reverse=True)
     best = candidates[0]
+    if int(best.get("score", "0")) < YOUTUBE_MIN_RELEVANCE_SCORE:
+        return {}
     return {
         "title": best.get("title", "YouTube"),
         "url": best.get("url", ""),
@@ -737,20 +717,31 @@ class GuideChatbot:
 
         return filtered[:k]
 
-    def chat(self, question: str, lang: str = None, session_id: str = "default") -> str:
-        """Generate a response. If lang is provided, use it; otherwise auto-detect."""
+    def _prepare_chat_payload(
+        self,
+        question: str,
+        lang: Optional[str] = None,
+        session_id: str = "default",
+    ) -> Dict[str, Any]:
+        """Build chat payload (prompt + retrieval context) shared by sync and stream paths."""
         if not lang:
             lang = detect_language(question)
 
         if is_language_capability_question(question):
-            return LANG_QUESTION_RESPONSE.get(lang, LANG_QUESTION_RESPONSE["fr"])
+            return {
+                "early_answer": LANG_QUESTION_RESPONSE.get(
+                    lang, LANG_QUESTION_RESPONSE["fr"]
+                )
+            }
 
         is_vehicle, confidence = is_vehicle_related(question)
 
         if not is_vehicle and confidence < 0.5:
-            return LANG_OFF_TOPIC.get(lang, LANG_OFF_TOPIC["fr"]).format(
-                vehicle=self.guide.name
-            )
+            return {
+                "early_answer": LANG_OFF_TOPIC.get(
+                    lang, LANG_OFF_TOPIC["fr"]
+                ).format(vehicle=self.guide.name)
+            }
 
         # --- Hybrid retrieval with relevance threshold ---
         docs: List[Document] = []
@@ -843,14 +834,75 @@ REGLES STRICTES:
         user_parts.append(f"Question de l'utilisateur: {question}")
 
         user_content = "\n\n---\n\n".join(user_parts)
+        return {
+            "history": history,
+            "system_instruction": system_instruction,
+            "user_content": user_content,
+            "sources_block": sources_block,
+            "video_block": video_block,
+            "video_score": video.get("score", "0") if video else "0",
+        }
+
+    def _finalize_answer(
+        self,
+        raw_answer: str,
+        sources_block: str = "",
+        video_block: str = "",
+        video_score: Any = 0,
+    ) -> Tuple[str, str]:
+        clean_answer = clean_model_output((raw_answer or "").strip())
+        answer = trim_response(clean_answer)
+        if not answer:
+            answer = "Je n'ai pas trouve de reponse exploitable dans le manuel."
+
+        try:
+            parsed_video_score = int(video_score)
+        except (TypeError, ValueError):
+            parsed_video_score = 0
+
+        blocks = [answer]
+        if sources_block:
+            blocks.append(sources_block)
+        if video_block and parsed_video_score >= YOUTUBE_MIN_RELEVANCE_SCORE:
+            blocks.append(video_block)
+        final_answer = "\n\n".join(blocks)
+        return answer, final_answer
+
+    @staticmethod
+    def _extract_stream_chunk_text(chunk: object) -> str:
+        text = getattr(chunk, "text", "")
+        if text:
+            return text
+
+        pieces: List[str] = []
+        candidates = getattr(chunk, "candidates", None) or []
+        for candidate in candidates:
+            content = getattr(candidate, "content", None)
+            parts = getattr(content, "parts", None) or []
+            for part in parts:
+                part_text = getattr(part, "text", "")
+                if part_text:
+                    pieces.append(part_text)
+        return "".join(pieces)
+
+    def chat(self, question: str, lang: str = None, session_id: str = "default") -> str:
+        """Generate a response. If lang is provided, use it; otherwise auto-detect."""
+        payload = self._prepare_chat_payload(
+            question=question,
+            lang=lang,
+            session_id=session_id,
+        )
+        early_answer = payload.get("early_answer")
+        if isinstance(early_answer, str):
+            return early_answer
 
         try:
             from google.genai import types as genai_types
             response = self.client.models.generate_content(
                 model=self.model_name,
-                contents=user_content,
+                contents=str(payload.get("user_content", "")),
                 config=genai_types.GenerateContentConfig(
-                    system_instruction=system_instruction,
+                    system_instruction=str(payload.get("system_instruction", "")),
                     temperature=0.15,
                     max_output_tokens=4096,
                     http_options=genai_types.HttpOptions(timeout=LLM_TIMEOUT_SECONDS * 1000),
@@ -858,29 +910,89 @@ REGLES STRICTES:
             )
 
             raw_answer = (getattr(response, "text", "") or "").strip()
-            clean_answer = clean_model_output(raw_answer)
-            answer = trim_response(clean_answer)
-            if not answer:
-                answer = "Je n'ai pas trouve de reponse exploitable dans le manuel."
-
-            blocks = [answer]
-            if sources_block:
-                blocks.append(sources_block)
-            video_score = int(video.get("score", "0")) if video else 0
-            if video_block and video_score >= YOUTUBE_MIN_RELEVANCE_SCORE:
-                blocks.append(video_block)
-            final_answer = "\n\n".join(blocks)
+            answer, final_answer = self._finalize_answer(
+                raw_answer,
+                sources_block=str(payload.get("sources_block", "")),
+                video_block=str(payload.get("video_block", "")),
+                video_score=payload.get("video_score", 0),
+            )
 
             # Save to session history
-            history.append({"role": "user", "content": question})
-            history.append({"role": "assistant", "content": answer})
-            self._trim_session_history(session_id)
+            history = payload.get("history")
+            if isinstance(history, list):
+                history.append({"role": "user", "content": question})
+                history.append({"role": "assistant", "content": answer})
+                self._trim_session_history(session_id)
 
             return final_answer
 
         except Exception as exc:
             log.error("LLM generation failed for %s: %s", self.guide.slug, exc)
             return "Impossible de generer une reponse. Veuillez reessayer."
+
+    def chat_stream(
+        self,
+        question: str,
+        lang: str = None,
+        session_id: str = "default",
+    ) -> Iterator[Dict[str, Any]]:
+        """Generate a response with token streaming using the Gemini stream API."""
+        payload = self._prepare_chat_payload(
+            question=question,
+            lang=lang,
+            session_id=session_id,
+        )
+        early_answer = payload.get("early_answer")
+        if isinstance(early_answer, str):
+            yield {"type": "chunk", "text": early_answer}
+            yield {"type": "end", "response": early_answer}
+            return
+
+        try:
+            from google.genai import types as genai_types
+
+            stream = self.client.models.generate_content_stream(
+                model=self.model_name,
+                contents=str(payload.get("user_content", "")),
+                config=genai_types.GenerateContentConfig(
+                    system_instruction=str(payload.get("system_instruction", "")),
+                    temperature=0.15,
+                    max_output_tokens=4096,
+                    http_options=genai_types.HttpOptions(timeout=LLM_TIMEOUT_SECONDS * 1000),
+                ),
+            )
+
+            raw_chunks: List[str] = []
+            for chunk in stream:
+                chunk_text = self._extract_stream_chunk_text(chunk)
+                if not chunk_text:
+                    continue
+                raw_chunks.append(chunk_text)
+                yield {"type": "chunk", "text": chunk_text}
+
+            raw_answer = "".join(raw_chunks).strip()
+            if not raw_answer and not raw_chunks:
+                yield {"type": "chunk", "text": "Je n'ai pas trouve de reponse exploitable dans le manuel."}
+
+            # Build final clean response with sources/video (sent only in end event)
+            answer, final_response = self._finalize_answer(
+                raw_answer,
+                sources_block=str(payload.get("sources_block", "")),
+                video_block=str(payload.get("video_block", "")),
+                video_score=payload.get("video_score", 0),
+            )
+
+            history = payload.get("history")
+            if isinstance(history, list):
+                history.append({"role": "user", "content": question})
+                history.append({"role": "assistant", "content": answer})
+                self._trim_session_history(session_id)
+
+            yield {"type": "end", "response": final_response}
+
+        except Exception as exc:
+            log.error("LLM streaming failed for %s: %s", self.guide.slug, exc)
+            raise
 
     def get_history(self, session_id: str = "default") -> list:
         return self._get_session_history(session_id)

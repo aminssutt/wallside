@@ -15,7 +15,7 @@ FROM python:3.12-slim AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PORT=5002 \
+    PORT=3000 \
     FRONTEND_DIST_DIR=/app/frontend/dist
 
 WORKDIR /app
@@ -39,6 +39,6 @@ WORKDIR /app/backend
 
 USER app
 
-EXPOSE 5002
+EXPOSE 3000
 
-CMD ["sh", "-c", "gunicorn api:app --bind 0.0.0.0:${PORT:-5002} --workers 2 --threads 2 --timeout 120"]
+CMD ["sh", "-c", "gunicorn api:app --bind 0.0.0.0:${PORT:-3000} --workers 2 --threads 2 --timeout 120"]
