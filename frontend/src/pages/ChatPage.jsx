@@ -447,7 +447,9 @@ function ChatPage() {
   const tokenFlushTimerRef = useRef(null)
   const inputRef = useRef(null)
   const chunkBufferRef = useRef('')
-  const rafIdRef = useRef(null)
+  const drainTimerRef = useRef(null)
+  const streamDoneRef = useRef(false)
+  const finalResponseRef = useRef('')
   const t = UI_TEXT[lang] || UI_TEXT.fr
   const toastCopy = TOAST_COPY[lang] || TOAST_COPY.en
   const coverageLabel = t.chat.coverageLabel || '{coverage}'
@@ -603,8 +605,8 @@ function ChatPage() {
       if (tokenFlushTimerRef.current) {
         window.clearInterval(tokenFlushTimerRef.current)
       }
-      if (rafIdRef.current) {
-        cancelAnimationFrame(rafIdRef.current)
+      if (drainTimerRef.current) {
+        window.clearInterval(drainTimerRef.current)
       }
     }
   }, [])
@@ -666,38 +668,55 @@ function ChatPage() {
       }, intervalMs)
     })
 
-  const flushChunkBuffer = () => {
-    const buffered = chunkBufferRef.current
-    if (!buffered) return
-    chunkBufferRef.current = ''
-
-    setMessages((previous) => {
-      if (previous.length === 0) {
-        return [{ type: 'bot', content: buffered }]
+  const drainTick = () => {
+    const buf = chunkBufferRef.current
+    if (!buf) {
+      if (streamDoneRef.current) {
+        window.clearInterval(drainTimerRef.current)
+        drainTimerRef.current = null
+        const finalText = finalResponseRef.current
+        finalResponseRef.current = ''
+        streamDoneRef.current = false
+        if (finalText) {
+          setMessages((prev) => {
+            if (!prev.length) return prev
+            const updated = [...prev]
+            const last = updated[updated.length - 1]
+            if (last?.type === 'bot') {
+              updated[updated.length - 1] = { ...last, content: finalText }
+            }
+            return updated
+          })
+        }
+        setIsStreaming(false)
       }
-      const updated = [...previous]
-      const lastMessage = updated[updated.length - 1]
-      if (!lastMessage || lastMessage.type !== 'bot') {
-        return [...previous, { type: 'bot', content: buffered }]
+      return
+    }
+    const step = buf.length > 800 ? 12 : buf.length > 300 ? 6 : buf.length > 80 ? 3 : 2
+    const piece = buf.slice(0, step)
+    chunkBufferRef.current = buf.slice(step)
+    setMessages((prev) => {
+      if (!prev.length) return [{ type: 'bot', content: piece }]
+      const updated = [...prev]
+      const last = updated[updated.length - 1]
+      if (!last || last.type !== 'bot') {
+        return [...prev, { type: 'bot', content: piece }]
       }
-      updated[updated.length - 1] = {
-        ...lastMessage,
-        content: (lastMessage.content || '') + buffered,
-      }
+      updated[updated.length - 1] = { ...last, content: (last.content || '') + piece }
       return updated
     })
+  }
+
+  const startDrain = () => {
+    if (drainTimerRef.current) return
+    drainTimerRef.current = window.setInterval(drainTick, 25)
   }
 
   const appendBotChunk = (chunkText) => {
     const nextChunk = String(chunkText || '')
     if (!nextChunk) return
     chunkBufferRef.current += nextChunk
-    if (!rafIdRef.current) {
-      rafIdRef.current = requestAnimationFrame(() => {
-        rafIdRef.current = null
-        flushChunkBuffer()
-      })
-    }
+    startDrain()
   }
 
 
@@ -776,26 +795,17 @@ function ChatPage() {
       }
 
       if (eventName === 'end') {
-        // Flush any buffered chunks immediately
-        if (rafIdRef.current) {
-          cancelAnimationFrame(rafIdRef.current)
-          rafIdRef.current = null
-        }
-        flushChunkBuffer()
-
-        // Replace streamed text with the clean final response from backend
         const finalResponse = (data && typeof data === 'object') ? data.response : ''
         if (typeof finalResponse === 'string' && finalResponse.trim()) {
-          setMessages((previous) => {
-            if (previous.length === 0) return previous
-            const updated = [...previous]
-            const lastMessage = updated[updated.length - 1]
-            if (lastMessage && lastMessage.type === 'bot') {
-              updated[updated.length - 1] = { ...lastMessage, content: finalResponse }
-            }
-            return updated
-          })
+          finalResponseRef.current = finalResponse
         }
+        // Inject sources into drain buffer so they type out smoothly
+        const sources = (data && typeof data === 'object') ? String(data.sources || '') : ''
+        if (sources.trim()) {
+          chunkBufferRef.current += '\n\n' + sources
+        }
+        streamDoneRef.current = true
+        startDrain()
         return
       }
 
@@ -875,7 +885,7 @@ function ChatPage() {
       }
     } finally {
       reader.releaseLock()
-      setIsStreaming(false)
+      // isStreaming is set to false by the drain when buffer is empty
     }
   }
 
@@ -883,12 +893,14 @@ function ChatPage() {
     const text = (messageText || input).trim()
     if (!text || isLoading || isStreaming) return
 
-    // Cancel any pending chunk flush from a previous stream
-    if (rafIdRef.current) {
-      cancelAnimationFrame(rafIdRef.current)
-      rafIdRef.current = null
+    // Cancel any pending drain from a previous stream
+    if (drainTimerRef.current) {
+      window.clearInterval(drainTimerRef.current)
+      drainTimerRef.current = null
     }
     chunkBufferRef.current = ''
+    streamDoneRef.current = false
+    finalResponseRef.current = ''
 
     setMessages((previous) => [...previous, { type: 'user', content: text }])
     setInput('')
@@ -1158,9 +1170,7 @@ function ChatPage() {
             </AnimatePresence>
 
             <AnimatePresence initial={false}>
-              {messages.map((msg, index) => {
-                const isLastBotStreaming = isStreaming && msg.type === 'bot' && index === messages.length - 1
-                return (
+              {messages.map((msg, index) => (
                   <Motion.div
                     key={`${msg.type}-${index}`}
                     className={`msg ${msg.type}`}
@@ -1174,16 +1184,11 @@ function ChatPage() {
 
                     <div className="msg-bubble">
                       {msg.type === 'bot' ? (
-                        isLastBotStreaming ? (
-                          <div className="bot-rich-message"><p className="bot-paragraph">{stripMarkdownForStreaming(msg.content)}</p></div>
-                        ) : (
-                          <RichBotMessage text={msg.content} lang={lang} video={msg.video} />
-                        )
+                        <RichBotMessage text={msg.content} lang={lang} video={msg.video} />
                       ) : msg.content}
                     </div>
                   </Motion.div>
-                )
-              })}
+              ))}
             </AnimatePresence>
 
             <AnimatePresence>

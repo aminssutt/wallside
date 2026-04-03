@@ -128,6 +128,81 @@ NON_VEHICLE_KEYWORDS = [
     "\ucd95\uad6c", "\ub18d\uad6c", "\uc601\ud654", "\uc74c\uc545", "\ubcd1\uc6d0",
 ]
 
+_GREETING_WORDS = re.compile(
+    r"\b(?:hi|hey|hello|yo|sup|bonjour|salut|coucou|bonsoir|bsr)\b", re.IGNORECASE
+)
+_SMALLTALK_PHRASES = re.compile(
+    r"(?:how are you|how r u|how are u|how do you do|what'?s up|whats up|wassup"
+    r"|ca va|comment (?:vas?[ -]tu|allez[ -]vous|ca va|tu vas)"
+    r"|who are you|what are you|qui es[ -]tu|tu es qui|c'?est quoi"
+    r"|what can you do|que (?:peux|sais)[ -]tu faire"
+    r"|thank(?:s| you)|merci|thx"
+    r"|good (?:morning|afternoon|evening|night)|bonne (?:nuit|journee|soiree)"
+    r"|(?:tell me (?:about yourself|a joke))|raconte"
+    r"|test(?:ing)?|1234|allo|allô)",
+    re.IGNORECASE,
+)
+_ONLY_FILLER_RE = re.compile(
+    r"^\s*(?:ok|okay|d'?accord|oui|non|yes|no|yep|nope|cool|nice|super|great|genial|bien|top|parfait|lol|mdr|haha)\s*[?!.]*\s*$",
+    re.IGNORECASE,
+)
+
+
+def _is_conversational(question: str) -> bool:
+    """Return True if the question is a greeting, small talk, or filler."""
+    text = (question or "").strip()
+    if not text or len(text) > 120:
+        return False
+    if _ONLY_FILLER_RE.match(text):
+        return True
+    has_greeting = bool(_GREETING_WORDS.search(text))
+    has_smalltalk = bool(_SMALLTALK_PHRASES.search(text))
+    has_vehicle_kw = any(kw in text.lower() for kw in VEHICLE_KEYWORDS)
+    if has_vehicle_kw:
+        return False
+    if has_smalltalk:
+        return True
+    if has_greeting and len(text.split()) <= 6:
+        return True
+    return False
+
+
+# ---------------------------------------------------------------------------
+# Query routing: manual_only / manual_plus_web_blocking / manual_plus_web_async
+# ---------------------------------------------------------------------------
+MANUAL_ONLY = "manual_only"
+WEB_BLOCKING = "manual_plus_web_blocking"
+WEB_ASYNC = "manual_plus_web_async"
+
+_WEB_NEEDED_RE = re.compile(
+    r"(?i)\b("
+    r"rappel|recall|mise a jour|update|ota|software update|firmware"
+    r"|prix|price|cout|cost|tarif|pricing"
+    r"|disponible|availability|available|dispo"
+    r"|reglementation|regulation|norme|homologation|legal"
+    r"|actualite|news|nouvelle|recent|dernier|latest|2025|2026"
+    r"|compatible|compatibilite|compatibility|accessoire|accessory"
+    r"|assurance|insurance|garantie|warranty|extension"
+    r"|concessionnaire|dealer|distributeur|service center"
+    r"|subvention|bonus|prime|aide|incentive|credit d.impot|tax credit"
+    r")\b"
+)
+
+
+def classify_query(question: str) -> str:
+    """Route the question to the right enrichment mode."""
+    text = (question or "").strip()
+    if not text:
+        return MANUAL_ONLY
+    has_vehicle = any(kw in text.lower() for kw in VEHICLE_KEYWORDS)
+    needs_web = bool(_WEB_NEEDED_RE.search(text))
+    if needs_web and has_vehicle:
+        return WEB_BLOCKING
+    if needs_web:
+        return WEB_ASYNC
+    return MANUAL_ONLY
+
+
 LANG_QUESTION_PATTERNS = re.compile(
     r"(?:parle|parler|speak|talk|answer|respond|repondre|reponds)"
     r".*(?:anglais|english|francais|french|coreen|korean|langue|language|"
@@ -557,10 +632,10 @@ def is_vehicle_related(question: str) -> Tuple[bool, float]:
     if matches >= 1:
         return True, 1.0
 
-    # If no strong negative signal, assume it could be vehicle-related
-    # and let the RAG retrieval handle relevance
+    # No vehicle keywords, no negative keywords — ambiguous.
+    # Let the RAG pipeline decide, but flag as low confidence.
     if negative_matches == 0:
-        return True, 0.5
+        return True, 0.3
 
     return False, 0.0
 
@@ -723,7 +798,7 @@ class GuideChatbot:
         question: str,
         lang: Optional[str] = None,
         session_id: str = "default",
-        skip_video: bool = False,
+        mode: str = MANUAL_ONLY,
     ) -> Dict[str, Any]:
         """Build chat payload (prompt + retrieval context) shared by sync and stream paths."""
         if not lang:
@@ -735,6 +810,15 @@ class GuideChatbot:
                     lang, LANG_QUESTION_RESPONSE["fr"]
                 )
             }
+
+        # Conversational / greeting — answer directly, no RAG or sources
+        if _is_conversational(question):
+            greetings = {
+                "fr": f"Bonjour ! Je suis votre assistant specialise pour le {self.guide.name}. Posez-moi vos questions techniques sur ce vehicule.",
+                "en": f"Hello! I'm your specialist assistant for the {self.guide.name}. Ask me any technical question about this vehicle.",
+                "ko": f"\uc548\ub155\ud558\uc138\uc694! {self.guide.name} \uc804\uc6a9 \uc5b4\uc2dc\uc2a4\ud134\ud2b8\uc785\ub2c8\ub2e4. \ucc28\ub7c9\uc5d0 \ub300\ud55c \uae30\uc220\uc801 \uc9c8\ubb38\uc744 \ud574\uc8fc\uc138\uc694.",
+            }
+            return {"early_answer": greetings.get(lang, greetings["fr"])}
 
         is_vehicle, confidence = is_vehicle_related(question)
 
@@ -755,12 +839,12 @@ class GuideChatbot:
                 has_relevant_context = True
                 context = format_context(docs)
 
-        # --- Web enrichment (parallel) ---
+        # --- Web enrichment (only for clearly vehicle-related questions) ---
         web_results: List[Dict[str, str]] = []
         video: Dict[str, str] = {}
         web_context = ""
 
-        if ENABLE_WEB_ENRICHMENT:
+        if ENABLE_WEB_ENRICHMENT and confidence >= 0.5 and mode == WEB_BLOCKING:
             enrichment_query = f"{self.guide.name} {question}".strip()
             budget = max(0.5, ENRICHMENT_TIME_BUDGET_SECONDS)
 
@@ -774,7 +858,7 @@ class GuideChatbot:
             web_future = _enrichment_executor.submit(_fetch_web)
 
             video_future = None
-            if not skip_video:
+            if mode == WEB_BLOCKING:
                 def _fetch_video():
                     if not _YOUTUBE_ELIGIBLE_PATTERNS.search(question):
                         return {}
@@ -796,7 +880,8 @@ class GuideChatbot:
 
             web_context = format_web_context(web_results, lang=lang)
 
-        sources_block = format_sources(docs, web_results=web_results)
+        # Only include sources when we found relevant context
+        sources_block = format_sources(docs, web_results=web_results) if has_relevant_context else ""
         video_block = format_video_block(video, lang=lang)
         lang_instruction = LANG_INSTRUCTIONS.get(lang, LANG_INSTRUCTIONS["fr"])
 
@@ -892,11 +977,15 @@ REGLES STRICTES:
         return "".join(pieces)
 
     def chat(self, question: str, lang: str = None, session_id: str = "default") -> str:
-        """Generate a response. If lang is provided, use it; otherwise auto-detect."""
+        """Generate a response (sync fallback — uses web enrichment)."""
+        mode = classify_query(question)
+        if mode == MANUAL_ONLY:
+            mode = WEB_BLOCKING  # fallback path always gets full enrichment
         payload = self._prepare_chat_payload(
             question=question,
             lang=lang,
             session_id=session_id,
+            mode=mode,
         )
         early_answer = payload.get("early_answer")
         if isinstance(early_answer, str):
@@ -942,20 +1031,31 @@ REGLES STRICTES:
         lang: str = None,
         session_id: str = "default",
     ) -> Iterator[Dict[str, Any]]:
-        """Generate a streaming response, then search YouTube post-stream."""
+        """Stream response with intelligent routing (A/B/C modes)."""
         message_id = str(uuid.uuid4())
+        mode = classify_query(question)
 
+        # Mode A (default) or C: no web in prompt → fastest TTFT
+        # Mode B: web blocking in prompt (for recall/pricing/regulatory Qs)
+        payload_mode = mode if mode == WEB_BLOCKING else MANUAL_ONLY
         payload = self._prepare_chat_payload(
-            question=question,
-            lang=lang,
-            session_id=session_id,
-            skip_video=True,
+            question=question, lang=lang, session_id=session_id, mode=payload_mode,
         )
+
         early_answer = payload.get("early_answer")
         if isinstance(early_answer, str):
             yield {"type": "chunk", "text": early_answer, "message_id": message_id}
             yield {"type": "end", "response": early_answer, "message_id": message_id}
             return
+
+        # Mode C: launch web search in background while LLM streams
+        web_future = None
+        if mode == WEB_ASYNC and ENABLE_WEB_ENRICHMENT:
+            enrichment_query = f"{self.guide.name} {question}".strip()
+            budget = max(0.5, ENRICHMENT_TIME_BUDGET_SECONDS)
+            web_future = _enrichment_executor.submit(
+                web_search_results, enrichment_query, WEB_MAX_RESULTS, budget,
+            )
 
         try:
             from google.genai import types as genai_types
@@ -983,10 +1083,24 @@ REGLES STRICTES:
             if not raw_answer and not raw_chunks:
                 yield {"type": "chunk", "text": "Je n'ai pas trouve de reponse exploitable dans le manuel.", "message_id": message_id}
 
-            # Finalize with sources only (no video in text)
+            # Collect async web results (if mode C) — non-blocking, already running
+            async_web_sources = ""
+            if web_future is not None:
+                try:
+                    web_results = web_future.result(timeout=2)
+                    if web_results:
+                        async_web_sources = format_sources([], web_results=web_results)
+                except Exception:
+                    pass
+
+            sources_block = str(payload.get("sources_block", ""))
+            if async_web_sources and sources_block:
+                sources_block = sources_block + "\n" + async_web_sources
+            elif async_web_sources:
+                sources_block = async_web_sources
+
             answer, final_response = self._finalize_answer(
-                raw_answer,
-                sources_block=str(payload.get("sources_block", "")),
+                raw_answer, sources_block=sources_block,
             )
 
             history = payload.get("history")
@@ -995,13 +1109,18 @@ REGLES STRICTES:
                 history.append({"role": "assistant", "content": answer})
                 self._trim_session_history(session_id)
 
-            yield {"type": "end", "response": final_response, "message_id": message_id}
+            yield {
+                "type": "end",
+                "response": final_response,
+                "sources": sources_block,
+                "message_id": message_id,
+            }
 
         except Exception as exc:
             log.error("LLM streaming failed for %s: %s", self.guide.slug, exc)
             raise
 
-        # --- Post-stream YouTube search (client already has full text) ---
+        # --- Post-stream YouTube search ---
         try:
             if ENABLE_WEB_ENRICHMENT and _YOUTUBE_ELIGIBLE_PATTERNS.search(question):
                 video = youtube_video_suggestion(
