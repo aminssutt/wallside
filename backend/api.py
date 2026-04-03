@@ -258,21 +258,31 @@ def chat_stream(slug):
             ended = False
             for event in chatbot.chat_stream(question, lang=lang, session_id=session_id):
                 event_type = str(event.get("type", "")).strip().lower()
+                mid = event.get("message_id", "")
                 if event_type == "chunk":
                     chunk_text = str(event.get("text", ""))
                     if chunk_text:
-                        yield _sse_event("chunk", {"text": chunk_text})
+                        yield _sse_event("chunk", {"text": chunk_text, "message_id": mid})
                 elif event_type == "end":
                     end_payload = {
                         "success": True,
                         "vehicle_name": guide.name,
+                        "message_id": mid,
                     }
                     response_text = event.get("response")
                     if isinstance(response_text, str):
                         end_payload["response"] = response_text
                     yield _sse_event("end", end_payload)
                     ended = True
-                    break
+                elif event_type == "video_result":
+                    yield _sse_event("video_result", {
+                        "message_id": mid,
+                        "title": event.get("title", ""),
+                        "url": event.get("url", ""),
+                        "thumbnail": event.get("thumbnail", ""),
+                    })
+                elif event_type == "video_none":
+                    yield _sse_event("video_none", {"message_id": mid})
             if not ended:
                 yield _sse_event("end", {
                     "success": True,

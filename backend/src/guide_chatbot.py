@@ -12,6 +12,7 @@ import importlib.util
 import time
 import hashlib
 import threading
+import uuid
 from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import quote_plus, urlparse
 from urllib.request import Request, urlopen
@@ -722,6 +723,7 @@ class GuideChatbot:
         question: str,
         lang: Optional[str] = None,
         session_id: str = "default",
+        skip_video: bool = False,
     ) -> Dict[str, Any]:
         """Build chat payload (prompt + retrieval context) shared by sync and stream paths."""
         if not lang:
@@ -769,24 +771,28 @@ class GuideChatbot:
                     time_budget_seconds=budget,
                 )
 
-            def _fetch_video():
-                if not _YOUTUBE_ELIGIBLE_PATTERNS.search(question):
-                    return {}
-                return youtube_video_suggestion(
-                    f"{self.guide.name} {question}",
-                    time_budget_seconds=budget,
-                )
-
             web_future = _enrichment_executor.submit(_fetch_web)
-            video_future = _enrichment_executor.submit(_fetch_video)
+
+            video_future = None
+            if not skip_video:
+                def _fetch_video():
+                    if not _YOUTUBE_ELIGIBLE_PATTERNS.search(question):
+                        return {}
+                    return youtube_video_suggestion(
+                        f"{self.guide.name} {question}",
+                        time_budget_seconds=budget,
+                    )
+                video_future = _enrichment_executor.submit(_fetch_video)
+
             try:
                 web_results = web_future.result(timeout=budget)
             except Exception:
                 web_results = []
-            try:
-                video = video_future.result(timeout=max(1.0, budget))
-            except Exception:
-                video = {}
+            if video_future is not None:
+                try:
+                    video = video_future.result(timeout=max(1.0, budget))
+                except Exception:
+                    video = {}
 
             web_context = format_web_context(web_results, lang=lang)
 
@@ -936,16 +942,19 @@ REGLES STRICTES:
         lang: str = None,
         session_id: str = "default",
     ) -> Iterator[Dict[str, Any]]:
-        """Generate a response with token streaming using the Gemini stream API."""
+        """Generate a streaming response, then search YouTube post-stream."""
+        message_id = str(uuid.uuid4())
+
         payload = self._prepare_chat_payload(
             question=question,
             lang=lang,
             session_id=session_id,
+            skip_video=True,
         )
         early_answer = payload.get("early_answer")
         if isinstance(early_answer, str):
-            yield {"type": "chunk", "text": early_answer}
-            yield {"type": "end", "response": early_answer}
+            yield {"type": "chunk", "text": early_answer, "message_id": message_id}
+            yield {"type": "end", "response": early_answer, "message_id": message_id}
             return
 
         try:
@@ -968,18 +977,16 @@ REGLES STRICTES:
                 if not chunk_text:
                     continue
                 raw_chunks.append(chunk_text)
-                yield {"type": "chunk", "text": chunk_text}
+                yield {"type": "chunk", "text": chunk_text, "message_id": message_id}
 
             raw_answer = "".join(raw_chunks).strip()
             if not raw_answer and not raw_chunks:
-                yield {"type": "chunk", "text": "Je n'ai pas trouve de reponse exploitable dans le manuel."}
+                yield {"type": "chunk", "text": "Je n'ai pas trouve de reponse exploitable dans le manuel.", "message_id": message_id}
 
-            # Build final clean response with sources/video (sent only in end event)
+            # Finalize with sources only (no video in text)
             answer, final_response = self._finalize_answer(
                 raw_answer,
                 sources_block=str(payload.get("sources_block", "")),
-                video_block=str(payload.get("video_block", "")),
-                video_score=payload.get("video_score", 0),
             )
 
             history = payload.get("history")
@@ -988,11 +995,33 @@ REGLES STRICTES:
                 history.append({"role": "assistant", "content": answer})
                 self._trim_session_history(session_id)
 
-            yield {"type": "end", "response": final_response}
+            yield {"type": "end", "response": final_response, "message_id": message_id}
 
         except Exception as exc:
             log.error("LLM streaming failed for %s: %s", self.guide.slug, exc)
             raise
+
+        # --- Post-stream YouTube search (client already has full text) ---
+        try:
+            if ENABLE_WEB_ENRICHMENT and _YOUTUBE_ELIGIBLE_PATTERNS.search(question):
+                video = youtube_video_suggestion(
+                    f"{self.guide.name} {question}",
+                    time_budget_seconds=max(0.5, ENRICHMENT_TIME_BUDGET_SECONDS),
+                )
+                if video and int(video.get("score", "0")) >= YOUTUBE_MIN_RELEVANCE_SCORE:
+                    video_id = _extract_youtube_id(video.get("url", ""))
+                    yield {
+                        "type": "video_result",
+                        "message_id": message_id,
+                        "title": video.get("title", "YouTube"),
+                        "url": video.get("url", ""),
+                        "thumbnail": f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg" if video_id else "",
+                    }
+                    return
+            yield {"type": "video_none", "message_id": message_id}
+        except Exception as exc:
+            log.warning("Post-stream video search failed: %s", exc)
+            yield {"type": "video_none", "message_id": message_id}
 
     def get_history(self, session_id: str = "default") -> list:
         return self._get_session_history(session_id)

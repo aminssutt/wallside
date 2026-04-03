@@ -19,7 +19,7 @@ const QUICK_ICONS = [wrenchIcon, dashboardIcon, navigationIcon]
 const COMPACT_MENU_BREAKPOINT = 1024
 const CHAT_REQUEST_TIMEOUT_MS = 45000
 const MAX_INPUT_LENGTH = 3000
-const KNOWN_STREAM_EVENTS = new Set(['start', 'chunk', 'end', 'error'])
+const KNOWN_STREAM_EVENTS = new Set(['start', 'chunk', 'end', 'error', 'video_result', 'video_none'])
 
 const generateSessionId = () => {
   const arr = new Uint8Array(16)
@@ -239,7 +239,7 @@ const extractStreamError = (payload) => {
   return firstError ? firstError.trim() : ''
 }
 
-function RichBotMessage({ text, lang = 'fr' }) {
+function RichBotMessage({ text, lang = 'fr', video }) {
   const lines = normalizeAssistantText(text).replace(/\r\n/g, '\n').split('\n')
   const blocks = []
   let listBuffer = null
@@ -395,6 +395,25 @@ function RichBotMessage({ text, lang = 'fr' }) {
           </p>
         )
       })}
+      {video && video.url && (
+        <div className="bot-video-card" key="stream-video">
+          <a className="bot-video-thumb" href={video.url} target="_blank" rel="noopener noreferrer">
+            {video.thumb ? (
+              <img src={video.thumb} alt={video.title} loading="lazy" />
+            ) : (
+              <div className="bot-video-thumb-fallback"><span>YouTube</span></div>
+            )}
+            <span className="bot-video-play-icon" aria-hidden="true">&#9654;</span>
+            <span className="bot-video-badge">{videoUi.badge}</span>
+          </a>
+          <div className="bot-video-content">
+            <p className="bot-video-title">{video.title}</p>
+          </div>
+          <a className="bot-video-action" href={video.url} target="_blank" rel="noreferrer">
+            {videoUi.action}
+          </a>
+        </div>
+      )}
     </div>
   )
 }
@@ -427,6 +446,8 @@ function ChatPage() {
   const langDropdownRef = useRef(null)
   const tokenFlushTimerRef = useRef(null)
   const inputRef = useRef(null)
+  const chunkBufferRef = useRef('')
+  const rafIdRef = useRef(null)
   const t = UI_TEXT[lang] || UI_TEXT.fr
   const toastCopy = TOAST_COPY[lang] || TOAST_COPY.en
   const coverageLabel = t.chat.coverageLabel || '{coverage}'
@@ -582,6 +603,9 @@ function ChatPage() {
       if (tokenFlushTimerRef.current) {
         window.clearInterval(tokenFlushTimerRef.current)
       }
+      if (rafIdRef.current) {
+        cancelAnimationFrame(rafIdRef.current)
+      }
     }
   }, [])
 
@@ -642,29 +666,38 @@ function ChatPage() {
       }, intervalMs)
     })
 
-  const appendBotChunk = (chunkText) => {
-    const nextChunk = String(chunkText || '')
-    if (!nextChunk) return
+  const flushChunkBuffer = () => {
+    const buffered = chunkBufferRef.current
+    if (!buffered) return
+    chunkBufferRef.current = ''
 
     setMessages((previous) => {
       if (previous.length === 0) {
-        return [{ type: 'bot', content: nextChunk }]
+        return [{ type: 'bot', content: buffered }]
       }
-
       const updated = [...previous]
       const lastMessage = updated[updated.length - 1]
-
       if (!lastMessage || lastMessage.type !== 'bot') {
-        updated.push({ type: 'bot', content: nextChunk })
-        return updated
+        return [...previous, { type: 'bot', content: buffered }]
       }
-
       updated[updated.length - 1] = {
         ...lastMessage,
-        content: `${lastMessage.content || ''}${nextChunk}`,
+        content: (lastMessage.content || '') + buffered,
       }
       return updated
     })
+  }
+
+  const appendBotChunk = (chunkText) => {
+    const nextChunk = String(chunkText || '')
+    if (!nextChunk) return
+    chunkBufferRef.current += nextChunk
+    if (!rafIdRef.current) {
+      rafIdRef.current = requestAnimationFrame(() => {
+        rafIdRef.current = null
+        flushChunkBuffer()
+      })
+    }
   }
 
 
@@ -743,6 +776,13 @@ function ChatPage() {
       }
 
       if (eventName === 'end') {
+        // Flush any buffered chunks immediately
+        if (rafIdRef.current) {
+          cancelAnimationFrame(rafIdRef.current)
+          rafIdRef.current = null
+        }
+        flushChunkBuffer()
+
         // Replace streamed text with the clean final response from backend
         const finalResponse = (data && typeof data === 'object') ? data.response : ''
         if (typeof finalResponse === 'string' && finalResponse.trim()) {
@@ -756,6 +796,33 @@ function ChatPage() {
             return updated
           })
         }
+        return
+      }
+
+      if (eventName === 'video_result') {
+        const videoData = (data && typeof data === 'object') ? data : {}
+        const url = String(videoData.url || '').trim()
+        if (!url) return
+        setMessages((previous) => {
+          if (previous.length === 0) return previous
+          const updated = [...previous]
+          const lastMessage = updated[updated.length - 1]
+          if (lastMessage && lastMessage.type === 'bot') {
+            updated[updated.length - 1] = {
+              ...lastMessage,
+              video: {
+                title: String(videoData.title || 'YouTube'),
+                url,
+                thumb: String(videoData.thumbnail || '') || youtubeThumbFromUrl(url),
+              },
+            }
+          }
+          return updated
+        })
+        return
+      }
+
+      if (eventName === 'video_none') {
         return
       }
 
@@ -815,6 +882,13 @@ function ChatPage() {
   const sendMessage = async (messageText) => {
     const text = (messageText || input).trim()
     if (!text || isLoading || isStreaming) return
+
+    // Cancel any pending chunk flush from a previous stream
+    if (rafIdRef.current) {
+      cancelAnimationFrame(rafIdRef.current)
+      rafIdRef.current = null
+    }
+    chunkBufferRef.current = ''
 
     setMessages((previous) => [...previous, { type: 'user', content: text }])
     setInput('')
@@ -1103,7 +1177,7 @@ function ChatPage() {
                         isLastBotStreaming ? (
                           <div className="bot-rich-message"><p className="bot-paragraph">{stripMarkdownForStreaming(msg.content)}</p></div>
                         ) : (
-                          <RichBotMessage text={msg.content} lang={lang} />
+                          <RichBotMessage text={msg.content} lang={lang} video={msg.video} />
                         )
                       ) : msg.content}
                     </div>
