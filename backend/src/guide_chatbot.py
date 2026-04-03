@@ -18,6 +18,7 @@ from urllib.parse import quote_plus, urlparse
 from urllib.request import Request, urlopen
 
 from google import genai
+from google.genai import types as genai_types
 from langchain_core.documents import Document
 from langchain_community.vectorstores import FAISS
 
@@ -711,7 +712,8 @@ class GuideChatbot:
         self.model_name = LLM_MODEL.replace("models/", "", 1)
         # Per-session conversation histories with bounded size
         self._session_histories: OrderedDict[str, List[dict]] = OrderedDict()
-        self._max_sessions = 1000
+        self._max_sessions = 100
+        self._history_lock = threading.Lock()
 
     def _load_vector_stores(self) -> List[FAISS]:
         if importlib.util.find_spec("faiss") is None:
@@ -761,19 +763,21 @@ class GuideChatbot:
         return indices
 
     def _get_session_history(self, session_id: str) -> List[dict]:
-        if session_id not in self._session_histories:
-            # Evict oldest session if at capacity
-            while len(self._session_histories) >= self._max_sessions:
-                self._session_histories.popitem(last=False)
-            self._session_histories[session_id] = []
-        else:
-            self._session_histories.move_to_end(session_id)
-        return self._session_histories[session_id]
+        with self._history_lock:
+            if session_id not in self._session_histories:
+                # Evict oldest session if at capacity
+                while len(self._session_histories) >= self._max_sessions:
+                    self._session_histories.popitem(last=False)
+                self._session_histories[session_id] = []
+            else:
+                self._session_histories.move_to_end(session_id)
+            return self._session_histories[session_id]
 
     def _trim_session_history(self, session_id: str):
-        history = self._session_histories.get(session_id, [])
-        if len(history) > MAX_CONVERSATION_HISTORY:
-            self._session_histories[session_id] = history[-MAX_CONVERSATION_HISTORY:]
+        with self._history_lock:
+            history = self._session_histories.get(session_id, [])
+            if len(history) > MAX_CONVERSATION_HISTORY:
+                self._session_histories[session_id] = history[-MAX_CONVERSATION_HISTORY:]
 
     def _hybrid_search(self, question: str, k: int = TOP_K_RESULTS) -> List[Document]:
         """Combine FAISS + BM25 with Reciprocal Rank Fusion (RRF)."""
@@ -1037,7 +1041,6 @@ REGLES STRICTES:
             return early_answer
 
         try:
-            from google.genai import types as genai_types
             response = self.client.models.generate_content(
                 model=self.model_name,
                 contents=str(payload.get("user_content", "")),
@@ -1103,8 +1106,6 @@ REGLES STRICTES:
             )
 
         try:
-            from google.genai import types as genai_types
-
             stream = self.client.models.generate_content_stream(
                 model=self.model_name,
                 contents=str(payload.get("user_content", "")),
@@ -1190,10 +1191,11 @@ REGLES STRICTES:
         return self._get_session_history(session_id)
 
     def clear_history(self, session_id: str = None):
-        if session_id:
-            self._session_histories.pop(session_id, None)
-        else:
-            self._session_histories.clear()
+        with self._history_lock:
+            if session_id:
+                self._session_histories.pop(session_id, None)
+            else:
+                self._session_histories.clear()
 
 
 # LRU cache for chatbot instances (bounded by MAX_CACHED_GUIDES)

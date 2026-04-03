@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion as Motion, AnimatePresence } from 'framer-motion'
 import { formatText, LANGUAGES, UI_TEXT, useAppLanguage } from '../i18n'
@@ -116,14 +116,6 @@ const youtubeThumbFromUrl = (urlValue) => {
   return `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`
 }
 
-const youtubeEmbedFromUrl = (urlValue) => {
-  const videoId = extractYoutubeId(urlValue).trim()
-  if (!videoId || !/^[a-zA-Z0-9_-]{6,}$/.test(videoId)) {
-    return ''
-  }
-  return `https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1`
-}
-
 const renderTextWithLinks = (text, keyPrefix) => {
   const chunks = String(text || '').split(URL_REGEX)
   return chunks.map((chunk, index) => {
@@ -156,17 +148,6 @@ const formatInline = (text) => {
 const normalizeAssistantText = (rawText) => {
   const clean = (rawText || '').trim()
   return clean.replace(/^[\s:*"]+/u, '').trim()
-}
-
-const stripMarkdownForStreaming = (rawText) => {
-  if (!rawText) return ''
-  return rawText
-    .replace(/^#{1,3}\s+/gm, '')
-    .replace(/\*\*([^*]*)\*\*/g, '$1')
-    .replace(/\*([^*]*)\*/g, '$1')
-    .replace(/`([^`]*)`/g, '$1')
-    .replace(/^[-*]\s+/gm, '  \u2022 ')
-    .replace(/^\d+\.\s+/gm, (match) => `  ${match.trim()} `)
 }
 
 const parseSseEventBlock = (rawBlock) => {
@@ -243,7 +224,7 @@ const extractStreamError = (payload) => {
   return firstError ? firstError.trim() : ''
 }
 
-function RichBotMessage({ text, lang = 'fr', video }) {
+const RichBotMessage = memo(function RichBotMessage({ text, lang = 'fr', video }) {
   const lines = normalizeAssistantText(text).replace(/\r\n/g, '\n').split('\n')
   const blocks = []
   let listBuffer = null
@@ -295,7 +276,6 @@ function RichBotMessage({ text, lang = 'fr', video }) {
           title,
           url,
           thumb: youtubeThumbFromUrl(url),
-          embed: youtubeEmbedFromUrl(url),
         },
       })
       pendingVideoLabel = ''
@@ -420,7 +400,7 @@ function RichBotMessage({ text, lang = 'fr', video }) {
       )}
     </div>
   )
-}
+})
 
 function ChatPage() {
   const { slug } = useParams()
@@ -453,7 +433,6 @@ function ChatPage() {
   const chunkBufferRef = useRef('')
   const drainTimerRef = useRef(null)
   const streamDoneRef = useRef(false)
-  const finalResponseRef = useRef('')
   const t = UI_TEXT[lang] || UI_TEXT.fr
   const toastCopy = TOAST_COPY[lang] || TOAST_COPY.en
   const coverageLabel = t.chat.coverageLabel || '{coverage}'
@@ -507,12 +486,15 @@ function ChatPage() {
   }, [slug])
 
   useEffect(() => {
-    if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTo({
-        top: chatContainerRef.current.scrollHeight,
-        behavior: isStreaming ? 'auto' : 'smooth',
-      })
-    }
+    const frame = requestAnimationFrame(() => {
+      if (chatContainerRef.current) {
+        chatContainerRef.current.scrollTo({
+          top: chatContainerRef.current.scrollHeight,
+          behavior: isStreaming ? 'auto' : 'smooth',
+        })
+      }
+    })
+    return () => cancelAnimationFrame(frame)
   }, [messages, isLoading, isStreaming])
 
   useEffect(() => {
@@ -617,6 +599,13 @@ function ChatPage() {
 
   const streamBotMessage = (fullText) =>
     new Promise((resolve) => {
+      if (drainTimerRef.current) {
+        window.clearInterval(drainTimerRef.current)
+        drainTimerRef.current = null
+      }
+      chunkBufferRef.current = ''
+      streamDoneRef.current = false
+
       const safeText = normalizeAssistantText(fullText || '') || t.chat.unavailable
       const chars = Array.from(safeText)
 
@@ -678,20 +667,7 @@ function ChatPage() {
       if (streamDoneRef.current) {
         window.clearInterval(drainTimerRef.current)
         drainTimerRef.current = null
-        const finalText = finalResponseRef.current
-        finalResponseRef.current = ''
         streamDoneRef.current = false
-        if (finalText) {
-          setMessages((prev) => {
-            if (!prev.length) return prev
-            const updated = [...prev]
-            const last = updated[updated.length - 1]
-            if (last?.type === 'bot') {
-              updated[updated.length - 1] = { ...last, content: finalText }
-            }
-            return updated
-          })
-        }
         setIsStreaming(false)
       }
       return
@@ -799,13 +775,7 @@ function ChatPage() {
       }
 
       if (eventName === 'end') {
-        const finalResponse = (data && typeof data === 'object') ? data.response : ''
-        if (typeof finalResponse === 'string' && finalResponse.trim()) {
-          finalResponseRef.current = finalResponse
-        }
         // Don't inject sources here — they come as separate source_item events
-        streamDoneRef.current = true
-        startDrain()
         return
       }
 
@@ -910,6 +880,9 @@ function ChatPage() {
         handleStreamEvent(parseSseEventBlock(buffer))
       }
 
+      streamDoneRef.current = true
+      startDrain()
+
       if (!hasChunkContent) {
         const streamError = new Error('empty stream response')
         streamError.allowFallback = true
@@ -933,7 +906,6 @@ function ChatPage() {
     }
     chunkBufferRef.current = ''
     streamDoneRef.current = false
-    finalResponseRef.current = ''
 
     setMessages((previous) => [...previous, { type: 'user', content: text }])
     setInput('')
@@ -960,6 +932,8 @@ function ChatPage() {
         const streamErrorText = streamError?.streamErrorMessage || t.chat.serverUnavailable
         if (streamError?.hasChunkContent) {
           appendBotChunk(`\n\n${streamErrorText}`)
+          streamDoneRef.current = true
+          startDrain()
         } else {
           await streamBotMessage(streamErrorText)
         }
@@ -975,6 +949,9 @@ function ChatPage() {
         window.clearTimeout(timeoutId)
       }
       setIsLoading(false)
+      if (!drainTimerRef.current) {
+        setIsStreaming(false)
+      }
       inputRef.current?.focus()
     }
   }

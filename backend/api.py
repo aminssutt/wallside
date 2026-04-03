@@ -19,7 +19,7 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
 from src.guide_manager import guide_manager
-from src.guide_chatbot import get_guide_chatbot, clear_guide_chatbot_cache
+from src.guide_chatbot import get_guide_chatbot
 from src.config import DATA_DIR, ALLOWED_ORIGINS, MAX_MESSAGE_LENGTH
 
 # Logging setup
