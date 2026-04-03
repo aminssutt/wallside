@@ -274,6 +274,15 @@ def chat_stream(slug):
                         end_payload["response"] = response_text
                     yield _sse_event("end", end_payload)
                     ended = True
+                elif event_type == "sources_start":
+                    yield _sse_event("sources_start", {"message_id": mid})
+                elif event_type == "source_item":
+                    yield _sse_event("source_item", {
+                        "message_id": mid,
+                        "source": event.get("source", {}),
+                    })
+                elif event_type == "sources_end":
+                    yield _sse_event("sources_end", {"message_id": mid})
                 elif event_type == "video_result":
                     yield _sse_event("video_result", {
                         "message_id": mid,

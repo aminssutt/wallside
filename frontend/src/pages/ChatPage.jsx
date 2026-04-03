@@ -19,7 +19,11 @@ const QUICK_ICONS = [wrenchIcon, dashboardIcon, navigationIcon]
 const COMPACT_MENU_BREAKPOINT = 1024
 const CHAT_REQUEST_TIMEOUT_MS = 45000
 const MAX_INPUT_LENGTH = 3000
-const KNOWN_STREAM_EVENTS = new Set(['start', 'chunk', 'end', 'error', 'video_result', 'video_none'])
+const KNOWN_STREAM_EVENTS = new Set([
+  'start', 'chunk', 'end', 'error',
+  'sources_start', 'source_item', 'sources_end',
+  'video_result', 'video_none',
+])
 
 const generateSessionId = () => {
   const arr = new Uint8Array(16)
@@ -799,13 +803,42 @@ function ChatPage() {
         if (typeof finalResponse === 'string' && finalResponse.trim()) {
           finalResponseRef.current = finalResponse
         }
-        // Inject sources into drain buffer so they type out smoothly
-        const sources = (data && typeof data === 'object') ? String(data.sources || '') : ''
-        if (sources.trim()) {
-          chunkBufferRef.current += '\n\n' + sources
-        }
+        // Don't inject sources here — they come as separate source_item events
         streamDoneRef.current = true
         startDrain()
+        return
+      }
+
+      if (eventName === 'sources_start') {
+        // Inject "Sources" heading into the drain buffer
+        chunkBufferRef.current += '\n\nSources\n'
+        startDrain()
+        return
+      }
+
+      if (eventName === 'source_item') {
+        const src = (data && typeof data === 'object') ? data.source : null
+        if (src && src.display) {
+          chunkBufferRef.current += '- ' + src.display + '\n'
+          startDrain()
+        }
+        // Also store structured source on the message
+        if (src) {
+          setMessages((prev) => {
+            if (!prev.length) return prev
+            const updated = [...prev]
+            const last = updated[updated.length - 1]
+            if (last?.type === 'bot') {
+              const existing = last.sources || []
+              updated[updated.length - 1] = { ...last, sources: [...existing, src] }
+            }
+            return updated
+          })
+        }
+        return
+      }
+
+      if (eventName === 'sources_end') {
         return
       }
 

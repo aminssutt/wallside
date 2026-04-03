@@ -616,6 +616,49 @@ def format_sources(documents: List[Document], web_results: Optional[List[Dict[st
     return "Sources:\n" + "\n".join(f"- {ref}" for ref in refs[:8])
 
 
+def build_sources_structured(
+    documents: List[Document],
+    web_results: Optional[List[Dict[str, str]]] = None,
+) -> List[Dict[str, str]]:
+    """Build structured source objects for SSE streaming."""
+    sources: List[Dict[str, str]] = []
+    seen = set()
+
+    for doc in documents or []:
+        source_file = str(doc.metadata.get("source_file", "manuel.pdf"))
+        page = str(doc.metadata.get("page", "?")).strip() or "?"
+        key = f"manual:{source_file}:{page}"
+        if key in seen:
+            continue
+        seen.add(key)
+        sources.append({
+            "kind": "manual",
+            "label": source_file,
+            "page": page,
+            "display": f"Manual: {source_file}, page {page}",
+        })
+
+    for item in web_results or []:
+        title = str(item.get("title", "")).strip()
+        url = str(item.get("url", "")).strip()
+        domain = str(item.get("domain", "")).strip()
+        if not title or not url:
+            continue
+        key = f"web:{url}"
+        if key in seen:
+            continue
+        seen.add(key)
+        sources.append({
+            "kind": "web",
+            "label": title,
+            "domain": domain,
+            "url": url,
+            "display": f"Web: {title} ({domain})",
+        })
+
+    return sources[:8]
+
+
 def is_vehicle_related(question: str) -> Tuple[bool, float]:
     """Return whether the question is vehicle-related and confidence score.
     
@@ -882,6 +925,7 @@ class GuideChatbot:
 
         # Only include sources when we found relevant context
         sources_block = format_sources(docs, web_results=web_results) if has_relevant_context else ""
+        sources_structured = build_sources_structured(docs, web_results=web_results) if has_relevant_context else []
         video_block = format_video_block(video, lang=lang)
         lang_instruction = LANG_INSTRUCTIONS.get(lang, LANG_INSTRUCTIONS["fr"])
 
@@ -930,6 +974,7 @@ REGLES STRICTES:
             "system_instruction": system_instruction,
             "user_content": user_content,
             "sources_block": sources_block,
+            "sources_structured": sources_structured,
             "video_block": video_block,
             "video_score": video.get("score", "0") if video else "0",
         }
@@ -1083,25 +1128,9 @@ REGLES STRICTES:
             if not raw_answer and not raw_chunks:
                 yield {"type": "chunk", "text": "Je n'ai pas trouve de reponse exploitable dans le manuel.", "message_id": message_id}
 
-            # Collect async web results (if mode C) — non-blocking, already running
-            async_web_sources = ""
-            if web_future is not None:
-                try:
-                    web_results = web_future.result(timeout=2)
-                    if web_results:
-                        async_web_sources = format_sources([], web_results=web_results)
-                except Exception:
-                    pass
-
-            sources_block = str(payload.get("sources_block", ""))
-            if async_web_sources and sources_block:
-                sources_block = sources_block + "\n" + async_web_sources
-            elif async_web_sources:
-                sources_block = async_web_sources
-
-            answer, final_response = self._finalize_answer(
-                raw_answer, sources_block=sources_block,
-            )
+            answer = trim_response(clean_model_output(raw_answer or ""))
+            if not answer:
+                answer = "Je n'ai pas trouve de reponse exploitable dans le manuel."
 
             history = payload.get("history")
             if isinstance(history, list):
@@ -1109,16 +1138,31 @@ REGLES STRICTES:
                 history.append({"role": "assistant", "content": answer})
                 self._trim_session_history(session_id)
 
-            yield {
-                "type": "end",
-                "response": final_response,
-                "sources": sources_block,
-                "message_id": message_id,
-            }
+            # --- end: text is done, send clean answer ---
+            yield {"type": "end", "response": answer, "message_id": message_id}
 
         except Exception as exc:
             log.error("LLM streaming failed for %s: %s", self.guide.slug, exc)
             raise
+
+        # --- Stream sources one by one ---
+        sources = list(payload.get("sources_structured") or [])
+
+        # Collect async web sources (mode C) — already running in background
+        if web_future is not None:
+            try:
+                web_results = web_future.result(timeout=2)
+                if web_results:
+                    for ws in build_sources_structured([], web_results=web_results):
+                        sources.append(ws)
+            except Exception:
+                pass
+
+        if sources:
+            yield {"type": "sources_start", "message_id": message_id}
+            for src in sources:
+                yield {"type": "source_item", "message_id": message_id, "source": src}
+            yield {"type": "sources_end", "message_id": message_id}
 
         # --- Post-stream YouTube search ---
         try:
