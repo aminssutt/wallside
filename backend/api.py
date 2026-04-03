@@ -60,11 +60,12 @@ def add_security_headers(response):
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
-        "script-src 'self'; "
+        "script-src 'self' 'unsafe-inline'; "
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "font-src 'self' https://fonts.gstatic.com; "
-        "img-src 'self' data: blob: https://i.ytimg.com; "
-        "connect-src 'self' https://carchat.online https://www.carchat.online"
+        "img-src 'self' data: blob: https://i.ytimg.com https://*.googleapis.com; "
+        "frame-src https://www.youtube.com; "
+        "connect-src 'self' https://carchat.online https://*.carchat.online"
     )
     return response
 
