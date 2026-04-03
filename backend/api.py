@@ -58,15 +58,8 @@ def add_security_headers(response):
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
     if request.is_secure or request.headers.get("X-Forwarded-Proto") == "https":
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-    response.headers["Content-Security-Policy"] = (
-        "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline'; "
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-        "font-src 'self' https://fonts.gstatic.com; "
-        "img-src 'self' data: blob: https://i.ytimg.com https://*.googleapis.com; "
-        "frame-src https://www.youtube.com; "
-        "connect-src 'self' https://carchat.online https://*.carchat.online"
-    )
+    # CSP is handled by the reverse proxy (Traefik / Dokploy) or vercel.json.
+    # Setting it here was blocking eval, inline scripts, and API connections.
     return response
 
 # Serve car images from data/vehicle_images first, then legacy manuel/voiture.
