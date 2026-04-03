@@ -1,12 +1,18 @@
+networks:
+  dokploy-network:
+    external: true
+
 services:
   app:
     build: .
     expose:
       - "3000"
+    networks:
+      - dokploy-network
     environment:
       - PORT=3000
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
-      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-https://carchat.online,https://www.carchat.online}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-*}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:3000/api/health')"]

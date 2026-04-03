@@ -110,9 +110,12 @@ _DEFAULT_ORIGINS = [
 ]
 
 _raw_allowed_origins = os.getenv("ALLOWED_ORIGINS", ",".join(_DEFAULT_ORIGINS))
-ALLOWED_ORIGINS = []
-for origin in _raw_allowed_origins.split(","):
-    clean = origin.strip()
-    if clean and clean not in ALLOWED_ORIGINS:
-        ALLOWED_ORIGINS.append(clean)
+if _raw_allowed_origins.strip() == "*":
+    ALLOWED_ORIGINS = "*"
+else:
+    ALLOWED_ORIGINS = []
+    for origin in _raw_allowed_origins.split(","):
+        clean = origin.strip()
+        if clean and clean not in ALLOWED_ORIGINS:
+            ALLOWED_ORIGINS.append(clean)
 
