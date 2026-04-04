@@ -166,18 +166,6 @@
     "segment": "citadine"
   },
   {
-    "slug": "genesis-g80-2023-quick-reference-guide",
-    "name": "Genesis G80 2023 Quick Reference Guide",
-    "brand": "Genesis",
-    "image": null,
-    "source_pdf": "car data/Genesis/Genesis G80 2023 - Quick Reference Guide.pdf",
-    "source_hash": "01321f96790ace712c84a826d85cb32a8be49359a7091a81d1ffb4dcc30862ff",
-    "page_count": 27,
-    "chunk_count": 89,
-    "extraction_mode": "pypdf",
-    "indexed_at": "2026-03-26T10:12:12.519357+00:00"
-  },
-  {
     "slug": "genesis-g80-2024",
     "name": "Genesis G80 2024",
     "brand": "Genesis",
@@ -341,18 +329,6 @@
     "extraction_mode": "pypdf",
     "indexed_at": "2026-03-26T02:15:52.937448+00:00",
     "segment": "suv"
-  },
-  {
-    "slug": "kia-sorento-2023-quick-reference-guide",
-    "name": "Kia Sorento 2023 Quick Reference Guide",
-    "brand": "Kia",
-    "image": "kia sorento 2023.png",
-    "source_pdf": "car data/Kia/Kia Sorento 2023 - Quick Reference Guide.pdf",
-    "source_hash": "dc6fb7faa29ab6956ed56a093cacdac7068b06e80277a58b2331caf47441fa9d",
-    "page_count": 14,
-    "chunk_count": 23,
-    "extraction_mode": "pypdf",
-    "indexed_at": "2026-03-26T10:13:53.485145+00:00"
   },
   {
     "slug": "kia-sportage-2023",
