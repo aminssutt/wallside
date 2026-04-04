@@ -1,4 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion as Motion, AnimatePresence } from 'framer-motion'
 import { formatText, LANGUAGES, UI_TEXT, useAppLanguage } from '../i18n'
@@ -249,7 +250,7 @@ function SourcesList({ sources, lang }) {
           </li>
         ))}
       </ul>
-      {proofSrc && proofSrc.slug && proofSrc.label && (
+      {proofSrc && proofSrc.slug && proofSrc.label && createPortal(
         <div className="proof-overlay" onClick={() => setProofIndex(null)}>
           <div className="proof-popup proof-popup--pdf" onClick={(e) => e.stopPropagation()}>
             <div className="proof-header">
@@ -270,7 +271,8 @@ function SourcesList({ sources, lang }) {
               title={`${proofSrc.label} - page ${proofSrc.page}`}
             />
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )

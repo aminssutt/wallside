@@ -52,7 +52,7 @@ limiter = Limiter(
 @app.after_request
 def add_security_headers(response):
     response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
@@ -146,17 +146,27 @@ def get_guide(slug):
     })
 
 
+def _normalize_pdf_name(name: str) -> str:
+    """Normalize PDF name for fuzzy matching (strip accents, lowercase)."""
+    import unicodedata
+    nfkd = unicodedata.normalize("NFKD", name.lower())
+    return "".join(c for c in nfkd if not unicodedata.combining(c))
+
+
 @app.route('/api/guides/<slug>/pdf/<path:filename>', methods=['GET'])
 def serve_guide_pdf(slug, filename):
     """Serve a guide's source PDF for open proof."""
     if not _SLUG_RE.match(slug) or '..' in filename:
         return jsonify({"error": "Invalid request"}), 400
+    target = _normalize_pdf_name(filename)
     for pdf_dir in PDF_DIRS:
         if not pdf_dir.exists():
             continue
         for pdf_path in pdf_dir.rglob("*.pdf"):
-            if pdf_path.name == filename:
-                return send_from_directory(str(pdf_path.parent), pdf_path.name, mimetype='application/pdf')
+            if _normalize_pdf_name(pdf_path.name) == target:
+                resp = send_from_directory(str(pdf_path.parent), pdf_path.name, mimetype='application/pdf')
+                resp.headers["X-Frame-Options"] = "SAMEORIGIN"
+                return resp
     return jsonify({"error": "PDF not found"}), 404
 
 
