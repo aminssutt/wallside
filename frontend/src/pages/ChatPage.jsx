@@ -236,7 +236,7 @@ function SourcesList({ sources, lang }) {
       <ul className="bot-sources-list">
         {sources.map((src, i) => (
           <li key={`src-${i}`} className={`bot-source-item bot-source-${src.kind}`}>
-            {src.kind === 'manual' ? (
+            {src.kind === 'manual' && src.slug ? (
               <button type="button" className="bot-source-link" onClick={() => setProofIndex(i)}>
                 {src.display || `${src.label}, page ${src.page}`}
               </button>
@@ -256,7 +256,7 @@ function SourcesList({ sources, lang }) {
             <div className="proof-header">
               <span className="proof-label">{proofSrc.label}, page {proofSrc.page}</span>
               <a
-                href={`${API_URL}/guides/${proofSrc.slug}/pdf/${encodeURIComponent(proofSrc.label)}#page=${String(proofSrc.page).split('-')[0]}`}
+                href={`${API_URL}/guides/${proofSrc.slug}/pdf#page=${String(proofSrc.page).split('-')[0]}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="proof-newtab"
@@ -267,7 +267,7 @@ function SourcesList({ sources, lang }) {
             </div>
             <iframe
               className="proof-iframe"
-              src={`${API_URL}/guides/${proofSrc.slug}/pdf/${encodeURIComponent(proofSrc.label)}#page=${String(proofSrc.page).split('-')[0]}`}
+              src={`${API_URL}/guides/${proofSrc.slug}/pdf#page=${String(proofSrc.page).split('-')[0]}`}
               title={`${proofSrc.label} - page ${proofSrc.page}`}
             />
           </div>

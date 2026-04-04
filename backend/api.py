@@ -153,17 +153,35 @@ def _normalize_pdf_name(name: str) -> str:
     return "".join(c for c in nfkd if not unicodedata.combining(c))
 
 
+@app.route('/api/guides/<slug>/pdf', methods=['GET'])
 @app.route('/api/guides/<slug>/pdf/<path:filename>', methods=['GET'])
-def serve_guide_pdf(slug, filename):
-    """Serve a guide's source PDF for open proof."""
-    if not _SLUG_RE.match(slug) or '..' in filename:
+def serve_guide_pdf(slug, filename=None):
+    """Serve a guide's source PDF. Tries filename first, then fuzzy matches by guide name."""
+    if not _SLUG_RE.match(slug):
         return jsonify({"error": "Invalid request"}), 400
-    target = _normalize_pdf_name(filename)
+
+    guide = guide_manager.get_guide(slug)
+    guide_name = guide.name if guide else slug.replace("-", " ")
+
+    # Build search targets: explicit filename + guide name fallback
+    targets = []
+    if filename and '..' not in filename:
+        targets.append(_normalize_pdf_name(filename))
+    targets.append(_normalize_pdf_name(guide_name))
+    # Also try slug-based matching
+    slug_normalized = slug.replace("-", " ")
+
     for pdf_dir in PDF_DIRS:
         if not pdf_dir.exists():
             continue
         for pdf_path in pdf_dir.rglob("*.pdf"):
-            if _normalize_pdf_name(pdf_path.name) == target:
+            norm_name = _normalize_pdf_name(pdf_path.stem)
+            for t in targets:
+                if norm_name == _normalize_pdf_name(Path(t).stem) or t in norm_name or norm_name in t:
+                    resp = send_from_directory(str(pdf_path.parent), pdf_path.name, mimetype='application/pdf')
+                    resp.headers["X-Frame-Options"] = "SAMEORIGIN"
+                    return resp
+            if slug_normalized in norm_name or norm_name in slug_normalized:
                 resp = send_from_directory(str(pdf_path.parent), pdf_path.name, mimetype='application/pdf')
                 resp.headers["X-Frame-Options"] = "SAMEORIGIN"
                 return resp
