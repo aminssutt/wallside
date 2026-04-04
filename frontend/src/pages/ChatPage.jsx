@@ -249,28 +249,26 @@ function SourcesList({ sources, lang }) {
           </li>
         ))}
       </ul>
-      {proofSrc && (
+      {proofSrc && proofSrc.slug && proofSrc.label && (
         <div className="proof-overlay" onClick={() => setProofIndex(null)}>
-          <div className="proof-popup" onClick={(e) => e.stopPropagation()}>
+          <div className="proof-popup proof-popup--pdf" onClick={(e) => e.stopPropagation()}>
             <div className="proof-header">
               <span className="proof-label">{proofSrc.label}, page {proofSrc.page}</span>
+              <a
+                href={`${API_URL}/guides/${proofSrc.slug}/pdf/${encodeURIComponent(proofSrc.label)}#page=${String(proofSrc.page).split('-')[0]}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="proof-newtab"
+              >
+                {lang === 'fr' ? 'Nouvel onglet' : 'New tab'}
+              </a>
               <button type="button" className="proof-close" onClick={() => setProofIndex(null)}>&times;</button>
             </div>
-            <div className="proof-body">
-              <p>{proofSrc.excerpt || (lang === 'fr' ? 'Extrait non disponible.' : 'Excerpt not available.')}</p>
-            </div>
-            {proofSrc.label && proofSrc.slug && (
-              <div className="proof-footer">
-                <a
-                  href={`${API_URL}/guides/${proofSrc.slug}/pdf/${encodeURIComponent(proofSrc.label)}#page=${String(proofSrc.page).split('-')[0]}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="proof-open-pdf"
-                >
-                  {lang === 'fr' ? 'Ouvrir le PDF complet' : 'Open full PDF'}
-                </a>
-              </div>
-            )}
+            <iframe
+              className="proof-iframe"
+              src={`${API_URL}/guides/${proofSrc.slug}/pdf/${encodeURIComponent(proofSrc.label)}#page=${String(proofSrc.page).split('-')[0]}`}
+              title={`${proofSrc.label} - page ${proofSrc.page}`}
+            />
           </div>
         </div>
       )}
