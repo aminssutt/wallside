@@ -510,7 +510,7 @@
   },
   {
     "slug": "volkswagen-golf-6-2008-2012",
-    "name": "Volkswagen Golf 6 2008 2012",
+    "name": "Volkswagen Golf 6 2008-2012",
     "brand": "Volkswagen",
     "image": null,
     "source_pdf": "car data/Volkswagen/Volkswagen Golf 6 2008-2012.pdf",
@@ -518,19 +518,7 @@
     "page_count": 541,
     "chunk_count": 1454,
     "extraction_mode": "pypdf",
-    "indexed_at": "2026-04-04T19:39:56.493781+00:00"
-  },
-  {
-    "slug": "volkswagen-golf-6-phase-1",
-    "name": "Volkswagen Golf 6 Phase 1",
-    "brand": "Volkswagen",
-    "image": "volkswagen golf 6 phase 1.png",
-    "source_pdf": "car data/Volkswagen/Volkswagen golf 6 phase 1.pdf",
-    "source_hash": "18926bc33a1dcc3f609018c694c3a1520cbc1bf478f10d3da94104f7a7ccdd72",
-    "page_count": 372,
-    "chunk_count": 555,
-    "extraction_mode": "ocr",
-    "indexed_at": "2026-03-15T08:50:59.604570+00:00",
+    "indexed_at": "2026-04-04T19:39:56.493781+00:00",
     "segment": "berline"
   },
   {
