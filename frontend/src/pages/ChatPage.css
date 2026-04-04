@@ -611,7 +611,7 @@
 }
 
 .bot-paragraph {
-  color: rgba(221, 228, 236, 0.93);
+  color: rgba(221, 228, 236, 0.96);
   margin: 0;
 }
 
@@ -631,10 +631,13 @@
 }
 
 .bot-rich-message code {
-  font-family: 'Consolas', monospace;
-  background: rgba(74, 82, 91, 0.36);
-  border-radius: 6px;
-  padding: 1px 5px;
+  font-family: 'Share Tech Mono', 'Consolas', monospace;
+  background: rgba(74, 82, 91, 0.48);
+  border: 1px solid rgba(140, 155, 175, 0.18);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 0.88em;
+  color: #d4e0f0;
 }
 
 .bot-rich-message a {
@@ -656,11 +659,11 @@
 
 .confidence-badge {
   display: inline-block;
-  font-size: 0.6rem;
+  font-size: 0.66rem;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  padding: 3px 10px;
+  padding: 4px 12px;
   border-radius: 20px;
   margin-bottom: 10px;
   font-family: 'Share Tech Mono', 'Manrope', monospace;
@@ -685,9 +688,9 @@
 }
 
 .bot-sources-section {
-  margin-top: 14px;
+  margin-top: 16px;
   padding-top: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid rgba(180, 195, 215, 0.2);
 }
 
 .bot-sources-list {
@@ -697,7 +700,7 @@
 }
 
 .bot-source-item {
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   padding: 4px 0;
   color: rgba(205, 209, 216, 0.7);
 }
@@ -1366,11 +1369,11 @@ button.bot-source-link {
 }
 
 .suggestion-pill {
-  border-radius: 2px;
+  border-radius: 6px;
   border: 1px solid rgba(172, 188, 208, 0.22);
   background: rgba(11, 15, 20, 0.82);
   font-family: 'Manrope', system-ui, sans-serif;
-  font-size: 0.66rem;
+  font-size: 0.74rem;
   letter-spacing: 0.07em;
   text-transform: uppercase;
   color: rgba(211, 220, 231, 0.85);
@@ -1452,11 +1455,11 @@ button.bot-source-link {
 
 .msg-bubble {
   max-width: min(86%, 760px);
-  border-radius: 14px;
+  border-radius: 8px;
   border: 1px solid rgba(188, 207, 230, 0.22);
-  padding: 12px 14px;
+  padding: 16px 18px;
   font-family: 'Manrope', system-ui, sans-serif;
-  font-size: 0.82rem;
+  font-size: 0.9rem;
   line-height: 1.56;
   backdrop-filter: blur(14px) saturate(126%);
   box-shadow:
@@ -1492,20 +1495,26 @@ button.bot-source-link {
 }
 
 .bot-rich-message {
-  gap: 9px;
+  gap: 14px;
 }
 
 .bot-heading {
-  border-radius: 8px;
-  border-color: rgba(204, 216, 232, 0.28);
-  background: rgba(31, 38, 47, 0.6);
-  font-family: 'Manrope', system-ui, sans-serif;
-  font-size: 0.66rem;
-  letter-spacing: 0.13em;
+  font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #f2f7fc;
+  border: none;
+  background: none;
+  border-radius: 0;
+  padding: 2px 0 4px 10px;
+  border-left: 2px solid rgba(180, 200, 230, 0.4);
+  margin-top: 2px;
 }
 
 .bot-video-card {
-  border-radius: 3px;
+  border-radius: 8px;
   border: 1px solid rgba(177, 194, 214, 0.24);
   background: linear-gradient(180deg, rgba(16, 20, 26, 0.95), rgba(9, 13, 18, 0.95));
 }
@@ -1528,7 +1537,7 @@ button.bot-source-link {
 
 .chat-input-wrap {
   max-width: none;
-  border-radius: 999px;
+  border-radius: 8px;
   border: 1px solid rgba(188, 207, 231, 0.28);
   background:
     linear-gradient(180deg, rgba(14, 20, 30, 0.64), rgba(9, 14, 22, 0.56)),
@@ -1577,7 +1586,7 @@ button.bot-source-link {
   width: auto;
   min-width: 96px;
   height: 36px;
-  border-radius: 999px;
+  border-radius: 6px;
   border: none;
   border-left: 1px solid rgba(188, 205, 227, 0.26);
   background: transparent;
@@ -1773,8 +1782,8 @@ button.bot-source-link {
   }
 
   .msg-bubble {
-    font-size: 0.74rem;
-    padding: 10px 11px;
+    font-size: 0.82rem;
+    padding: 12px 14px;
   }
 
   .chat-input-wrap input {
