@@ -31,7 +31,7 @@ RUN addgroup --system app && adduser --system --ingroup app app
 
 COPY backend/ /app/backend/
 COPY manuel/ /app/manuel/
-COPY "car data/" /app/car_data/
+COPY ["car data/", "/app/car_data/"]
 COPY --from=frontend-builder /app/frontend/dist /app/frontend/dist
 
 RUN chown -R app:app /app
