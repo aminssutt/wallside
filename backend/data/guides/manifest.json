@@ -1,17 +1,5 @@
 [
   {
-    "slug": "alfa-romeo-infotainment-system",
-    "name": "Alfa Romeo Infotainment System",
-    "brand": "Alfa Romeo",
-    "image": null,
-    "source_pdf": "car data/Alfa Romeo/Alfa Romeo - Infotainment System.pdf",
-    "source_hash": "cec83275ce589a0d1375849bbeba8ea5e09ac1525d220157d1b05b2069d5fded",
-    "page_count": 56,
-    "chunk_count": 126,
-    "extraction_mode": "pypdf",
-    "indexed_at": "2026-03-26T10:11:09.868690+00:00"
-  },
-  {
     "slug": "alfa-romeo-33-phase-3-1989-1995",
     "name": "Alfa Romeo 33 Phase 3 1989-1995",
     "brand": "Alfa Romeo",
@@ -51,6 +39,31 @@
     "segment": "sportive"
   },
   {
+    "slug": "alfa-romeo-infotainment-system",
+    "name": "Alfa Romeo Infotainment System",
+    "brand": "Alfa Romeo",
+    "image": null,
+    "source_pdf": "car data/Alfa Romeo/Alfa Romeo - Infotainment System.pdf",
+    "source_hash": "cec83275ce589a0d1375849bbeba8ea5e09ac1525d220157d1b05b2069d5fded",
+    "page_count": 56,
+    "chunk_count": 126,
+    "extraction_mode": "pypdf",
+    "indexed_at": "2026-03-26T10:11:09.868690+00:00"
+  },
+  {
+    "slug": "alpine-a390-2025",
+    "name": "Alpine A390 2025",
+    "brand": "Alpine",
+    "image": "alpine a390 2025.png",
+    "source_pdf": "car data/Renault/Alpine A390 2025.pdf",
+    "source_hash": "e2b1153e79975609c135f6e55d08b9914b9f62c0b3684ba6e1bbdabd73e8da81",
+    "page_count": 432,
+    "chunk_count": 469,
+    "extraction_mode": "pypdf",
+    "indexed_at": "2026-03-15T08:27:39.790807+00:00",
+    "segment": "sportive"
+  },
+  {
     "slug": "alpine-a390-2025-multimedia-system",
     "name": "Alpine A390 2025 Multimedia System",
     "brand": "Alpine",
@@ -63,9 +76,22 @@
     "indexed_at": "2026-03-26T10:11:32.022768+00:00"
   },
   {
+    "slug": "audi-q5-2017-2020",
+    "name": "Audi Q5 2017-2020",
+    "brand": "Audi",
+    "image": "audi q5 2017-2020.png",
+    "source_pdf": "car data/Audi/Audi Q5 2017-2020.pdf",
+    "source_hash": "7f958eace135457fd119a5dfde859a7d3f85e9e0dcb145214969deb2525c6e00",
+    "page_count": 392,
+    "chunk_count": 1218,
+    "extraction_mode": "pypdf",
+    "indexed_at": "2026-04-04T16:34:19.062228+00:00",
+    "segment": "suv"
+  },
+  {
     "slug": "bmw-3-series-2024",
-    "name": "BMW 3 Series 2024",
-    "brand": "BMW",
+    "name": "Bmw 3 Series 2024",
+    "brand": "Bmw",
     "image": "bmw 3 series 2024.png",
     "source_pdf": "car data/BMW/BMW 3 Series 2024.pdf",
     "source_hash": "e9fb34fb024b4d6ba18eac6416216d52610b801b2854562a3fc680623d6edbf5",
@@ -90,8 +116,8 @@
   },
   {
     "slug": "citroen-c3-2024",
-    "name": "Citroën C3 2024",
-    "brand": "Citroën",
+    "name": "Citroen C3 2024",
+    "brand": "Citroen",
     "image": "citroen c3 2024.png",
     "source_pdf": "car data/Citroen/Citroen C3 2024.pdf",
     "source_hash": "6c9b8788d10fa1ba3d0a3abbdcfbda1e4438940ffa065857eb226cb450ff80e5",
@@ -357,7 +383,7 @@
   {
     "slug": "mercedes-c-class-2022",
     "name": "Mercedes C Class 2022",
-    "brand": "Mercedes-Benz",
+    "brand": "Mercedes",
     "image": "mercedes c class 2022.png",
     "source_pdf": "car data/Mercedes/Mercedes C-Class 2022.pdf",
     "source_hash": "5c218a819b037ad26809d77a250dcc2f1f9c4e4f26d65518b0b962ff5296219d",
@@ -370,7 +396,7 @@
   {
     "slug": "mercedes-c-class-2022-mbux-multimedia",
     "name": "Mercedes C Class 2022 Mbux Multimedia",
-    "brand": "Mercedes-Benz",
+    "brand": "Mercedes",
     "image": "mercedes c class 2022.png",
     "source_pdf": "car data/Mercedes/Mercedes C-Class 2022 - MBUX Multimedia.pdf",
     "source_hash": "e589993335bd67448bf42cd4af21e5691cad6efc326f77a4f048d58255c9b354",
@@ -455,19 +481,6 @@
     "chunk_count": 67,
     "extraction_mode": "pypdf",
     "indexed_at": "2026-03-26T10:18:42.934150+00:00"
-  },
-  {
-    "slug": "alpine-a390-2025",
-    "name": "Alpine A390 2025",
-    "brand": "Alpine",
-    "image": "alpine a390 2025.png",
-    "source_pdf": "car data/Renault/Alpine A390 2025.pdf",
-    "source_hash": "e2b1153e79975609c135f6e55d08b9914b9f62c0b3684ba6e1bbdabd73e8da81",
-    "page_count": 432,
-    "chunk_count": 469,
-    "extraction_mode": "pypdf",
-    "indexed_at": "2026-03-15T08:27:39.790807+00:00",
-    "segment": "sportive"
   },
   {
     "slug": "renault-captur-2024",
