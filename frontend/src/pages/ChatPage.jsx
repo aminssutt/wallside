@@ -224,7 +224,7 @@ const extractStreamError = (payload) => {
   return firstError ? firstError.trim() : ''
 }
 
-const RichBotMessage = memo(function RichBotMessage({ text, lang = 'fr', video }) {
+const RichBotMessage = memo(function RichBotMessage({ text, lang = 'fr', video, confidence, sources }) {
   const lines = normalizeAssistantText(text).replace(/\r\n/g, '\n').split('\n')
   const blocks = []
   let listBuffer = null
@@ -320,6 +320,13 @@ const RichBotMessage = memo(function RichBotMessage({ text, lang = 'fr', video }
 
   return (
     <div className="bot-rich-message">
+      {confidence && (
+        <span className={`confidence-badge confidence-${confidence}`}>
+          {confidence === 'high' ? (lang === 'fr' ? 'Fiabilité élevée' : 'High confidence') :
+           confidence === 'medium' ? (lang === 'fr' ? 'Fiabilité moyenne' : 'Medium confidence') :
+           (lang === 'fr' ? 'Fiabilité limitée' : 'Low confidence')}
+        </span>
+      )}
       {blocks.map((block, index) => {
         if (block.type === 'heading') {
           return (
@@ -379,6 +386,33 @@ const RichBotMessage = memo(function RichBotMessage({ text, lang = 'fr', video }
           </p>
         )
       })}
+      {sources && sources.length > 0 && (
+        <div className="bot-sources-section">
+          <h4 className="bot-heading">Sources</h4>
+          <ul className="bot-sources-list">
+            {sources.map((src, i) => (
+              <li key={`src-${i}`} className={`bot-source-item bot-source-${src.kind}`}>
+                {src.kind === 'manual' && src.slug ? (
+                  <a
+                    href={`/api/guides/${src.slug}/pdf?page=${src.page}#page=${src.page}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="bot-source-link"
+                  >
+                    {src.display || `${src.label}, page ${src.page}`}
+                  </a>
+                ) : src.kind === 'web' && src.url ? (
+                  <a href={src.url} target="_blank" rel="noopener noreferrer" className="bot-source-link">
+                    {src.display || src.label}
+                  </a>
+                ) : (
+                  <span>{src.display || src.label}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {video && video.url && (
         <div className="bot-video-card" key="stream-video">
           <a className="bot-video-thumb" href={video.url} target="_blank" rel="noopener noreferrer">
@@ -477,6 +511,14 @@ function ChatPage() {
           return
         }
         setGuide(data.guide)
+        try {
+          localStorage.setItem('carchat_last_vehicle', JSON.stringify({
+            slug: slug,
+            name: data.guide.name,
+            brand: data.guide.brand || '',
+            segment: data.guide.segment || '',
+          }))
+        } catch {}
       } catch {
         setErrorKey('guideLoadError')
       }
@@ -775,24 +817,27 @@ function ChatPage() {
       }
 
       if (eventName === 'end') {
-        // Don't inject sources here — they come as separate source_item events
+        const confidence = (data && typeof data === 'object') ? (data.confidence || '') : ''
+        if (confidence) {
+          setMessages((prev) => {
+            if (!prev.length) return prev
+            const updated = [...prev]
+            const last = updated[updated.length - 1]
+            if (last?.type === 'bot') {
+              updated[updated.length - 1] = { ...last, confidence }
+            }
+            return updated
+          })
+        }
         return
       }
 
       if (eventName === 'sources_start') {
-        // Inject "Sources" heading into the drain buffer
-        chunkBufferRef.current += '\n\nSources\n'
-        startDrain()
         return
       }
 
       if (eventName === 'source_item') {
         const src = (data && typeof data === 'object') ? data.source : null
-        if (src && src.display) {
-          chunkBufferRef.current += '- ' + src.display + '\n'
-          startDrain()
-        }
-        // Also store structured source on the message
         if (src) {
           setMessages((prev) => {
             if (!prev.length) return prev
@@ -1194,7 +1239,7 @@ function ChatPage() {
 
                     <div className="msg-bubble">
                       {msg.type === 'bot' ? (
-                        <RichBotMessage text={msg.content} lang={lang} video={msg.video} />
+                        <RichBotMessage text={msg.content} lang={lang} video={msg.video} confidence={msg.confidence} sources={msg.sources} />
                       ) : msg.content}
                     </div>
                   </Motion.div>

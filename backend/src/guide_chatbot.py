@@ -204,6 +204,41 @@ def classify_query(question: str) -> str:
     return MANUAL_ONLY
 
 
+def compute_confidence(
+    has_relevant_context: bool,
+    docs: List[Document],
+    mode: str,
+    is_conversational: bool,
+) -> str:
+    """Return a confidence badge: 'high', 'medium', or 'low'.
+
+    Rules:
+    - high:   has_relevant_context AND len(docs) >= 2
+    - medium: (has_relevant_context AND len(docs) == 1) OR mode is WEB_BLOCKING/WEB_ASYNC
+    - low:    no relevant context OR is_conversational
+    """
+    if is_conversational:
+        return "low"
+    if not has_relevant_context:
+        return "low"
+    if has_relevant_context and len(docs) >= 2:
+        return "high"
+    if has_relevant_context and len(docs) == 1:
+        return "medium"
+    if mode in (WEB_BLOCKING, WEB_ASYNC):
+        return "medium"
+    return "low"
+
+
+def detect_fix_mode(question: str) -> bool:
+    """Return True if the question expresses procedural intent.
+
+    Uses ``_YOUTUBE_ELIGIBLE_PATTERNS`` which already captures
+    procedural keywords (comment, remplacer, installer, demonter, etc.).
+    """
+    return bool(_YOUTUBE_ELIGIBLE_PATTERNS.search(question or ""))
+
+
 LANG_QUESTION_PATTERNS = re.compile(
     r"(?:parle|parler|speak|talk|answer|respond|repondre|reponds)"
     r".*(?:anglais|english|francais|french|coreen|korean|langue|language|"
@@ -620,6 +655,7 @@ def format_sources(documents: List[Document], web_results: Optional[List[Dict[st
 def build_sources_structured(
     documents: List[Document],
     web_results: Optional[List[Dict[str, str]]] = None,
+    slug: str = "",
 ) -> List[Dict[str, str]]:
     """Build structured source objects for SSE streaming."""
     sources: List[Dict[str, str]] = []
@@ -636,6 +672,7 @@ def build_sources_structured(
             "kind": "manual",
             "label": source_file,
             "page": page,
+            "slug": slug,
             "display": f"Manual: {source_file}, page {page}",
         })
 
@@ -846,6 +883,7 @@ class GuideChatbot:
         lang: Optional[str] = None,
         session_id: str = "default",
         mode: str = MANUAL_ONLY,
+        fix_mode: bool = False,
     ) -> Dict[str, Any]:
         """Build chat payload (prompt + retrieval context) shared by sync and stream paths."""
         if not lang:
@@ -855,7 +893,8 @@ class GuideChatbot:
             return {
                 "early_answer": LANG_QUESTION_RESPONSE.get(
                     lang, LANG_QUESTION_RESPONSE["fr"]
-                )
+                ),
+                "is_conversational": True,
             }
 
         # Conversational / greeting — answer directly, no RAG or sources
@@ -865,7 +904,10 @@ class GuideChatbot:
                 "en": f"Hello! I'm your specialist assistant for the {self.guide.name}. Ask me any technical question about this vehicle.",
                 "ko": f"\uc548\ub155\ud558\uc138\uc694! {self.guide.name} \uc804\uc6a9 \uc5b4\uc2dc\uc2a4\ud134\ud2b8\uc785\ub2c8\ub2e4. \ucc28\ub7c9\uc5d0 \ub300\ud55c \uae30\uc220\uc801 \uc9c8\ubb38\uc744 \ud574\uc8fc\uc138\uc694.",
             }
-            return {"early_answer": greetings.get(lang, greetings["fr"])}
+            return {
+                "early_answer": greetings.get(lang, greetings["fr"]),
+                "is_conversational": True,
+            }
 
         is_vehicle, confidence = is_vehicle_related(question)
 
@@ -873,7 +915,8 @@ class GuideChatbot:
             return {
                 "early_answer": LANG_OFF_TOPIC.get(
                     lang, LANG_OFF_TOPIC["fr"]
-                ).format(vehicle=self.guide.name)
+                ).format(vehicle=self.guide.name),
+                "is_conversational": False,
             }
 
         # --- Hybrid retrieval with relevance threshold ---
@@ -929,7 +972,7 @@ class GuideChatbot:
 
         # Only include sources when we found relevant context
         sources_block = format_sources(docs, web_results=web_results) if has_relevant_context else ""
-        sources_structured = build_sources_structured(docs, web_results=web_results) if has_relevant_context else []
+        sources_structured = build_sources_structured(docs, web_results=web_results, slug=self.guide.slug) if has_relevant_context else []
         video_block = format_video_block(video, lang=lang)
         lang_instruction = LANG_INSTRUCTIONS.get(lang, LANG_INSTRUCTIONS["fr"])
 
@@ -945,7 +988,18 @@ class GuideChatbot:
             history_block = "\n".join(parts)
 
         # --- System instruction (separated from user content for Gemini) ---
-        system_instruction = f"""Tu es un assistant technique expert et precis, specialise pour le vehicule {self.guide.name}.
+        fix_mode_block = ""
+        if fix_mode:
+            fix_mode_block = """MODE FIX (PROCEDURE):
+Structure ta reponse ainsi:
+- **Objectif**: ce qu'on cherche a faire
+- **Difficulte**: facile / moyen / avance
+- **Outils necessaires**: liste si applicable
+- **Etapes**: liste numerotee detaillee
+- **Precautions**: securite et points d'attention
+
+"""
+        system_instruction = f"""{fix_mode_block}Tu es un assistant technique expert et precis, specialise pour le vehicule {self.guide.name}.
 
 REGLES STRICTES:
 1) {lang_instruction}
@@ -981,6 +1035,11 @@ REGLES STRICTES:
             "sources_structured": sources_structured,
             "video_block": video_block,
             "video_score": video.get("score", "0") if video else "0",
+            # Metadata for confidence / fix_mode computation
+            "has_relevant_context": has_relevant_context,
+            "docs": docs,
+            "mode": mode,
+            "is_conversational": False,
         }
 
     def _finalize_answer(
@@ -1093,8 +1152,34 @@ REGLES STRICTES:
         early_answer = payload.get("early_answer")
         if isinstance(early_answer, str):
             yield {"type": "chunk", "text": early_answer, "message_id": message_id}
-            yield {"type": "end", "response": early_answer, "message_id": message_id}
+            yield {
+                "type": "end",
+                "response": early_answer,
+                "message_id": message_id,
+                "confidence": "low",
+                "fix_mode": False,
+            }
             return
+
+        # --- Compute confidence badge ---
+        p_has_ctx = payload.get("has_relevant_context", False)
+        p_docs = payload.get("docs") or []
+        p_mode = payload.get("mode", MANUAL_ONLY)
+        confidence_level = compute_confidence(p_has_ctx, p_docs, p_mode, False)
+
+        # --- Detect fix mode (procedural intent + manual context available) ---
+        fix_mode_active = detect_fix_mode(question) and p_has_ctx
+        if fix_mode_active:
+            fix_preamble = (
+                "MODE FIX (PROCEDURE):\n"
+                "Structure ta reponse ainsi:\n"
+                "- **Objectif**: ce qu'on cherche a faire\n"
+                "- **Difficulte**: facile / moyen / avance\n"
+                "- **Outils necessaires**: liste si applicable\n"
+                "- **Etapes**: liste numerotee detaillee\n"
+                "- **Precautions**: securite et points d'attention\n\n"
+            )
+            payload["system_instruction"] = fix_preamble + payload.get("system_instruction", "")
 
         # Mode C: launch web search in background while LLM streams
         web_future = None
@@ -1140,7 +1225,13 @@ REGLES STRICTES:
                 self._trim_session_history(session_id)
 
             # --- end: text is done, send clean answer ---
-            yield {"type": "end", "response": answer, "message_id": message_id}
+            yield {
+                "type": "end",
+                "response": answer,
+                "message_id": message_id,
+                "confidence": confidence_level,
+                "fix_mode": fix_mode_active,
+            }
 
         except Exception as exc:
             log.error("LLM streaming failed for %s: %s", self.guide.slug, exc)
