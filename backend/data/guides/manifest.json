@@ -77,7 +77,7 @@
   },
   {
     "slug": "audi-q5-2017-2020",
-    "name": "Audi Q5 2017-2020",
+    "name": "Audi Q5 2017 2020",
     "brand": "Audi",
     "image": "audi q5 2017-2020.png",
     "source_pdf": "car data/Audi/Audi Q5 2017-2020.pdf",
@@ -533,6 +533,18 @@
     "segment": "suv"
   },
   {
+    "slug": "volkswagen-golf-6-2008-2012",
+    "name": "Volkswagen Golf 6 2008 2012",
+    "brand": "Volkswagen",
+    "image": null,
+    "source_pdf": "car data/Volkswagen/Volkswagen Golf 6 2008-2012.pdf",
+    "source_hash": "d3c7b29e268709bab661ba8c44d6e113e005dba6a463adbc3f32fdf06eeb881d",
+    "page_count": 541,
+    "chunk_count": 1454,
+    "extraction_mode": "pypdf",
+    "indexed_at": "2026-04-04T19:39:56.493781+00:00"
+  },
+  {
     "slug": "volkswagen-golf-6-phase-1",
     "name": "Volkswagen Golf 6 Phase 1",
     "brand": "Volkswagen",
@@ -550,12 +562,11 @@
     "name": "Volkswagen Golf 8 2020",
     "brand": "Volkswagen",
     "image": "volkswagen golf 8 2020.png",
-    "source_pdf": "car data/Volkswagen/Volkswagen golf 8 2020.pdf",
-    "source_hash": "400321413d10f77f355738051658dd67d1f69d5a2606e813c20884cdf08947f3",
-    "page_count": 789,
-    "chunk_count": 1145,
+    "source_pdf": "car data/Volkswagen/Volkswagen Golf 8 2020.pdf",
+    "source_hash": "a9b4572d8db9b2803009fd0998b1117bf5e9ebe2961e6527aecc2b346c8e9fda",
+    "page_count": 342,
+    "chunk_count": 1168,
     "extraction_mode": "pypdf",
-    "indexed_at": "2026-03-15T08:28:52.124913+00:00",
-    "segment": "berline"
+    "indexed_at": "2026-04-04T19:40:48.704664+00:00"
   }
 ]
