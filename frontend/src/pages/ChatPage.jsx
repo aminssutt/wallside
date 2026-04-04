@@ -225,19 +225,31 @@ const extractStreamError = (payload) => {
   return firstError ? firstError.trim() : ''
 }
 
+const SOURCE_I18N = {
+  fr: { title: 'Sources', newTab: 'Nouvel onglet', unavailable: 'PDF non disponible pour le moment' },
+  en: { title: 'Sources', newTab: 'New tab', unavailable: 'PDF not available at the moment' },
+  ko: { title: '\uCD9C\uCC98', newTab: '\uC0C8 \uD0ED', unavailable: 'PDF\uB97C \uD604\uC7AC \uC0AC\uC6A9\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4' },
+}
+
 function SourcesList({ sources, lang }) {
   const [proofIndex, setProofIndex] = useState(null)
+  const [pdfError, setPdfError] = useState(false)
   const proofSrc = proofIndex !== null ? sources[proofIndex] : null
-  const label = lang === 'fr' ? 'Sources' : lang === 'ko' ? '\uCD9C\uCC98' : 'Sources'
+  const i = SOURCE_I18N[lang] || SOURCE_I18N.fr
+
+  const openProof = (index) => {
+    setPdfError(false)
+    setProofIndex(index)
+  }
 
   return (
     <div className="bot-sources-section">
-      <h4 className="bot-heading">{label}</h4>
+      <h4 className="bot-heading">{i.title}</h4>
       <ul className="bot-sources-list">
-        {sources.map((src, i) => (
-          <li key={`src-${i}`} className={`bot-source-item bot-source-${src.kind}`}>
+        {sources.map((src, idx) => (
+          <li key={`src-${idx}`} className={`bot-source-item bot-source-${src.kind}`}>
             {src.kind === 'manual' && src.slug ? (
-              <button type="button" className="bot-source-link" onClick={() => setProofIndex(i)}>
+              <button type="button" className="bot-source-link" onClick={() => openProof(idx)}>
                 {src.display || `${src.label}, page ${src.page}`}
               </button>
             ) : src.kind === 'web' && src.url ? (
@@ -250,26 +262,44 @@ function SourcesList({ sources, lang }) {
           </li>
         ))}
       </ul>
-      {proofSrc && proofSrc.slug && proofSrc.label && createPortal(
+      {proofSrc && proofSrc.slug && createPortal(
         <div className="proof-overlay" onClick={() => setProofIndex(null)}>
           <div className="proof-popup proof-popup--pdf" onClick={(e) => e.stopPropagation()}>
             <div className="proof-header">
               <span className="proof-label">{proofSrc.label}, page {proofSrc.page}</span>
-              <a
-                href={`${API_URL}/guides/${proofSrc.slug}/pdf#page=${String(proofSrc.page).split('-')[0]}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="proof-newtab"
-              >
-                {lang === 'fr' ? 'Nouvel onglet' : 'New tab'}
-              </a>
+              {!pdfError && (
+                <a
+                  href={`${API_URL}/guides/${proofSrc.slug}/pdf#page=${String(proofSrc.page).split('-')[0]}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="proof-newtab"
+                >
+                  {i.newTab}
+                </a>
+              )}
               <button type="button" className="proof-close" onClick={() => setProofIndex(null)}>&times;</button>
             </div>
-            <iframe
-              className="proof-iframe"
-              src={`${API_URL}/guides/${proofSrc.slug}/pdf#page=${String(proofSrc.page).split('-')[0]}`}
-              title={`${proofSrc.label} - page ${proofSrc.page}`}
-            />
+            {pdfError ? (
+              <div className="proof-unavailable">
+                <p>{i.unavailable}</p>
+                {proofSrc.excerpt && <p className="proof-excerpt">{proofSrc.excerpt}</p>}
+              </div>
+            ) : (
+              <iframe
+                className="proof-iframe"
+                src={`${API_URL}/guides/${proofSrc.slug}/pdf#page=${String(proofSrc.page).split('-')[0]}`}
+                title={`${proofSrc.label} - page ${proofSrc.page}`}
+                onError={() => setPdfError(true)}
+                onLoad={(e) => {
+                  try {
+                    const doc = e.target.contentDocument
+                    if (doc && doc.body && doc.body.textContent.includes('PDF not found')) {
+                      setPdfError(true)
+                    }
+                  } catch { /* cross-origin, PDF loaded fine */ }
+                }}
+              />
+            )}
           </div>
         </div>,
         document.body
@@ -376,9 +406,10 @@ const RichBotMessage = memo(function RichBotMessage({ text, lang = 'fr', video, 
     <div className="bot-rich-message">
       {confidence && (
         <span className={`confidence-badge confidence-${confidence}`}>
-          {confidence === 'high' ? (lang === 'fr' ? 'Fiabilité élevée' : 'High confidence') :
-           confidence === 'medium' ? (lang === 'fr' ? 'Fiabilité moyenne' : 'Medium confidence') :
-           (lang === 'fr' ? 'Fiabilité limitée' : 'Low confidence')}
+          {{ fr: { high: 'Fiabilite elevee', medium: 'Fiabilite moyenne', low: 'Fiabilite limitee' },
+             en: { high: 'High confidence', medium: 'Medium confidence', low: 'Low confidence' },
+             ko: { high: '\uB192\uC740 \uC2E0\uB8B0\uB3C4', medium: '\uC911\uAC04 \uC2E0\uB8B0\uB3C4', low: '\uB0AE\uC740 \uC2E0\uB8B0\uB3C4' },
+          }[lang]?.[confidence] || confidence}
         </span>
       )}
       {blocks.map((block, index) => {
@@ -509,7 +540,7 @@ function ChatPage() {
   const currentLang = LANGUAGES.find((entry) => entry.code === lang) || LANGUAGES[0]
   const terminalSystemLabel = assistantAliases[lang] || assistantAliases.en
   const terminalProtocolLabel = 'PROTOCOL_SECURE_LINE'
-  const executeLabel = lang === 'fr' ? 'EXECUTER' : 'EXECUTE'
+  const executeLabel = lang === 'fr' ? 'EXECUTER' : lang === 'ko' ? '\uC2E4\uD589' : 'EXECUTE'
 
   const quickQuestions = useMemo(() => {
     return (t.chat.quickQuestions || []).map((text, index) => ({
