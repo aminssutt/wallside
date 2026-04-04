@@ -259,6 +259,18 @@ function SourcesList({ sources, lang }) {
             <div className="proof-body">
               <p>{proofSrc.excerpt || (lang === 'fr' ? 'Extrait non disponible.' : 'Excerpt not available.')}</p>
             </div>
+            {proofSrc.label && proofSrc.slug && (
+              <div className="proof-footer">
+                <a
+                  href={`${API_URL}/guides/${proofSrc.slug}/pdf/${encodeURIComponent(proofSrc.label)}#page=${String(proofSrc.page).split('-')[0]}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="proof-open-pdf"
+                >
+                  {lang === 'fr' ? 'Ouvrir le PDF complet' : 'Open full PDF'}
+                </a>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1243,7 +1255,9 @@ function ChatPage() {
             </AnimatePresence>
 
             <AnimatePresence initial={false}>
-              {messages.map((msg, index) => (
+              {messages.map((msg, index) => {
+                const isLastBotStreaming = isStreaming && msg.type === 'bot' && index === messages.length - 1
+                return (
                   <Motion.div
                     key={`${msg.type}-${index}`}
                     className={`msg ${msg.type}`}
@@ -1257,11 +1271,18 @@ function ChatPage() {
 
                     <div className="msg-bubble">
                       {msg.type === 'bot' ? (
-                        <RichBotMessage text={msg.content} lang={lang} video={msg.video} confidence={msg.confidence} sources={msg.sources} />
+                        <RichBotMessage
+                          text={msg.content}
+                          lang={lang}
+                          video={isLastBotStreaming ? null : msg.video}
+                          confidence={isLastBotStreaming ? null : msg.confidence}
+                          sources={isLastBotStreaming ? null : msg.sources}
+                        />
                       ) : msg.content}
                     </div>
                   </Motion.div>
-              ))}
+                )
+              })}
             </AnimatePresence>
 
             <AnimatePresence>

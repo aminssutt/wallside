@@ -68,6 +68,13 @@ IMAGE_DIRS = [
     PROJECT_ROOT / "manuel" / "voiture",
 ]
 
+# PDF directories for open proof (car data + legacy manuel)
+PDF_DIRS = [
+    PROJECT_ROOT / "car_data",   # Docker: /app/car_data/<Brand>/file.pdf
+    PROJECT_ROOT / "car data",   # Local dev: car data/<Brand>/file.pdf
+    PROJECT_ROOT / "manuel",     # Legacy: manuel/manuel clio 4.pdf
+]
+
 WAITLIST_DIR = DATA_DIR / "waitlist"
 WAITLIST_FILE = WAITLIST_DIR / "premium_waitlist.csv"
 WAITLIST_COLUMNS = ["email", "lang", "source", "created_at"]
@@ -137,6 +144,20 @@ def get_guide(slug):
         "success": True,
         "guide": guide.to_dict(),
     })
+
+
+@app.route('/api/guides/<slug>/pdf/<path:filename>', methods=['GET'])
+def serve_guide_pdf(slug, filename):
+    """Serve a guide's source PDF for open proof."""
+    if not _SLUG_RE.match(slug) or '..' in filename:
+        return jsonify({"error": "Invalid request"}), 400
+    for pdf_dir in PDF_DIRS:
+        if not pdf_dir.exists():
+            continue
+        for pdf_path in pdf_dir.rglob("*.pdf"):
+            if pdf_path.name == filename:
+                return send_from_directory(str(pdf_path.parent), pdf_path.name, mimetype='application/pdf')
+    return jsonify({"error": "PDF not found"}), 404
 
 
 

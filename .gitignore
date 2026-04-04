@@ -17,11 +17,11 @@ backend/data/*
 !backend/data/guides/**
 !backend/data/vehicle_images/
 !backend/data/vehicle_images/**
-car data/
+# car data/ — tracked for PDF serving in production
 backend/test_results.json
 
-# Keep manual PDFs out of git (car images are allowed)
-*.pdf
+# Keep manual PDFs in git for production (served via API)
+# *.pdf
 
 # ================================
 # Python
