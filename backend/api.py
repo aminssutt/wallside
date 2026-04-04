@@ -147,10 +147,11 @@ def get_guide(slug):
 
 
 def _normalize_pdf_name(name: str) -> str:
-    """Normalize PDF name for fuzzy matching (strip accents, lowercase)."""
+    """Normalize PDF name for fuzzy matching (strip accents, lowercase, collapse separators)."""
     import unicodedata
     nfkd = unicodedata.normalize("NFKD", name.lower())
-    return "".join(c for c in nfkd if not unicodedata.combining(c))
+    clean = "".join(c for c in nfkd if not unicodedata.combining(c))
+    return re.sub(r"[-_\s]+", " ", clean).strip()
 
 
 @app.route('/api/guides/<slug>/pdf', methods=['GET'])
