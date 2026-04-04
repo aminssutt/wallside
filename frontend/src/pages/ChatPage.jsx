@@ -224,6 +224,48 @@ const extractStreamError = (payload) => {
   return firstError ? firstError.trim() : ''
 }
 
+function SourcesList({ sources, lang }) {
+  const [proofIndex, setProofIndex] = useState(null)
+  const proofSrc = proofIndex !== null ? sources[proofIndex] : null
+  const label = lang === 'fr' ? 'Sources' : lang === 'ko' ? '\uCD9C\uCC98' : 'Sources'
+
+  return (
+    <div className="bot-sources-section">
+      <h4 className="bot-heading">{label}</h4>
+      <ul className="bot-sources-list">
+        {sources.map((src, i) => (
+          <li key={`src-${i}`} className={`bot-source-item bot-source-${src.kind}`}>
+            {src.kind === 'manual' ? (
+              <button type="button" className="bot-source-link" onClick={() => setProofIndex(i)}>
+                {src.display || `${src.label}, page ${src.page}`}
+              </button>
+            ) : src.kind === 'web' && src.url ? (
+              <a href={src.url} target="_blank" rel="noopener noreferrer" className="bot-source-link">
+                {src.display || src.label}
+              </a>
+            ) : (
+              <span>{src.display || src.label}</span>
+            )}
+          </li>
+        ))}
+      </ul>
+      {proofSrc && (
+        <div className="proof-overlay" onClick={() => setProofIndex(null)}>
+          <div className="proof-popup" onClick={(e) => e.stopPropagation()}>
+            <div className="proof-header">
+              <span className="proof-label">{proofSrc.label}, page {proofSrc.page}</span>
+              <button type="button" className="proof-close" onClick={() => setProofIndex(null)}>&times;</button>
+            </div>
+            <div className="proof-body">
+              <p>{proofSrc.excerpt || (lang === 'fr' ? 'Extrait non disponible.' : 'Excerpt not available.')}</p>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 const RichBotMessage = memo(function RichBotMessage({ text, lang = 'fr', video, confidence, sources }) {
   const lines = normalizeAssistantText(text).replace(/\r\n/g, '\n').split('\n')
   const blocks = []
@@ -387,31 +429,7 @@ const RichBotMessage = memo(function RichBotMessage({ text, lang = 'fr', video, 
         )
       })}
       {sources && sources.length > 0 && (
-        <div className="bot-sources-section">
-          <h4 className="bot-heading">Sources</h4>
-          <ul className="bot-sources-list">
-            {sources.map((src, i) => (
-              <li key={`src-${i}`} className={`bot-source-item bot-source-${src.kind}`}>
-                {src.kind === 'manual' && src.slug ? (
-                  <a
-                    href={`/api/guides/${src.slug}/pdf?page=${src.page}#page=${src.page}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="bot-source-link"
-                  >
-                    {src.display || `${src.label}, page ${src.page}`}
-                  </a>
-                ) : src.kind === 'web' && src.url ? (
-                  <a href={src.url} target="_blank" rel="noopener noreferrer" className="bot-source-link">
-                    {src.display || src.label}
-                  </a>
-                ) : (
-                  <span>{src.display || src.label}</span>
-                )}
-              </li>
-            ))}
-          </ul>
-        </div>
+        <SourcesList sources={sources} lang={lang} />
       )}
       {video && video.url && (
         <div className="bot-video-card" key="stream-video">

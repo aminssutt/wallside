@@ -139,24 +139,6 @@ def get_guide(slug):
     })
 
 
-@app.route('/api/guides/<slug>/pdf', methods=['GET'])
-def serve_guide_pdf(slug):
-    """Serve the guide's PDF file. Use ?page=N for page targeting."""
-    if not _SLUG_RE.match(slug):
-        return jsonify({"error": "Invalid slug"}), 400
-    guide = guide_manager.get_guide(slug)
-    if not guide:
-        return jsonify({"error": "Guide not found"}), 404
-
-    # Find the first PDF in the guide's data directory
-    pdf_dir = DATA_DIR / "guides" / slug
-    pdfs = list(pdf_dir.glob("*.pdf")) if pdf_dir.exists() else []
-    if not pdfs:
-        return jsonify({"error": "PDF not found"}), 404
-
-    pdf_path = pdfs[0]
-    return send_from_directory(str(pdf_path.parent), pdf_path.name, mimetype='application/pdf')
-
 
 # ============================================
 # CHAT ENDPOINTS

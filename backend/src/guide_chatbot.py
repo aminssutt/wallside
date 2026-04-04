@@ -668,11 +668,13 @@ def build_sources_structured(
         if key in seen:
             continue
         seen.add(key)
+        excerpt = (doc.page_content or "")[:300].strip()
         sources.append({
             "kind": "manual",
             "label": source_file,
             "page": page,
             "slug": slug,
+            "excerpt": excerpt,
             "display": f"Manual: {source_file}, page {page}",
         })
 
