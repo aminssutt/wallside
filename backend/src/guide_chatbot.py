@@ -239,6 +239,37 @@ def detect_fix_mode(question: str) -> bool:
     return bool(_YOUTUBE_ELIGIBLE_PATTERNS.search(question or ""))
 
 
+FIX_MODE_PROMPT = {
+    "fr": (
+        "MODE FIX (PROCEDURE):\n"
+        "Structure ta reponse ainsi:\n"
+        "- **Objectif**: ce qu'on cherche a faire\n"
+        "- **Difficulte**: facile / moyen / avance\n"
+        "- **Outils necessaires**: liste si applicable\n"
+        "- **Etapes**: liste numerotee detaillee\n"
+        "- **Precautions**: securite et points d'attention\n\n"
+    ),
+    "en": (
+        "FIX MODE (PROCEDURE):\n"
+        "Structure your response as follows:\n"
+        "- **Objective**: what we are trying to do\n"
+        "- **Difficulty**: easy / medium / advanced\n"
+        "- **Tools needed**: list if applicable\n"
+        "- **Steps**: detailed numbered list\n"
+        "- **Precautions**: safety and key warnings\n\n"
+    ),
+    "ko": (
+        "FIX MODE (\uc808\ucc28):\n"
+        "\ub2e4\uc74c\uacfc \uac19\uc774 \ub2f5\ubcc0\uc744 \uad6c\uc131\ud558\uc138\uc694:\n"
+        "- **\ubaa9\ud45c**: \ubb34\uc5c7\uc744 \ud558\ub824\uace0 \ud558\ub294\uc9c0\n"
+        "- **\ub09c\uc774\ub3c4**: \uc27d\uc74c / \ubcf4\ud1b5 / \uc5b4\ub824\uc6c0\n"
+        "- **\ud544\uc694\ud55c \ub3c4\uad6c**: \ud574\ub2f9\ub418\ub294 \uacbd\uc6b0 \ubaa9\ub85d\n"
+        "- **\ub2e8\uacc4**: \uc0c1\uc138\ud55c \ubc88\ud638 \ubaa9\ub85d\n"
+        "- **\uc8fc\uc758\uc0ac\ud56d**: \uc548\uc804 \ubc0f \uc8fc\uc694 \uacbd\uace0\n\n"
+    ),
+}
+
+
 LANG_QUESTION_PATTERNS = re.compile(
     r"(?:parle|parler|speak|talk|answer|respond|repondre|reponds)"
     r".*(?:anglais|english|francais|french|coreen|korean|langue|language|"
@@ -990,17 +1021,7 @@ class GuideChatbot:
             history_block = "\n".join(parts)
 
         # --- System instruction (separated from user content for Gemini) ---
-        fix_mode_block = ""
-        if fix_mode:
-            fix_mode_block = """MODE FIX (PROCEDURE):
-Structure ta reponse ainsi:
-- **Objectif**: ce qu'on cherche a faire
-- **Difficulte**: facile / moyen / avance
-- **Outils necessaires**: liste si applicable
-- **Etapes**: liste numerotee detaillee
-- **Precautions**: securite et points d'attention
-
-"""
+        fix_mode_block = FIX_MODE_PROMPT.get(lang, FIX_MODE_PROMPT["fr"]) if fix_mode else ""
         system_instruction = f"""{fix_mode_block}Tu es un assistant technique expert et precis, specialise pour le vehicule {self.guide.name}.
 
 REGLES STRICTES:
@@ -1042,6 +1063,7 @@ REGLES STRICTES:
             "docs": docs,
             "mode": mode,
             "is_conversational": False,
+            "detected_lang": lang,
         }
 
     def _finalize_answer(
@@ -1172,15 +1194,8 @@ REGLES STRICTES:
         # --- Detect fix mode (procedural intent + manual context available) ---
         fix_mode_active = detect_fix_mode(question) and p_has_ctx
         if fix_mode_active:
-            fix_preamble = (
-                "MODE FIX (PROCEDURE):\n"
-                "Structure ta reponse ainsi:\n"
-                "- **Objectif**: ce qu'on cherche a faire\n"
-                "- **Difficulte**: facile / moyen / avance\n"
-                "- **Outils necessaires**: liste si applicable\n"
-                "- **Etapes**: liste numerotee detaillee\n"
-                "- **Precautions**: securite et points d'attention\n\n"
-            )
+            detected_lang = payload.get("detected_lang", "fr")
+            fix_preamble = FIX_MODE_PROMPT.get(detected_lang, FIX_MODE_PROMPT["fr"])
             payload["system_instruction"] = fix_preamble + payload.get("system_instruction", "")
 
         # Mode C: launch web search in background while LLM streams
