@@ -1,17 +1,31 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20">
-  <rect width="30" height="20" fill="#FFFFFF"/>
-  <circle cx="15" cy="10" r="4.2" fill="#CD2E3A"/>
-  <path d="M15 5.8a4.2 4.2 0 0 0 0 8.4 2.1 2.1 0 0 1 0-4.2 2.1 2.1 0 0 0 0-4.2Z" fill="#0047A0"/>
-  <g fill="#111111">
-    <rect x="4.2" y="4" width="4.6" height="0.9" rx="0.2"/>
-    <rect x="4.2" y="5.6" width="4.6" height="0.9" rx="0.2"/>
-    <rect x="4.2" y="7.2" width="4.6" height="0.9" rx="0.2"/>
-    <rect x="21.2" y="11.8" width="4.6" height="0.9" rx="0.2"/>
-    <rect x="21.2" y="13.4" width="4.6" height="0.9" rx="0.2"/>
-    <rect x="21.2" y="15" width="4.6" height="0.9" rx="0.2"/>
-    <rect x="4.2" y="11.8" width="4.6" height="0.9" rx="0.2"/>
-    <rect x="4.2" y="15" width="4.6" height="0.9" rx="0.2"/>
-    <rect x="21.2" y="4" width="4.6" height="0.9" rx="0.2"/>
-    <rect x="21.2" y="7.2" width="4.6" height="0.9" rx="0.2"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600">
+  <rect fill="#fff" width="900" height="600"/>
+  <g transform="translate(450,300)">
+    <circle r="150" fill="#cd2e3a"/>
+    <path d="M0-150A150 150 0 0 0 0 150A75 75 0 0 1 0 0A75 75 0 0 0 0-150Z" fill="#0047a0"/>
+    <g stroke="#000" stroke-width="25">
+      <g transform="rotate(-56.3)">
+        <line x1="-228" y1="-175" x2="-98" y2="-175"/>
+        <line x1="-228" y1="-125" x2="-98" y2="-125"/>
+        <line x1="-228" y1="-75" x2="-98" y2="-75"/>
+      </g>
+      <g transform="rotate(-56.3) scale(1,-1)">
+        <line x1="-228" y1="-175" x2="-98" y2="-175"/>
+        <line x1="-213" y1="-125" x2="-98" y2="-125"/>
+        <line x1="-228" y1="-125" x2="-222" y2="-125"/>
+        <line x1="-228" y1="-75" x2="-98" y2="-75"/>
+      </g>
+      <g transform="rotate(56.3)">
+        <line x1="98" y1="-175" x2="228" y2="-175"/>
+        <line x1="98" y1="-125" x2="228" y2="-125"/>
+        <line x1="98" y1="-75" x2="228" y2="-75"/>
+      </g>
+      <g transform="rotate(56.3) scale(1,-1)">
+        <line x1="98" y1="-175" x2="228" y2="-175"/>
+        <line x1="98" y1="-125" x2="163" y2="-125"/>
+        <line x1="168" y1="-125" x2="228" y2="-125"/>
+        <line x1="98" y1="-75" x2="228" y2="-75"/>
+      </g>
+    </g>
   </g>
 </svg>
