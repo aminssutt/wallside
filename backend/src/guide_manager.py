@@ -288,6 +288,7 @@ class Guide:
         brand: Optional[str] = None,
         segment: Optional[str] = None,
         source_slugs: Optional[List[str]] = None,
+        pdf_url: Optional[str] = None,
     ):
         self.slug = slug
         self.name = _clean_text(name, slug)
@@ -295,6 +296,7 @@ class Guide:
         self.brand = _normalize_brand(_clean_text(brand, "Autres"))
         self.segment = _clean_text(segment, "autre")
         self.source_slugs = list(dict.fromkeys(source_slugs or [slug]))
+        self.pdf_url = _clean_text(pdf_url) or None
 
     @property
     def dir(self) -> Path:
@@ -326,7 +328,7 @@ class Guide:
         return False
 
     def to_dict(self) -> dict:
-        return {
+        d = {
             "slug": self.slug,
             "name": self.name,
             "brand": self.brand,
@@ -336,6 +338,9 @@ class Guide:
             "manual_count": len(self.source_slugs),
             "source_slugs": self.source_slugs,
         }
+        if self.pdf_url:
+            d["pdf_url"] = self.pdf_url
+        return d
 
 
 class GuideManager:
@@ -394,6 +399,7 @@ class GuideManager:
                     "image": _clean_text(entry.get("image")) or None,
                     "brand": brand,
                     "segment": _clean_text(entry.get("segment"), "autre"),
+                    "pdf_url": _clean_text(entry.get("pdf_url")) or None,
                 }
             )
 
@@ -435,6 +441,13 @@ class GuideManager:
                     image_candidates,
                 )
 
+            # Use pdf_url from the first entry that has one
+            pdf_url = None
+            for entry in ranked:
+                if entry.get("pdf_url"):
+                    pdf_url = entry["pdf_url"]
+                    break
+
             self.guides[canonical_slug] = Guide(
                 slug=canonical_slug,
                 name=display_name,
@@ -442,6 +455,7 @@ class GuideManager:
                 brand=primary.get("brand"),
                 segment=primary.get("segment"),
                 source_slugs=source_slugs,
+                pdf_url=pdf_url,
             )
 
         log.info(

@@ -1006,6 +1006,14 @@ class GuideChatbot:
         # Only include sources when we found relevant context
         sources_block = format_sources(docs, web_results=web_results) if has_relevant_context else ""
         sources_structured = build_sources_structured(docs, web_results=web_results, slug=self.guide.slug) if has_relevant_context else []
+
+        # Attach guide-level pdf_url to manual sources for external PDF viewing
+        guide_pdf_url = getattr(self.guide, 'pdf_url', '') or ''
+        if guide_pdf_url:
+            for src in sources_structured:
+                if src.get('kind') == 'manual':
+                    src['pdf_url'] = guide_pdf_url
+
         video_block = format_video_block(video, lang=lang)
         lang_instruction = LANG_INSTRUCTIONS.get(lang, LANG_INSTRUCTIONS["fr"])
 

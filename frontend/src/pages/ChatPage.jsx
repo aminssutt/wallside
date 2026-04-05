@@ -262,14 +262,16 @@ function SourcesList({ sources, lang }) {
           </li>
         ))}
       </ul>
-      {proofSrc && proofSrc.slug && createPortal(
+      {proofSrc && (proofSrc.slug || proofSrc.pdf_url) && createPortal(
         <div className="proof-overlay" onClick={() => setProofIndex(null)}>
           <div className="proof-popup proof-popup--pdf" onClick={(e) => e.stopPropagation()}>
             <div className="proof-header">
               <span className="proof-label">{proofSrc.label}, page {proofSrc.page}</span>
               {!pdfError && (
                 <a
-                  href={`${API_URL}/guides/${proofSrc.slug}/pdf#page=${String(proofSrc.page).split('-')[0]}`}
+                  href={proofSrc.pdf_url
+                    ? `${proofSrc.pdf_url}#page=${String(proofSrc.page).split('-')[0]}`
+                    : `${API_URL}/guides/${proofSrc.slug}/pdf#page=${String(proofSrc.page).split('-')[0]}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="proof-newtab"
@@ -287,7 +289,9 @@ function SourcesList({ sources, lang }) {
             ) : (
               <iframe
                 className="proof-iframe"
-                src={`${API_URL}/guides/${proofSrc.slug}/pdf#page=${String(proofSrc.page).split('-')[0]}`}
+                src={proofSrc.pdf_url
+                  ? `${proofSrc.pdf_url}#page=${String(proofSrc.page).split('-')[0]}`
+                  : `${API_URL}/guides/${proofSrc.slug}/pdf#page=${String(proofSrc.page).split('-')[0]}`}
                 title={`${proofSrc.label} - page ${proofSrc.page}`}
                 onError={() => setPdfError(true)}
                 onLoad={(e) => {
