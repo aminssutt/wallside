@@ -532,5 +532,23 @@
     "chunk_count": 1168,
     "extraction_mode": "pypdf",
     "indexed_at": "2026-04-04T19:40:48.704664+00:00"
+  },
+  {
+    "slug": "tesla-model-3",
+    "name": "Tesla Model 3 (2024+)",
+    "brand": "Tesla",
+    "image": "tesla model 3.png",
+    "source_pdf": "car data/Tesla/Tesla Model 3.pdf",
+    "source_hash": "b6507c4253a4df312591812c630bf6fa1ff6ee2542c606a967a391c539d6b6b3",
+    "source_url": "https://www.tesla.com/ownersmanual/model3/en_us/",
+    "source_official": true,
+    "source_type": "pdf",
+    "locale": "en_us",
+    "page_count": 295,
+    "chunk_count": 1057,
+    "extraction_mode": "pypdf",
+    "parser_version": "1.0",
+    "indexed_at": "2026-04-05T16:11:34.712763+00:00",
+    "segment": "berline"
   }
 ]
