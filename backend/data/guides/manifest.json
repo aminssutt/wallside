@@ -10,7 +10,9 @@
     "chunk_count": 107,
     "extraction_mode": "ocr",
     "indexed_at": "2026-03-15T11:52:31.535773+00:00",
-    "segment": "classique"
+    "segment": "classique",
+    "pdf_url": "https://inspirauto.fr/getPdf.php/?position=inline&file=anErSjA2SmhoV1V1M1J3YjRmTXVLTmVKR0c0Wk9RRWl0VmRURVc1WkIvV285R3NRMmpUbkVWd09FTE9KeWc3Uw==&preview=true",
+    "source_url": "https://www.notice-utilisation-voiture.fr/notices/alfa-romeo/33"
   },
   {
     "slug": "alfa-romeo-4c-2013-2020",
@@ -23,7 +25,9 @@
     "chunk_count": 345,
     "extraction_mode": "pypdf",
     "indexed_at": "2026-03-15T11:52:59.463120+00:00",
-    "segment": "sportive"
+    "segment": "sportive",
+    "pdf_url": "https://inspirauto.fr/getPdf.php/?position=inline&file=anErSjA2SmhoV1V1M1J3YjRmTXVLRUFBakdSRzg1dVFQWVFSdTZzVUNHVXAyK0doS2h3bEltb2lQNWFuUUhVNw==&preview=true",
+    "source_url": "https://www.notice-utilisation-voiture.fr/notices/alfa-romeo/4c"
   },
   {
     "slug": "alfa-romeo-8c-competizione",
@@ -36,7 +40,9 @@
     "chunk_count": 415,
     "extraction_mode": "pypdf",
     "indexed_at": "2026-03-15T11:53:33.317498+00:00",
-    "segment": "sportive"
+    "segment": "sportive",
+    "pdf_url": "https://inspirauto.fr/getPdf.php/?position=inline&file=anErSjA2SmhoV1V1M1J3YjRmTXVLSEliRzBiR0ZxV3diN0dMY3NQUnk3QnMybFJtQndJcU53a2hUOHRGQUdtTQ==&preview=true",
+    "source_url": "https://www.notice-utilisation-voiture.fr/notices/alfa-romeo/8c-competizione"
   },
   {
     "slug": "alfa-romeo-infotainment-system",
@@ -61,7 +67,9 @@
     "chunk_count": 469,
     "extraction_mode": "pypdf",
     "indexed_at": "2026-03-15T08:27:39.790807+00:00",
-    "segment": "sportive"
+    "segment": "sportive",
+    "pdf_url": "https://inspirauto.fr/getPdf.php/?position=inline&file=OFVrWWdOWEVmOThnMXR6RUR0R0I1Uk1wMkloNlBWYUJ0Q05FTER6b2I0Qzg2OFlPQTdjRDdlakVEVlk5QVNvLw==&preview=true",
+    "source_url": "https://www.notice-utilisation-voiture.fr/notices/alpine/a110"
   },
   {
     "slug": "alpine-a390-2025-multimedia-system",
@@ -99,7 +107,9 @@
     "chunk_count": 315,
     "extraction_mode": "pypdf",
     "indexed_at": "2026-03-26T02:13:29.617800+00:00",
-    "segment": "berline"
+    "segment": "berline",
+    "pdf_url": "https://inspirauto.fr/getPdf.php/?position=inline&file=MFZYSEVGbjdpMGlibm1JT0tXYnFPTGg3NlRFUkVSK2pXTng4aktIbXhUMD0=&preview=true",
+    "source_url": "https://www.notice-utilisation-voiture.fr/notices/bmw/serie-3"
   },
   {
     "slug": "chevrolet-avalanche-2001-2006",
@@ -112,7 +122,9 @@
     "chunk_count": 1087,
     "extraction_mode": "pypdf",
     "indexed_at": "2026-03-15T11:54:11.559073+00:00",
-    "segment": "classique"
+    "segment": "classique",
+    "pdf_url": "https://inspirauto.fr/getPdf.php/?position=inline&file=T2xDV1U0MEN6eFFDbjBkVWZodUVoV2Rvb1phOEdiZUJhZ3dlQy95OXQzUXJDNXE4MjZ3MEtqbG1RVmZHRnFlTw==&preview=true",
+    "source_url": "https://www.notice-utilisation-voiture.fr/notices/chevrolet/avalanche"
   },
   {
     "slug": "citroen-c3-2024",
@@ -125,7 +137,9 @@
     "chunk_count": 327,
     "extraction_mode": "pypdf",
     "indexed_at": "2026-03-25T23:02:05.168640+00:00",
-    "segment": "citadine"
+    "segment": "citadine",
+    "pdf_url": "https://inspirauto.fr/getPdf.php/?position=inline&file=Rmx4MURma3daVmdiL1hBZmM4OHZRRldSaHg0WVowb1BOa3VoTG0xVjJzNmVqR3FQU2ZPdjUya1N4Z1NNOVQvTg==&preview=true",
+    "source_url": "https://www.notice-utilisation-voiture.fr/notices/citroen/c3"
   },
   {
     "slug": "dacia-duster-2024",
@@ -138,7 +152,9 @@
     "chunk_count": 450,
     "extraction_mode": "pypdf",
     "indexed_at": "2026-03-25T23:02:29.531743+00:00",
-    "segment": "suv"
+    "segment": "suv",
+    "pdf_url": "https://inspirauto.fr/getPdf.php/?position=inline&file=STU0M0k5b1JzaHpVeGxSZnNqcjYzYlRjVG9CU0UxVXdvVG14cFN6WElNTkpadmI5aGpFeUN4NEpnNUZFbWlkaw==&preview=true",
+    "source_url": "https://www.notice-utilisation-voiture.fr/notices/dacia/duster"
   },
   {
     "slug": "dacia-media-nav-live-guide",
@@ -163,7 +179,9 @@
     "chunk_count": 452,
     "extraction_mode": "pypdf",
     "indexed_at": "2026-03-25T23:02:59.098675+00:00",
-    "segment": "citadine"
+    "segment": "citadine",
+    "pdf_url": "https://inspirauto.fr/getPdf.php/?position=inline&file=STU0M0k5b1JzaHpVeGxSZnNqcjYzZklUUzBSNVNvTGRBMEtDMGlOSFBrN014blg1bmRVbmo5SkVhZDdDYlM0ZA==&preview=true",
+    "source_url": "https://www.notice-utilisation-voiture.fr/notices/dacia/sandero"
   },
   {
     "slug": "genesis-g80-2023-quick-reference-guide",
@@ -188,7 +206,9 @@
     "chunk_count": 1253,
     "extraction_mode": "pypdf",
     "indexed_at": "2026-03-26T01:52:10.045444+00:00",
-    "segment": "berline"
+    "segment": "berline",
+    "pdf_url": "https://inspirauto.fr/getPdf.php/?position=inline&file=NDFiYk5yblovOGErVFZEalBleGhMY0E0bDk3MTRNbW9hcWNFVjJhME5rVllMZmtaZkpyM1NsenBwRnZVTHpJNw==&preview=true",
+    "source_url": "https://www.notice-utilisation-voiture.fr/notices/genesis/g80"
   },
   {
     "slug": "honda-civic-11",
@@ -201,7 +221,9 @@
     "chunk_count": 954,
     "extraction_mode": "pypdf",
     "indexed_at": "2026-03-15T08:27:14.144316+00:00",
-    "segment": "citadine"
+    "segment": "citadine",
+    "pdf_url": "https://inspirauto.fr/getPdf.php/?position=inline&file=MGRtVUlzOHhHUERPcGlnZytmNXJ6ZVdXa2dlQVBPVG5TS1dSa2hCdVNWTT0=&preview=true",
+    "source_url": "https://www.notice-utilisation-voiture.fr/notices/honda/civic"
   },
   {
     "slug": "honda-civic-11-navigation-manual",
@@ -226,7 +248,9 @@
     "chunk_count": 1034,
     "extraction_mode": "pypdf",
     "indexed_at": "2026-03-26T01:53:22.062702+00:00",
-    "segment": "berline"
+    "segment": "berline",
+    "pdf_url": "https://inspirauto.fr/getPdf.php/?position=inline&file=cy9oYmIvbW5VQUEyOTR0bzlFVDEyYnFkSUVoM3JMaUduM2ttUndrYkFSV0UzTDJEUHJzOGh4cUxtTjBrWThKUg==&preview=true",
+    "source_url": "https://www.notice-utilisation-voiture.fr/notices/hyundai/elantra"
   },
   {
     "slug": "hyundai-elantra-2024-infotainment-system",
@@ -264,7 +288,9 @@
     "chunk_count": 1284,
     "extraction_mode": "pypdf",
     "indexed_at": "2026-03-26T01:55:57.553906+00:00",
-    "segment": "suv"
+    "segment": "suv",
+    "pdf_url": "https://inspirauto.fr/getPdf.php/?position=inline&file=cy9oYmIvbW5VQUEyOTR0bzlFVDEyY2xMTHE5M1MxQUFEbnVlVkp5N3BEejkyWEdjMUg1VHFxUWpqQ0h3dlEwdA==&preview=true",
+    "source_url": "https://www.notice-utilisation-voiture.fr/notices/hyundai/palisade"
   },
   {
     "slug": "hyundai-palisade-2024-infotainment-system",
@@ -289,7 +315,9 @@
     "chunk_count": 1257,
     "extraction_mode": "pypdf",
     "indexed_at": "2026-03-26T01:57:23.528575+00:00",
-    "segment": "suv"
+    "segment": "suv",
+    "pdf_url": "https://inspirauto.fr/getPdf.php/?position=inline&file=cy9oYmIvbW5VQUEyOTR0bzlFVDEyZnlKRTVMS003US9zaUp4cFpIY2VBOGlHU0lvd0hIdmpmT3lmMW9CRjdaMQ==&preview=true",
+    "source_url": "https://www.notice-utilisation-voiture.fr/notices/hyundai/santa-fe"
   },
   {
     "slug": "hyundai-tucson-2024",
@@ -302,7 +330,9 @@
     "chunk_count": 1094,
     "extraction_mode": "pypdf",
     "indexed_at": "2026-03-26T01:58:19.158020+00:00",
-    "segment": "suv"
+    "segment": "suv",
+    "pdf_url": "https://inspirauto.fr/getPdf.php/?position=inline&file=cy9oYmIvbW5VQUEyOTR0bzlFVDEyWkMwVktDcDFMbVNNaFhMRVpyOStLK2hmc0RJQ25NMitZVGtBSlVZazgzNg==&preview=true",
+    "source_url": "https://www.notice-utilisation-voiture.fr/notices/hyundai/tucson"
   },
   {
     "slug": "hyundai-tucson-2024-infotainment-system",
@@ -327,7 +357,9 @@
     "chunk_count": 710,
     "extraction_mode": "pypdf",
     "indexed_at": "2026-03-26T02:15:06.890700+00:00",
-    "segment": "suv"
+    "segment": "suv",
+    "pdf_url": "https://inspirauto.fr/getPdf.php/?position=inline&file=LzNBdmUrZFNhVk1HVUYxMFFPampXcjJ2SlZ5RzFqbUVsYUdoV2Rta282VT0=&preview=true",
+    "source_url": "https://www.notice-utilisation-voiture.fr/notices/kia/seltos"
   },
   {
     "slug": "kia-sorento-2023",
@@ -340,7 +372,9 @@
     "chunk_count": 848,
     "extraction_mode": "pypdf",
     "indexed_at": "2026-03-26T02:15:52.937448+00:00",
-    "segment": "suv"
+    "segment": "suv",
+    "pdf_url": "https://inspirauto.fr/getPdf.php/?position=inline&file=LzNBdmUrZFNhVk1HVUYxMFFPampXdVZtV1BxdHdON3Q2QWY4OWFJZ3pkST0=&preview=true",
+    "source_url": "https://www.notice-utilisation-voiture.fr/notices/kia/sorento"
   },
   {
     "slug": "kia-sorento-2023-quick-reference-guide",
@@ -391,7 +425,9 @@
     "chunk_count": 1498,
     "extraction_mode": "pypdf",
     "indexed_at": "2026-03-26T02:17:34.536284+00:00",
-    "segment": "berline"
+    "segment": "berline",
+    "pdf_url": "https://inspirauto.fr/getPdf.php/?position=inline&file=S3M3ZXBqRXcwS3hhYWVWM2VZZHhpOUlvcTdDeFNRZkNHdm1mN0JXcUphamcySDhRZkY5ek80clpOdVI3VG13Qg==&preview=true",
+    "source_url": "https://www.notice-utilisation-voiture.fr/notices/mercedes-benz/classe-c"
   },
   {
     "slug": "mercedes-c-class-2022-mbux-multimedia",
@@ -416,7 +452,9 @@
     "chunk_count": 468,
     "extraction_mode": "pypdf",
     "indexed_at": "2026-03-25T22:27:11.598545+00:00",
-    "segment": "suv"
+    "segment": "suv",
+    "pdf_url": "https://inspirauto.fr/getPdf.php/?position=inline&file=ZVI2blNwUmdYWmgxamlwWHRKUXVUZUlONWlJMFY4d1VnY0xTd1ZBRTJWSkhIcHo5UW02cVZjME83cnJsbUcwSg==&preview=true",
+    "source_url": "https://www.notice-utilisation-voiture.fr/notices/peugeot/2008"
   },
   {
     "slug": "peugeot-208-2023",
@@ -429,7 +467,9 @@
     "chunk_count": 561,
     "extraction_mode": "pypdf",
     "indexed_at": "2026-03-25T22:27:50.870909+00:00",
-    "segment": "citadine"
+    "segment": "citadine",
+    "pdf_url": "https://inspirauto.fr/getPdf.php/?position=inline&file=ZVI2blNwUmdYWmgxamlwWHRKUXVUZkxpSmFmNVdDT0JSUFF3UHZHY3B0YWhEYkZMTVJsMTVESG9tUTRmemRvUQ==&preview=true",
+    "source_url": "https://www.notice-utilisation-voiture.fr/notices/peugeot/208"
   },
   {
     "slug": "peugeot-3008-2018",
@@ -442,7 +482,9 @@
     "chunk_count": 589,
     "extraction_mode": "pypdf",
     "indexed_at": "2026-03-25T22:28:47.014363+00:00",
-    "segment": "suv"
+    "segment": "suv",
+    "pdf_url": "https://inspirauto.fr/getPdf.php/?position=inline&file=ZVI2blNwUmdYWmgxamlwWHRKUXVUYXEwdElEV0ltTFBoL1JvbnQ0bUZVQkdvelpYNE1kdmFVQlVSbzVlMWVyaQ==&preview=true",
+    "source_url": "https://www.notice-utilisation-voiture.fr/notices/peugeot/3008"
   },
   {
     "slug": "peugeot-308-2022",
@@ -455,7 +497,9 @@
     "chunk_count": 452,
     "extraction_mode": "pypdf",
     "indexed_at": "2026-03-25T22:29:18.140906+00:00",
-    "segment": "berline"
+    "segment": "berline",
+    "pdf_url": "https://inspirauto.fr/getPdf.php/?position=inline&file=ZVI2blNwUmdYWmgxamlwWHRKUXVUYzV2YmlXM012SmdHVkE5TVdBWURTL2xDMnBSTFBmWnBWSGdTcGtuaHdGWQ==&preview=true",
+    "source_url": "https://www.notice-utilisation-voiture.fr/notices/peugeot/308"
   },
   {
     "slug": "peugeot-508-2019",
@@ -468,7 +512,9 @@
     "chunk_count": 394,
     "extraction_mode": "pypdf",
     "indexed_at": "2026-03-25T22:29:54.444954+00:00",
-    "segment": "berline"
+    "segment": "berline",
+    "pdf_url": "https://inspirauto.fr/getPdf.php/?position=inline&file=ZVI2blNwUmdYWmgxamlwWHRKUXVUVk5YWTFpb2pibDN6MlJhbnNhQkJWRnR2TTBtUVRPMTlCQWE0RTdGemUrdg==&preview=true",
+    "source_url": "https://www.notice-utilisation-voiture.fr/notices/peugeot/508"
   },
   {
     "slug": "peugeot-carnet-entretien-et-garanties",
@@ -523,7 +569,9 @@
     "chunk_count": 487,
     "extraction_mode": "pypdf",
     "indexed_at": "2026-03-25T23:03:26.928175+00:00",
-    "segment": "suv"
+    "segment": "suv",
+    "pdf_url": "https://inspirauto.fr/getPdf.php/?position=inline&file=RW5TcG5OWFY3WGJGTEFwb09kU2w5NnRnM1BRaVE5ZEI0bVNVREI3QlhSMjkra0F2UDNJQ3QxaG1aQWpPdDYvSg==&preview=true",
+    "source_url": "https://www.notice-utilisation-voiture.fr/notices/renault/captur"
   },
   {
     "slug": "renault-captur-2024-easy-link-multimedia",
@@ -547,7 +595,9 @@
     "page_count": 266,
     "chunk_count": 422,
     "extraction_mode": "pypdf",
-    "indexed_at": "2026-03-26T10:19:34.549174+00:00"
+    "indexed_at": "2026-03-26T10:19:34.549174+00:00",
+    "pdf_url": "https://inspirauto.fr/getPdf.php/?position=inline&file=RW5TcG5OWFY3WGJGTEFwb09kU2w5ME1vaGJxQ21tU0JWeGlKb0JSMnNyaGZnVCtMeXJpSG5kUlpNYWgzeklIQQ==&preview=true",
+    "source_url": "https://www.notice-utilisation-voiture.fr/notices/renault/clio"
   },
   {
     "slug": "renault-clio-5",
@@ -676,7 +726,7 @@
     "image": "tesla model 3.png",
     "source_pdf": "car data/Tesla/Tesla Model 3.pdf",
     "source_hash": "b6507c4253a4df312591812c630bf6fa1ff6ee2542c606a967a391c539d6b6b3",
-    "source_url": "https://www.tesla.com/ownersmanual/model3/en_us/",
+    "source_url": "https://www.notice-utilisation-voiture.fr/notices/tesla/model-3",
     "source_official": true,
     "source_type": "pdf",
     "locale": "en_us",
@@ -685,7 +735,8 @@
     "extraction_mode": "pypdf",
     "parser_version": "1.0",
     "indexed_at": "2026-04-05T16:11:34.712763+00:00",
-    "segment": "berline"
+    "segment": "berline",
+    "pdf_url": "https://inspirauto.fr/getPdf.php/?position=inline&file=anV4b3lJaXFVTW9GM20yL3dwUXcycDNmQVp6Z2pHZ2NPd1NVMy9tZDMxOFE2SUZLVHJSenU3blEzZmtYMHZSMQ==&preview=true"
   },
   {
     "slug": "tesla-model-s",
@@ -736,7 +787,9 @@
     "chunk_count": 1359,
     "extraction_mode": "pypdf",
     "indexed_at": "2026-03-26T13:28:12.615476+00:00",
-    "segment": "suv"
+    "segment": "suv",
+    "pdf_url": "https://inspirauto.fr/getPdf.php/?position=inline&file=anV4b3lJaXFVTW9GM20yL3dwUXcyckZEQUthNDhuWXFJdUJqSDVEMGx6N1h3a29Hd0dreWhzc1phWTRUazF2QQ==&preview=true",
+    "source_url": "https://www.notice-utilisation-voiture.fr/notices/tesla/model-y"
   },
   {
     "slug": "volkswagen-golf-6-2008-2012",
@@ -749,7 +802,9 @@
     "chunk_count": 1454,
     "extraction_mode": "pypdf",
     "indexed_at": "2026-04-04T19:39:56.493781+00:00",
-    "segment": "berline"
+    "segment": "berline",
+    "pdf_url": "https://inspirauto.fr/getPdf.php/?position=inline&file=MDVtNitvM0dZV1Q1dTd2NkFyZkU0aTNtRDhZK0JjcnZsSERzb2pKU2VDYWJrd282dWJaZFFUNngzSDBtaEV5UA==&preview=true",
+    "source_url": "https://www.notice-utilisation-voiture.fr/notices/volkswagen/golf"
   },
   {
     "slug": "volkswagen-golf-8-2020",
@@ -761,6 +816,8 @@
     "page_count": 342,
     "chunk_count": 1168,
     "extraction_mode": "pypdf",
-    "indexed_at": "2026-04-04T19:40:48.704664+00:00"
+    "indexed_at": "2026-04-04T19:40:48.704664+00:00",
+    "pdf_url": "https://inspirauto.fr/getPdf.php/?position=inline&file=MDVtNitvM0dZV1Q1dTd2NkFyZkU0aTNtRDhZK0JjcnZsSERzb2pKU2VDYWJrd282dWJaZFFUNngzSDBtaEV5UA==&preview=true",
+    "source_url": "https://www.notice-utilisation-voiture.fr/notices/volkswagen/golf"
   }
 ]
