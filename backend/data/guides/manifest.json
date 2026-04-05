@@ -493,7 +493,9 @@
     "chunk_count": 643,
     "extraction_mode": "pypdf",
     "indexed_at": "2026-04-05T17:33:02.760125+00:00",
-    "segment": "suv"
+    "segment": "suv",
+    "pdf_url": "https://inspirauto.fr/getPdf.php/?position=inline&file=RW5TcG5OWFY3WGJGTEFwb09kU2w5NFZXK1BtY3lNRHhINUROajFxVVE0cFFZVUthdDk2aGlTWWVZTDJlWG1VSQ==&preview=true",
+    "source_url": "https://www.notice-utilisation-voiture.fr/notices/renault/arkana/renault-arkana-2023/2-FRA-09-2025"
   },
   {
     "slug": "renault-austral",
@@ -506,7 +508,9 @@
     "chunk_count": 721,
     "extraction_mode": "pypdf",
     "indexed_at": "2026-04-05T17:33:39.299016+00:00",
-    "segment": "suv"
+    "segment": "suv",
+    "pdf_url": "https://inspirauto.fr/getPdf.php/?position=inline&file=RW5TcG5OWFY3WGJGTEFwb09kU2w5NDFoYTJMR0J2K1NOMzUvSDE4U1V2WEhjMndFSFFPOVdpTFZCTWRIcDVkSg==&preview=true",
+    "source_url": "https://www.notice-utilisation-voiture.fr/notices/renault/austral/renault-austral-2025/2-FRA-07-2025"
   },
   {
     "slug": "renault-captur-2024",
@@ -556,7 +560,9 @@
     "chunk_count": 729,
     "extraction_mode": "pypdf",
     "indexed_at": "2026-04-05T17:34:13.063694+00:00",
-    "segment": "citadine"
+    "segment": "citadine",
+    "pdf_url": "https://inspirauto.fr/getPdf.php/?position=inline&file=RW5TcG5OWFY3WGJGTEFwb09kU2w5ME1vaGJxQ21tU0JWeGlKb0JSMnNyaGZnVCtMeXJpSG5kUlpNYWgzeklIQQ==&preview=true",
+    "source_url": "https://www.notice-utilisation-voiture.fr/notices/renault/clio/renault-clio-2025/6-1-FRA-09-2025"
   },
   {
     "slug": "renault-espace",
@@ -569,7 +575,9 @@
     "chunk_count": 688,
     "extraction_mode": "pypdf",
     "indexed_at": "2026-04-05T17:34:42.126803+00:00",
-    "segment": "suv"
+    "segment": "suv",
+    "pdf_url": "https://inspirauto.fr/getPdf.php/?position=inline&file=RW5TcG5OWFY3WGJGTEFwb09kU2w5Nkl2ZGpJNGlEVmRsaDRkRk9FUVQxOWU2NS83ZllsRHF6SHozRXhneTFMMg==&preview=true",
+    "source_url": "https://www.notice-utilisation-voiture.fr/notices/renault/espace/renault-espace-2025/6-2-FRA-07-2025"
   },
   {
     "slug": "renault-kadjar",
@@ -582,7 +590,9 @@
     "chunk_count": 628,
     "extraction_mode": "pypdf",
     "indexed_at": "2026-04-05T17:35:16.469059+00:00",
-    "segment": "suv"
+    "segment": "suv",
+    "pdf_url": "https://inspirauto.fr/getPdf.php/?position=inline&file=RW5TcG5OWFY3WGJGTEFwb09kU2w5MDdac0pIUVhWamZieHlBY1hTOTlOOHlodVdra3Z0QkxuNGh1azQ0WnpNSA==&preview=true",
+    "source_url": "https://www.notice-utilisation-voiture.fr/notices/renault/kadjar/renault-kadjar-2019/2-FRA-08-2021"
   },
   {
     "slug": "renault-megane-e-tech",
@@ -595,7 +605,9 @@
     "chunk_count": 673,
     "extraction_mode": "pypdf",
     "indexed_at": "2026-04-05T17:35:50.899679+00:00",
-    "segment": "suv"
+    "segment": "suv",
+    "pdf_url": "https://inspirauto.fr/getPdf.php/?position=inline&file=RW5TcG5OWFY3WGJGTEFwb09kU2w5eHlZd2pRS0RiRUpTTGdlbU5zbm9GWFpDZGlpZDJsZEdWVjZUWVloZmVseA==&preview=true",
+    "source_url": "https://www.notice-utilisation-voiture.fr/notices/renault/megane-e-tech/renault-megane-e-tech-2021/5-FRA-12-2023"
   },
   {
     "slug": "renault-rafale",
@@ -608,7 +620,9 @@
     "chunk_count": 718,
     "extraction_mode": "pypdf",
     "indexed_at": "2026-04-05T17:36:27.092080+00:00",
-    "segment": "suv"
+    "segment": "suv",
+    "pdf_url": "https://inspirauto.fr/getPdf.php/?position=inline&file=RW5TcG5OWFY3WGJGTEFwb09kU2w5eU4zTFVXcS9XRDVEUVh6Y1lrb2M3MjZ0UENrc0kzTkNNbWFwbzB1TXJnRg==&preview=true",
+    "source_url": "https://www.notice-utilisation-voiture.fr/notices/renault/rafale/renault-rafale-2024/FRA-07-2025"
   },
   {
     "slug": "renault-scenic-e-tech",
@@ -621,7 +635,9 @@
     "chunk_count": 629,
     "extraction_mode": "pypdf",
     "indexed_at": "2026-04-05T17:36:55.998140+00:00",
-    "segment": "monospace"
+    "segment": "monospace",
+    "pdf_url": "https://inspirauto.fr/getPdf.php/?position=inline&file=RW5TcG5OWFY3WGJGTEFwb09kU2w5MkxFenRSNW1LQW14OHFPSjVXbXZ4c2xPa0grYjdlSndsZWRMR0xpNmMwbA==&preview=true",
+    "source_url": "https://www.notice-utilisation-voiture.fr/notices/renault/scenic-e-tech/renault-scenic-e-tech-2023/5-1-FRA-12-2023"
   },
   {
     "slug": "renault-twingo",
@@ -634,7 +650,9 @@
     "chunk_count": 412,
     "extraction_mode": "pypdf",
     "indexed_at": "2026-04-05T17:37:16.417823+00:00",
-    "segment": "citadine"
+    "segment": "citadine",
+    "pdf_url": "https://inspirauto.fr/getPdf.php/?position=inline&file=RW5TcG5OWFY3WGJGTEFwb09kU2w5NGs0VVdqcG1US2tHbzJRL3MvdmxiZHA1bGVPQ2NBNEJqWmc5RytBRlFXVQ==&preview=true",
+    "source_url": "https://www.notice-utilisation-voiture.fr/notices/renault/twingo/renault-twingo-2019/3-2-FRA-10-2021-ZE"
   },
   {
     "slug": "renault-zoe",
@@ -647,7 +665,9 @@
     "chunk_count": 532,
     "extraction_mode": "pypdf",
     "indexed_at": "2026-04-05T17:37:45.055179+00:00",
-    "segment": "citadine"
+    "segment": "citadine",
+    "pdf_url": "https://inspirauto.fr/getPdf.php/?position=inline&file=RW5TcG5OWFY3WGJGTEFwb09kU2w5Mk8zRWRsQ3JYT3hibnBqZ3R0YzNyU0I4N2tGVU5zaDJXdnhOK0Q0QU9jZw==&preview=true",
+    "source_url": "https://www.notice-utilisation-voiture.fr/notices/renault/zoe/renault-zoe-2019/2-FRA-10-2019"
   },
   {
     "slug": "tesla-model-3",
@@ -674,7 +694,7 @@
     "image": "tesla model s.png",
     "source_pdf": "car data/Tesla/Tesla Model S.pdf",
     "source_hash": "36f0d5aa79e5de154fea7fa0d2a5f6879223f1852279b8cfb355915b76ad88b6",
-    "source_url": "https://www.tesla.com/ownersmanual/models/en_us/",
+    "source_url": "https://www.notice-utilisation-voiture.fr/notices/tesla/model-s/tesla-model-s-2021/3-FRA-2024-AMERIQUE-DU-NORD",
     "source_official": true,
     "source_type": "pdf",
     "locale": "en_us",
@@ -683,7 +703,8 @@
     "extraction_mode": "pypdf",
     "parser_version": "1.0",
     "indexed_at": "2026-04-05T17:13:43.298171+00:00",
-    "segment": "berline"
+    "segment": "berline",
+    "pdf_url": "https://inspirauto.fr/getPdf.php/?position=inline&file=anV4b3lJaXFVTW9GM20yL3dwUXcybHBQZ1Zwa3FTdkRHR2NETmZranJHdjVNT0VGNG1YckZ4L1R1T1B3SzlxMA==&preview=true"
   },
   {
     "slug": "tesla-model-x",
@@ -692,7 +713,7 @@
     "image": "tesla model x.png",
     "source_pdf": "car data/Tesla/Tesla Model X.pdf",
     "source_hash": "d8e2a017ac0c7e73edfff589d25671adcd0d70354900877c0b323d5b794d0d38",
-    "source_url": "https://www.tesla.com/ownersmanual/modelx/en_us/",
+    "source_url": "https://www.notice-utilisation-voiture.fr/notices/tesla/model-x/tesla-model-x-2020/1-FRA-2024",
     "source_official": true,
     "source_type": "pdf",
     "locale": "en_us",
@@ -701,7 +722,8 @@
     "extraction_mode": "pypdf",
     "parser_version": "1.0",
     "indexed_at": "2026-04-05T17:14:58.046221+00:00",
-    "segment": "suv"
+    "segment": "suv",
+    "pdf_url": "https://inspirauto.fr/getPdf.php/?position=inline&file=anV4b3lJaXFVTW9GM20yL3dwUXcyaExqRExTWEtCUmRuODdLRVRqY0VoRm5RUWhzMkVOUHk0MUFHVkRIUC85Sw==&preview=true"
   },
   {
     "slug": "tesla-model-y",
