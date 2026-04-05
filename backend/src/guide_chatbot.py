@@ -243,29 +243,29 @@ FIX_MODE_PROMPT = {
     "fr": (
         "MODE FIX (PROCEDURE):\n"
         "Structure ta reponse ainsi:\n"
-        "- **Objectif**: ce qu'on cherche a faire\n"
+        "- **Objectif**: une phrase\n"
         "- **Difficulte**: facile / moyen / avance\n"
-        "- **Outils necessaires**: liste si applicable\n"
+        "- **Outils**: liste courte si applicable\n"
         "- **Etapes**: liste numerotee detaillee\n"
-        "- **Precautions**: securite et points d'attention\n\n"
+        "- **Attention**: 1-2 points de securite essentiels SEULEMENT si danger reel (pas de disclaimers generiques)\n\n"
     ),
     "en": (
         "FIX MODE (PROCEDURE):\n"
         "Structure your response as follows:\n"
-        "- **Objective**: what we are trying to do\n"
+        "- **Objective**: one sentence\n"
         "- **Difficulty**: easy / medium / advanced\n"
-        "- **Tools needed**: list if applicable\n"
+        "- **Tools**: short list if applicable\n"
         "- **Steps**: detailed numbered list\n"
-        "- **Precautions**: safety and key warnings\n\n"
+        "- **Warning**: 1-2 essential safety points ONLY if real danger (no generic disclaimers)\n\n"
     ),
     "ko": (
         "FIX MODE (\uc808\ucc28):\n"
         "\ub2e4\uc74c\uacfc \uac19\uc774 \ub2f5\ubcc0\uc744 \uad6c\uc131\ud558\uc138\uc694:\n"
-        "- **\ubaa9\ud45c**: \ubb34\uc5c7\uc744 \ud558\ub824\uace0 \ud558\ub294\uc9c0\n"
+        "- **\ubaa9\ud45c**: \ud55c \ubb38\uc7a5\n"
         "- **\ub09c\uc774\ub3c4**: \uc27d\uc74c / \ubcf4\ud1b5 / \uc5b4\ub824\uc6c0\n"
-        "- **\ud544\uc694\ud55c \ub3c4\uad6c**: \ud574\ub2f9\ub418\ub294 \uacbd\uc6b0 \ubaa9\ub85d\n"
+        "- **\ub3c4\uad6c**: \ud574\ub2f9\ub418\ub294 \uacbd\uc6b0 \uac04\ub2e8\ud55c \ubaa9\ub85d\n"
         "- **\ub2e8\uacc4**: \uc0c1\uc138\ud55c \ubc88\ud638 \ubaa9\ub85d\n"
-        "- **\uc8fc\uc758\uc0ac\ud56d**: \uc548\uc804 \ubc0f \uc8fc\uc694 \uacbd\uace0\n\n"
+        "- **\uc8fc\uc758**: \uc2e4\uc81c \uc704\ud5d8\uc774 \uc788\ub294 \uacbd\uc6b0\ub9cc 1-2\uac1c \ud575\uc2ec \uc548\uc804 \uc0ac\ud56d\n\n"
     ),
 }
 
@@ -1035,7 +1035,8 @@ REGLES STRICTES:
 8) N'ajoute PAS de section "Sources" (elle sera ajoutee automatiquement).
 9) Orthographe, grammaire et ponctuation impeccables. Phrases claires et naturelles.
 10) Personnalise chaque reponse pour le {self.guide.name}: mentionne le nom du vehicule quand c'est pertinent.
-11) Ta reponse doit etre une explication textuelle complete et autonome. Ne mentionne AUCUN lien, URL, ou video dans ta reponse -- ils seront ajoutes automatiquement apres."""
+11) Ta reponse doit etre une explication textuelle complete et autonome. Ne mentionne AUCUN lien, URL, ou video dans ta reponse -- ils seront ajoutes automatiquement apres.
+12) Pas de disclaimers generiques du type "consultez un professionnel", "faites appel a un mecanicien", "verifiez aupres du constructeur" sauf si le danger est reel et immediat. Sois direct et utile."""
 
         # --- User content ---
         user_parts = []

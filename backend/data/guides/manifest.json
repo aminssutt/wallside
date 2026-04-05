@@ -1,7 +1,7 @@
 [
   {
     "slug": "alfa-romeo-33-phase-3-1989-1995",
-    "name": "Alfa Romeo 33 Phase 3 1989-1995",
+    "name": "Alfa Romeo 33 (1989-1995)",
     "brand": "Alfa Romeo",
     "image": "alfa romeo 33 phase 3 1989-1995.png",
     "source_pdf": "car data/Alfa RomÃ©o/Alfa RomÃ©o 33 Phase 3 1989-1995.pdf",
@@ -14,7 +14,7 @@
   },
   {
     "slug": "alfa-romeo-4c-2013-2020",
-    "name": "Alfa Romeo 4C 2013-2020",
+    "name": "Alfa Romeo 4C (2013-2020)",
     "brand": "Alfa Romeo",
     "image": "alfa romeo 4c 2013-2020.png",
     "source_pdf": "car data/Alfa RomÃ©o/Alfa RomÃ©o 4C 2013-2020.pdf",
@@ -40,7 +40,7 @@
   },
   {
     "slug": "alfa-romeo-infotainment-system",
-    "name": "Alfa Romeo Infotainment System",
+    "name": "Alfa Romeo - Infotainment",
     "brand": "Alfa Romeo",
     "image": null,
     "source_pdf": "car data/Alfa Romeo/Alfa Romeo - Infotainment System.pdf",
@@ -52,7 +52,7 @@
   },
   {
     "slug": "alpine-a390-2025",
-    "name": "Alpine A390 2025",
+    "name": "Alpine A390 (2025)",
     "brand": "Alpine",
     "image": "alpine a390 2025.png",
     "source_pdf": "car data/Renault/Alpine A390 2025.pdf",
@@ -65,7 +65,7 @@
   },
   {
     "slug": "alpine-a390-2025-multimedia-system",
-    "name": "Alpine A390 2025 Multimedia System",
+    "name": "Alpine A390 - Multimedia",
     "brand": "Alpine",
     "image": "alpine a390 2025.png",
     "source_pdf": "car data/Alpine/Alpine A390 2025 - Multimedia System.pdf",
@@ -77,7 +77,7 @@
   },
   {
     "slug": "audi-q5-2017-2020",
-    "name": "Audi Q5 2017 2020",
+    "name": "Audi Q5 (2017-2020)",
     "brand": "Audi",
     "image": "audi q5 2017-2020.png",
     "source_pdf": "car data/Audi/Audi Q5 2017-2020.pdf",
@@ -90,7 +90,7 @@
   },
   {
     "slug": "bmw-3-series-2024",
-    "name": "Bmw 3 Series 2024",
+    "name": "BMW Serie 3 (2024)",
     "brand": "Bmw",
     "image": "bmw 3 series 2024.png",
     "source_pdf": "car data/BMW/BMW 3 Series 2024.pdf",
@@ -103,7 +103,7 @@
   },
   {
     "slug": "chevrolet-avalanche-2001-2006",
-    "name": "Chevrolet Avalanche 2001-2006",
+    "name": "Chevrolet Avalanche (2001-2006)",
     "brand": "Chevrolet",
     "image": "chevrolet avalanche 2001-2006.png",
     "source_pdf": "car data/Chevrolet/Chevrolet Avalanche 2001-2006.pdf",
@@ -116,7 +116,7 @@
   },
   {
     "slug": "citroen-c3-2024",
-    "name": "Citroen C3 2024",
+    "name": "Citroen C3 (2024)",
     "brand": "Citroen",
     "image": "citroen c3 2024.png",
     "source_pdf": "car data/Citroen/Citroen C3 2024.pdf",
@@ -129,7 +129,7 @@
   },
   {
     "slug": "dacia-duster-2024",
-    "name": "Dacia Duster 2024",
+    "name": "Dacia Duster (2024)",
     "brand": "Dacia",
     "image": "dacia duster 2024.png",
     "source_pdf": "car data/Dacia/Dacia Duster 2024.pdf",
@@ -142,7 +142,7 @@
   },
   {
     "slug": "dacia-media-nav-live-guide",
-    "name": "Dacia Media Nav Live Guide",
+    "name": "Dacia - Media Nav",
     "brand": "Dacia",
     "image": null,
     "source_pdf": "car data/Dacia/Dacia - Media Nav Live Guide.pdf",
@@ -154,7 +154,7 @@
   },
   {
     "slug": "dacia-sandero-2023",
-    "name": "Dacia Sandero 2023",
+    "name": "Dacia Sandero (2023)",
     "brand": "Dacia",
     "image": "dacia sandero 2023.png",
     "source_pdf": "car data/Dacia/Dacia Sandero 2023.pdf",
@@ -167,7 +167,7 @@
   },
   {
     "slug": "genesis-g80-2024",
-    "name": "Genesis G80 2024",
+    "name": "Genesis G80 (2024)",
     "brand": "Genesis",
     "image": "genesis g80 2024.png",
     "source_pdf": "car data/Genesis/Genesis G80 2024.pdf",
@@ -180,7 +180,7 @@
   },
   {
     "slug": "honda-civic-11",
-    "name": "Honda Civic 11",
+    "name": "Honda Civic (2022-2025)",
     "brand": "Honda",
     "image": "honda civic 11.png",
     "source_pdf": "car data/Honda/honda civic 11.pdf",
@@ -193,7 +193,7 @@
   },
   {
     "slug": "honda-civic-11-navigation-manual",
-    "name": "Honda Civic 11 Navigation Manual",
+    "name": "Honda Civic - Navigation",
     "brand": "Honda",
     "image": "honda civic 11.png",
     "source_pdf": "car data/Honda/Honda Civic 11 - Navigation Manual.pdf",
@@ -205,7 +205,7 @@
   },
   {
     "slug": "hyundai-elantra-2024",
-    "name": "Hyundai Elantra 2024",
+    "name": "Hyundai Elantra (2024)",
     "brand": "Hyundai",
     "image": "hyundai elantra 2024.png",
     "source_pdf": "car data/Hyundai/Hyundai Elantra 2024.pdf",
@@ -218,7 +218,7 @@
   },
   {
     "slug": "hyundai-elantra-2024-infotainment-system",
-    "name": "Hyundai Elantra 2024 Infotainment System",
+    "name": "Hyundai Elantra - Infotainment",
     "brand": "Hyundai",
     "image": "hyundai elantra 2024.png",
     "source_pdf": "car data/Hyundai/Hyundai Elantra 2024 - Infotainment System.pdf",
@@ -230,7 +230,7 @@
   },
   {
     "slug": "hyundai-grandeur-2024",
-    "name": "Hyundai Grandeur 2024",
+    "name": "Hyundai Grandeur (2024)",
     "brand": "Hyundai",
     "image": "hyundai grandeur 2024.png",
     "source_pdf": "car data/Hyundai/Hyundai Grandeur 2024.pdf",
@@ -243,7 +243,7 @@
   },
   {
     "slug": "hyundai-palisade-2024",
-    "name": "Hyundai Palisade 2024",
+    "name": "Hyundai Palisade (2024)",
     "brand": "Hyundai",
     "image": "hyundai palisade 2024.png",
     "source_pdf": "car data/Hyundai/Hyundai Palisade 2024.pdf",
@@ -256,7 +256,7 @@
   },
   {
     "slug": "hyundai-palisade-2024-infotainment-system",
-    "name": "Hyundai Palisade 2024 Infotainment System",
+    "name": "Hyundai Palisade - Infotainment",
     "brand": "Hyundai",
     "image": "hyundai palisade 2024.png",
     "source_pdf": "car data/Hyundai/Hyundai Palisade 2024 - Infotainment System.pdf",
@@ -268,7 +268,7 @@
   },
   {
     "slug": "hyundai-santa-fe-2024",
-    "name": "Hyundai Santa Fe 2024",
+    "name": "Hyundai Santa Fe (2024)",
     "brand": "Hyundai",
     "image": "hyundai santa fe 2024.png",
     "source_pdf": "car data/Hyundai/Hyundai Santa Fe 2024.pdf",
@@ -281,7 +281,7 @@
   },
   {
     "slug": "hyundai-tucson-2024",
-    "name": "Hyundai Tucson 2024",
+    "name": "Hyundai Tucson (2024)",
     "brand": "Hyundai",
     "image": "hyundai tucson 2024.png",
     "source_pdf": "car data/Hyundai/Hyundai Tucson 2024.pdf",
@@ -294,7 +294,7 @@
   },
   {
     "slug": "hyundai-tucson-2024-infotainment-system",
-    "name": "Hyundai Tucson 2024 Infotainment System",
+    "name": "Hyundai Tucson - Infotainment",
     "brand": "Hyundai",
     "image": "hyundai tucson 2024.png",
     "source_pdf": "car data/Hyundai/Hyundai Tucson 2024 - Infotainment System.pdf",
@@ -306,7 +306,7 @@
   },
   {
     "slug": "kia-seltos-2023",
-    "name": "Kia Seltos 2023",
+    "name": "Kia Seltos (2023)",
     "brand": "Kia",
     "image": "kia seltos 2023.png",
     "source_pdf": "car data/Kia/Kia Seltos 2023.pdf",
@@ -319,7 +319,7 @@
   },
   {
     "slug": "kia-sorento-2023",
-    "name": "Kia Sorento 2023",
+    "name": "Kia Sorento (2023)",
     "brand": "Kia",
     "image": "kia sorento 2023.png",
     "source_pdf": "car data/Kia/Kia Sorento 2023.pdf",
@@ -332,7 +332,7 @@
   },
   {
     "slug": "kia-sportage-2023",
-    "name": "Kia Sportage 2023",
+    "name": "Kia Sportage (2023)",
     "brand": "Kia",
     "image": "kia sportage 2023.png",
     "source_pdf": "car data/Kia/Kia Sportage 2023.pdf",
@@ -345,7 +345,7 @@
   },
   {
     "slug": "range-rover-evoque-2024",
-    "name": "Range Rover Evoque 2024",
+    "name": "Range Rover Evoque (2024)",
     "brand": "Land Rover",
     "image": "range rover evoque 2024.png",
     "source_pdf": "car data/Land Rover/Range Rover Evoque 2024.pdf",
@@ -358,7 +358,7 @@
   },
   {
     "slug": "mercedes-c-class-2022",
-    "name": "Mercedes C Class 2022",
+    "name": "Mercedes Classe C (2022)",
     "brand": "Mercedes",
     "image": "mercedes c class 2022.png",
     "source_pdf": "car data/Mercedes/Mercedes C-Class 2022.pdf",
@@ -371,7 +371,7 @@
   },
   {
     "slug": "mercedes-c-class-2022-mbux-multimedia",
-    "name": "Mercedes C Class 2022 Mbux Multimedia",
+    "name": "Mercedes Classe C - MBUX",
     "brand": "Mercedes",
     "image": "mercedes c class 2022.png",
     "source_pdf": "car data/Mercedes/Mercedes C-Class 2022 - MBUX Multimedia.pdf",
@@ -383,7 +383,7 @@
   },
   {
     "slug": "peugeot-2008-2019",
-    "name": "Peugeot 2008 2019",
+    "name": "Peugeot 2008 (2019)",
     "brand": "Peugeot",
     "image": "peugeot 2008 2019.png",
     "source_pdf": "car data/Peugeot/Peugeot 2008 2019.pdf",
@@ -396,7 +396,7 @@
   },
   {
     "slug": "peugeot-208-2023",
-    "name": "Peugeot 208 2023",
+    "name": "Peugeot 208 (2023)",
     "brand": "Peugeot",
     "image": "peugeot 208 2023.png",
     "source_pdf": "car data/Peugeot/Peugeot 208 2023.pdf",
@@ -409,7 +409,7 @@
   },
   {
     "slug": "peugeot-3008-2018",
-    "name": "Peugeot 3008 2018",
+    "name": "Peugeot 3008 (2018)",
     "brand": "Peugeot",
     "image": "peugeot 3008 2018.png",
     "source_pdf": "car data/Peugeot/Peugeot 3008 2018.pdf",
@@ -422,7 +422,7 @@
   },
   {
     "slug": "peugeot-308-2022",
-    "name": "Peugeot 308 2022",
+    "name": "Peugeot 308 (2022)",
     "brand": "Peugeot",
     "image": "peugeot 308 2022.png",
     "source_pdf": "car data/Peugeot/Peugeot 308 2022.pdf",
@@ -435,7 +435,7 @@
   },
   {
     "slug": "peugeot-508-2019",
-    "name": "Peugeot 508 2019",
+    "name": "Peugeot 508 (2019)",
     "brand": "Peugeot",
     "image": "peugeot 508 2019.png",
     "source_pdf": "car data/Peugeot/Peugeot 508 2019.pdf",
@@ -448,7 +448,7 @@
   },
   {
     "slug": "peugeot-carnet-entretien-et-garanties",
-    "name": "Peugeot Carnet Entretien Et Garanties",
+    "name": "Peugeot - Carnet Entretien",
     "brand": "Peugeot",
     "image": null,
     "source_pdf": "car data/Peugeot/Peugeot - Carnet Entretien et Garanties.pdf",
@@ -460,7 +460,7 @@
   },
   {
     "slug": "renault-captur-2024",
-    "name": "Renault Captur 2024",
+    "name": "Renault Captur (2024)",
     "brand": "Renault",
     "image": "renault captur 2024.png",
     "source_pdf": "car data/Renault/Renault Captur 2024.pdf",
@@ -473,7 +473,7 @@
   },
   {
     "slug": "renault-captur-2024-easy-link-multimedia",
-    "name": "Renault Captur 2024 Easy Link Multimedia",
+    "name": "Renault Captur - Multimedia",
     "brand": "Renault",
     "image": "renault captur 2024.png",
     "source_pdf": "car data/Renault/Renault Captur 2024 - Easy Link Multimedia.pdf",
@@ -485,7 +485,7 @@
   },
   {
     "slug": "clio-4",
-    "name": "Renault Clio 4 Guide Utilisateur",
+    "name": "Renault Clio 4 (2012-2019)",
     "brand": "Renault",
     "image": "clio 4.png",
     "source_pdf": "car data/Renault/Renault Clio 4 - Guide Utilisateur.pdf",
@@ -497,7 +497,7 @@
   },
   {
     "slug": "tesla-model-y",
-    "name": "Tesla Model Y",
+    "name": "Tesla Model Y (2020-2025)",
     "brand": "Tesla",
     "image": "tesla model Y.png",
     "source_pdf": "car data/Tesla/Tesla Model Y.pdf",
@@ -510,7 +510,7 @@
   },
   {
     "slug": "volkswagen-golf-6-2008-2012",
-    "name": "Volkswagen Golf 6 2008-2012",
+    "name": "Volkswagen Golf 6 (2008-2012)",
     "brand": "Volkswagen",
     "image": null,
     "source_pdf": "car data/Volkswagen/Volkswagen Golf 6 2008-2012.pdf",
@@ -523,7 +523,7 @@
   },
   {
     "slug": "volkswagen-golf-8-2020",
-    "name": "Volkswagen Golf 8 2020",
+    "name": "Volkswagen Golf 8 (2020)",
     "brand": "Volkswagen",
     "image": "volkswagen golf 8 2020.png",
     "source_pdf": "car data/Volkswagen/Volkswagen Golf 8 2020.pdf",
