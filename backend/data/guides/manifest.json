@@ -85,7 +85,7 @@
   },
   {
     "slug": "audi-q5-2017-2020",
-    "name": "Audi Q5 2017 2020",
+    "name": "Audi Q5 (2017-2020)",
     "brand": "Audi",
     "image": "audi q5 2017-2020.png",
     "source_pdf": "car data/Audi/Audi Q5 2017-2020.pdf",
@@ -98,7 +98,7 @@
   },
   {
     "slug": "bmw-3-series-2024",
-    "name": "Bmw 3 Series 2024",
+    "name": "BMW Serie 3 (2024)",
     "brand": "Bmw",
     "image": "bmw 3 series 2024.png",
     "source_pdf": "car data/BMW/BMW 3 Series 2024.pdf",
@@ -128,7 +128,7 @@
   },
   {
     "slug": "citroen-c3-2024",
-    "name": "Citroen C3 2024",
+    "name": "Citroën C3 (2024)",
     "brand": "Citroen",
     "image": "citroen c3 2024.png",
     "source_pdf": "car data/Citroen/Citroen C3 2024.pdf",
@@ -143,7 +143,7 @@
   },
   {
     "slug": "dacia-duster-2024",
-    "name": "Dacia Duster 2024",
+    "name": "Dacia Duster (2024)",
     "brand": "Dacia",
     "image": "dacia duster 2024.png",
     "source_pdf": "car data/Dacia/Dacia Duster 2024.pdf",
@@ -170,7 +170,7 @@
   },
   {
     "slug": "dacia-sandero-2023",
-    "name": "Dacia Sandero 2023",
+    "name": "Dacia Sandero (2023)",
     "brand": "Dacia",
     "image": "dacia sandero 2023.png",
     "source_pdf": "car data/Dacia/Dacia Sandero 2023.pdf",
@@ -197,7 +197,7 @@
   },
   {
     "slug": "genesis-g80-2024",
-    "name": "Genesis G80 2024",
+    "name": "Genesis G80 (2024)",
     "brand": "Genesis",
     "image": "genesis g80 2024.png",
     "source_pdf": "car data/Genesis/Genesis G80 2024.pdf",
@@ -239,7 +239,7 @@
   },
   {
     "slug": "hyundai-elantra-2024",
-    "name": "Hyundai Elantra 2024",
+    "name": "Hyundai Elantra (2024)",
     "brand": "Hyundai",
     "image": "hyundai elantra 2024.png",
     "source_pdf": "car data/Hyundai/Hyundai Elantra 2024.pdf",
@@ -266,7 +266,7 @@
   },
   {
     "slug": "hyundai-grandeur-2024",
-    "name": "Hyundai Grandeur 2024",
+    "name": "Hyundai Grandeur (2024)",
     "brand": "Hyundai",
     "image": "hyundai grandeur 2024.png",
     "source_pdf": "car data/Hyundai/Hyundai Grandeur 2024.pdf",
@@ -279,7 +279,7 @@
   },
   {
     "slug": "hyundai-palisade-2024",
-    "name": "Hyundai Palisade 2024",
+    "name": "Hyundai Palisade (2024)",
     "brand": "Hyundai",
     "image": "hyundai palisade 2024.png",
     "source_pdf": "car data/Hyundai/Hyundai Palisade 2024.pdf",
@@ -306,7 +306,7 @@
   },
   {
     "slug": "hyundai-santa-fe-2024",
-    "name": "Hyundai Santa Fe 2024",
+    "name": "Hyundai Santa Fe (2024)",
     "brand": "Hyundai",
     "image": "hyundai santa fe 2024.png",
     "source_pdf": "car data/Hyundai/Hyundai Santa Fe 2024.pdf",
@@ -321,7 +321,7 @@
   },
   {
     "slug": "hyundai-tucson-2024",
-    "name": "Hyundai Tucson 2024",
+    "name": "Hyundai Tucson (2024)",
     "brand": "Hyundai",
     "image": "hyundai tucson 2024.png",
     "source_pdf": "car data/Hyundai/Hyundai Tucson 2024.pdf",
@@ -348,7 +348,7 @@
   },
   {
     "slug": "kia-seltos-2023",
-    "name": "Kia Seltos 2023",
+    "name": "Kia Seltos (2023)",
     "brand": "Kia",
     "image": "kia seltos 2023.png",
     "source_pdf": "car data/Kia/Kia Seltos 2023.pdf",
@@ -363,7 +363,7 @@
   },
   {
     "slug": "kia-sorento-2023",
-    "name": "Kia Sorento 2023",
+    "name": "Kia Sorento (2023)",
     "brand": "Kia",
     "image": "kia sorento 2023.png",
     "source_pdf": "car data/Kia/Kia Sorento 2023.pdf",
@@ -390,7 +390,7 @@
   },
   {
     "slug": "kia-sportage-2023",
-    "name": "Kia Sportage 2023",
+    "name": "Kia Sportage (2023)",
     "brand": "Kia",
     "image": "kia sportage 2023.png",
     "source_pdf": "car data/Kia/Kia Sportage 2023.pdf",
@@ -403,7 +403,7 @@
   },
   {
     "slug": "range-rover-evoque-2024",
-    "name": "Range Rover Evoque 2024",
+    "name": "Range Rover Evoque (2024)",
     "brand": "Land Rover",
     "image": "range rover evoque 2024.png",
     "source_pdf": "car data/Land Rover/Range Rover Evoque 2024.pdf",
@@ -416,7 +416,7 @@
   },
   {
     "slug": "mercedes-c-class-2022",
-    "name": "Mercedes C Class 2022",
+    "name": "Mercedes Classe C (2022)",
     "brand": "Mercedes",
     "image": "mercedes c class 2022.png",
     "source_pdf": "car data/Mercedes/Mercedes C-Class 2022.pdf",
@@ -443,7 +443,7 @@
   },
   {
     "slug": "peugeot-2008-2019",
-    "name": "Peugeot 2008 2019",
+    "name": "Peugeot 2008 (2019)",
     "brand": "Peugeot",
     "image": "peugeot 2008 2019.png",
     "source_pdf": "car data/Peugeot/Peugeot 2008 2019.pdf",
@@ -458,7 +458,7 @@
   },
   {
     "slug": "peugeot-208-2023",
-    "name": "Peugeot 208 2023",
+    "name": "Peugeot 208 (2023)",
     "brand": "Peugeot",
     "image": "peugeot 208 2023.png",
     "source_pdf": "car data/Peugeot/Peugeot 208 2023.pdf",
@@ -473,7 +473,7 @@
   },
   {
     "slug": "peugeot-3008-2018",
-    "name": "Peugeot 3008 2018",
+    "name": "Peugeot 3008 (2018)",
     "brand": "Peugeot",
     "image": "peugeot 3008 2018.png",
     "source_pdf": "car data/Peugeot/Peugeot 3008 2018.pdf",
@@ -488,7 +488,7 @@
   },
   {
     "slug": "peugeot-308-2022",
-    "name": "Peugeot 308 2022",
+    "name": "Peugeot 308 (2022)",
     "brand": "Peugeot",
     "image": "peugeot 308 2022.png",
     "source_pdf": "car data/Peugeot/Peugeot 308 2022.pdf",
@@ -503,7 +503,7 @@
   },
   {
     "slug": "peugeot-508-2019",
-    "name": "Peugeot 508 2019",
+    "name": "Peugeot 508 (2019)",
     "brand": "Peugeot",
     "image": "peugeot 508 2019.png",
     "source_pdf": "car data/Peugeot/Peugeot 508 2019.pdf",
@@ -587,7 +587,7 @@
   },
   {
     "slug": "clio-4",
-    "name": "Renault Clio 4 Guide Utilisateur",
+    "name": "Renault Clio 4 (2012-2019)",
     "brand": "Renault",
     "image": "clio 4.png",
     "source_pdf": "car data/Renault/Renault Clio 4 - Guide Utilisateur.pdf",
@@ -721,7 +721,7 @@
   },
   {
     "slug": "tesla-model-3",
-    "name": "Tesla Model 3",
+    "name": "Tesla Model 3 (2024+)",
     "brand": "Tesla",
     "image": "tesla model 3.png",
     "source_pdf": "car data/Tesla/Tesla Model 3.pdf",
@@ -778,7 +778,7 @@
   },
   {
     "slug": "tesla-model-y",
-    "name": "Tesla Model Y",
+    "name": "Tesla Model Y (2020-2025)",
     "brand": "Tesla",
     "image": "tesla model Y.png",
     "source_pdf": "car data/Tesla/Tesla Model Y.pdf",
@@ -793,7 +793,7 @@
   },
   {
     "slug": "volkswagen-golf-6-2008-2012",
-    "name": "Volkswagen Golf 6 2008 2012",
+    "name": "Volkswagen Golf 6 (2008-2012)",
     "brand": "Volkswagen",
     "image": null,
     "source_pdf": "car data/Volkswagen/Volkswagen Golf 6 2008-2012.pdf",
@@ -808,7 +808,7 @@
   },
   {
     "slug": "volkswagen-golf-8-2020",
-    "name": "Volkswagen Golf 8 2020",
+    "name": "Volkswagen Golf 8 (2020)",
     "brand": "Volkswagen",
     "image": "volkswagen golf 8 2020.png",
     "source_pdf": "car data/Volkswagen/Volkswagen Golf 8 2020.pdf",
@@ -822,7 +822,7 @@
   },
   {
     "slug": "seat-leon",
-    "name": "Seat Leon",
+    "name": "Seat Leon (2020)",
     "brand": "Seat",
     "image": null,
     "source_pdf": null,
@@ -838,7 +838,7 @@
   },
   {
     "slug": "seat-ibiza",
-    "name": "Seat Ibiza",
+    "name": "Seat Ibiza (2017)",
     "brand": "Seat",
     "image": null,
     "source_pdf": null,
@@ -854,7 +854,7 @@
   },
   {
     "slug": "seat-ateca",
-    "name": "Seat Ateca",
+    "name": "Seat Ateca (2016)",
     "brand": "Seat",
     "image": null,
     "source_pdf": null,
@@ -870,7 +870,7 @@
   },
   {
     "slug": "seat-alhambra",
-    "name": "Seat Alhambra",
+    "name": "Seat Alhambra (2010)",
     "brand": "Seat",
     "image": null,
     "source_pdf": null,
@@ -886,7 +886,7 @@
   },
   {
     "slug": "seat-tarraco",
-    "name": "Seat Tarraco",
+    "name": "Seat Tarraco (2019)",
     "brand": "Seat",
     "image": null,
     "source_pdf": null,
@@ -902,7 +902,7 @@
   },
   {
     "slug": "mitsubishi-outlander",
-    "name": "Mitsubishi Outlander",
+    "name": "Mitsubishi Outlander (2022)",
     "brand": "Mitsubishi",
     "image": null,
     "source_pdf": null,
@@ -918,7 +918,7 @@
   },
   {
     "slug": "mitsubishi-asx",
-    "name": "Mitsubishi ASX",
+    "name": "Mitsubishi ASX (2020)",
     "brand": "Mitsubishi",
     "image": null,
     "source_pdf": null,
@@ -934,7 +934,7 @@
   },
   {
     "slug": "mitsubishi-lancer",
-    "name": "Mitsubishi Lancer",
+    "name": "Mitsubishi Lancer (2008)",
     "brand": "Mitsubishi",
     "image": null,
     "source_pdf": null,
@@ -950,7 +950,7 @@
   },
   {
     "slug": "mitsubishi-colt",
-    "name": "Mitsubishi Colt",
+    "name": "Mitsubishi Colt (2004)",
     "brand": "Mitsubishi",
     "image": null,
     "source_pdf": null,
