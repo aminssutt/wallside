@@ -550,5 +550,41 @@
     "parser_version": "1.0",
     "indexed_at": "2026-04-05T16:11:34.712763+00:00",
     "segment": "berline"
+  },
+  {
+    "slug": "tesla-model-s",
+    "name": "Tesla Model S (2021+)",
+    "brand": "Tesla",
+    "image": "tesla model s.png",
+    "source_pdf": "car data/Tesla/Tesla Model S.pdf",
+    "source_hash": "36f0d5aa79e5de154fea7fa0d2a5f6879223f1852279b8cfb355915b76ad88b6",
+    "source_url": "https://www.tesla.com/ownersmanual/models/en_us/",
+    "source_official": true,
+    "source_type": "pdf",
+    "locale": "en_us",
+    "page_count": 335,
+    "chunk_count": 1222,
+    "extraction_mode": "pypdf",
+    "parser_version": "1.0",
+    "indexed_at": "2026-04-05T17:13:43.298171+00:00",
+    "segment": "berline"
+  },
+  {
+    "slug": "tesla-model-x",
+    "name": "Tesla Model X (2021+)",
+    "brand": "Tesla",
+    "image": "tesla model x.png",
+    "source_pdf": "car data/Tesla/Tesla Model X.pdf",
+    "source_hash": "d8e2a017ac0c7e73edfff589d25671adcd0d70354900877c0b323d5b794d0d38",
+    "source_url": "https://www.tesla.com/ownersmanual/modelx/en_us/",
+    "source_official": true,
+    "source_type": "pdf",
+    "locale": "en_us",
+    "page_count": 348,
+    "chunk_count": 1257,
+    "extraction_mode": "pypdf",
+    "parser_version": "1.0",
+    "indexed_at": "2026-04-05T17:14:58.046221+00:00",
+    "segment": "suv"
   }
 ]
