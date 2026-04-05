@@ -484,7 +484,7 @@
   },
   {
     "slug": "renault-arkana",
-    "name": "Renault Arkana",
+    "name": "Renault Arkana (2023)",
     "brand": "Renault",
     "image": null,
     "source_pdf": "car data/Renault/Renault Arkana.pdf",
@@ -492,11 +492,12 @@
     "page_count": 370,
     "chunk_count": 643,
     "extraction_mode": "pypdf",
-    "indexed_at": "2026-04-05T17:33:02.760125+00:00"
+    "indexed_at": "2026-04-05T17:33:02.760125+00:00",
+    "segment": "suv"
   },
   {
     "slug": "renault-austral",
-    "name": "Renault Austral",
+    "name": "Renault Austral (2025)",
     "brand": "Renault",
     "image": null,
     "source_pdf": "car data/Renault/Renault Austral.pdf",
@@ -504,7 +505,8 @@
     "page_count": 446,
     "chunk_count": 721,
     "extraction_mode": "pypdf",
-    "indexed_at": "2026-04-05T17:33:39.299016+00:00"
+    "indexed_at": "2026-04-05T17:33:39.299016+00:00",
+    "segment": "suv"
   },
   {
     "slug": "renault-captur-2024",
@@ -545,7 +547,7 @@
   },
   {
     "slug": "renault-clio-5",
-    "name": "Renault Clio 5",
+    "name": "Renault Clio 5 (2025)",
     "brand": "Renault",
     "image": null,
     "source_pdf": "car data/Renault/Renault Clio 5.pdf",
@@ -553,11 +555,12 @@
     "page_count": 436,
     "chunk_count": 729,
     "extraction_mode": "pypdf",
-    "indexed_at": "2026-04-05T17:34:13.063694+00:00"
+    "indexed_at": "2026-04-05T17:34:13.063694+00:00",
+    "segment": "citadine"
   },
   {
     "slug": "renault-espace",
-    "name": "Renault Espace",
+    "name": "Renault Espace (2025)",
     "brand": "Renault",
     "image": null,
     "source_pdf": "car data/Renault/Renault Espace.pdf",
@@ -565,11 +568,12 @@
     "page_count": 426,
     "chunk_count": 688,
     "extraction_mode": "pypdf",
-    "indexed_at": "2026-04-05T17:34:42.126803+00:00"
+    "indexed_at": "2026-04-05T17:34:42.126803+00:00",
+    "segment": "suv"
   },
   {
     "slug": "renault-kadjar",
-    "name": "Renault Kadjar",
+    "name": "Renault Kadjar (2019)",
     "brand": "Renault",
     "image": null,
     "source_pdf": "car data/Renault/Renault Kadjar.pdf",
@@ -577,11 +581,12 @@
     "page_count": 334,
     "chunk_count": 628,
     "extraction_mode": "pypdf",
-    "indexed_at": "2026-04-05T17:35:16.469059+00:00"
+    "indexed_at": "2026-04-05T17:35:16.469059+00:00",
+    "segment": "suv"
   },
   {
     "slug": "renault-megane-e-tech",
-    "name": "Renault Megane E Tech",
+    "name": "Renault Megane E-Tech (2021)",
     "brand": "Renault",
     "image": null,
     "source_pdf": "car data/Renault/Renault Megane E-Tech.pdf",
@@ -589,11 +594,12 @@
     "page_count": 434,
     "chunk_count": 673,
     "extraction_mode": "pypdf",
-    "indexed_at": "2026-04-05T17:35:50.899679+00:00"
+    "indexed_at": "2026-04-05T17:35:50.899679+00:00",
+    "segment": "suv"
   },
   {
     "slug": "renault-rafale",
-    "name": "Renault Rafale",
+    "name": "Renault Rafale (2024)",
     "brand": "Renault",
     "image": null,
     "source_pdf": "car data/Renault/Renault Rafale.pdf",
@@ -601,11 +607,12 @@
     "page_count": 448,
     "chunk_count": 718,
     "extraction_mode": "pypdf",
-    "indexed_at": "2026-04-05T17:36:27.092080+00:00"
+    "indexed_at": "2026-04-05T17:36:27.092080+00:00",
+    "segment": "suv"
   },
   {
     "slug": "renault-scenic-e-tech",
-    "name": "Renault Scenic E Tech",
+    "name": "Renault Scenic E-Tech (2023)",
     "brand": "Renault",
     "image": null,
     "source_pdf": "car data/Renault/Renault Scenic E-Tech.pdf",
@@ -613,11 +620,12 @@
     "page_count": 414,
     "chunk_count": 629,
     "extraction_mode": "pypdf",
-    "indexed_at": "2026-04-05T17:36:55.998140+00:00"
+    "indexed_at": "2026-04-05T17:36:55.998140+00:00",
+    "segment": "monospace"
   },
   {
     "slug": "renault-twingo",
-    "name": "Renault Twingo",
+    "name": "Renault Twingo (2019)",
     "brand": "Renault",
     "image": null,
     "source_pdf": "car data/Renault/Renault Twingo.pdf",
@@ -625,11 +633,12 @@
     "page_count": 246,
     "chunk_count": 412,
     "extraction_mode": "pypdf",
-    "indexed_at": "2026-04-05T17:37:16.417823+00:00"
+    "indexed_at": "2026-04-05T17:37:16.417823+00:00",
+    "segment": "citadine"
   },
   {
     "slug": "renault-zoe",
-    "name": "Renault Zoe",
+    "name": "Renault Zoe (2019)",
     "brand": "Renault",
     "image": null,
     "source_pdf": "car data/Renault/Renault Zoe.pdf",
@@ -637,7 +646,8 @@
     "page_count": 294,
     "chunk_count": 532,
     "extraction_mode": "pypdf",
-    "indexed_at": "2026-04-05T17:37:45.055179+00:00"
+    "indexed_at": "2026-04-05T17:37:45.055179+00:00",
+    "segment": "citadine"
   },
   {
     "slug": "tesla-model-3",
