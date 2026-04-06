@@ -43,8 +43,6 @@ const BRAND_NAME_MAP = {
 }
 
 const COMPACT_MENU_BREAKPOINT = 1024
-const AUTO_ROTATE_INTERVAL = 3000
-const DRAG_THRESHOLD = 40
 
 const normalizeBrandName = (raw) => {
   const lower = (raw || '').trim().toLowerCase()
@@ -75,13 +73,7 @@ function GuidesPage() {
     typeof window !== 'undefined' ? window.innerWidth <= COMPACT_MENU_BREAKPOINT : false,
   )
 
-  /* -- carousel state -------------------------------------------------- */
-  const [carouselIndex, setCarouselIndex] = useState(0)
-  const [isAutoRotating, setIsAutoRotating] = useState(true)
-  const autoRotateTimer = useRef(null)
-  const dragStartX = useRef(null)
-  const carouselRef = useRef(null)
-
+  const scrollRef = useRef(null)
   const langDropdownRef = useRef(null)
   const searchInputRef = useRef(null)
 
@@ -164,59 +156,22 @@ function GuidesPage() {
     )
   }, [selectedBrand, brandGroups, searchTerm])
 
-  /* -- carousel math --------------------------------------------------- */
-
-  const numBrands = filteredBrands.length
-  const angleStep = numBrands > 0 ? 360 / numBrands : 0
-  const currentRotation = -(carouselIndex * angleStep)
-  // Radius scales with number of items so they don't overlap
-  const carouselRadius = Math.max(250, numBrands * 32)
-
-  const frontBrand = numBrands > 0
-    ? filteredBrands[((carouselIndex % numBrands) + numBrands) % numBrands]
-    : null
-
-  /* -- auto-rotate ------------------------------------------------------ */
-
-  useEffect(() => {
-    if (autoRotateTimer.current) clearInterval(autoRotateTimer.current)
-    if (isAutoRotating && numBrands > 1 && !selectedBrand) {
-      autoRotateTimer.current = setInterval(() => {
-        setCarouselIndex((prev) => prev + 1)
-      }, AUTO_ROTATE_INTERVAL)
-    }
-    return () => {
-      if (autoRotateTimer.current) clearInterval(autoRotateTimer.current)
-    }
-  }, [isAutoRotating, numBrands, selectedBrand])
-
-  const pauseAutoRotate = useCallback(() => {
-    setIsAutoRotating(false)
-  }, [])
-
-  const resumeAutoRotateDelayed = useCallback(() => {
-    setTimeout(() => setIsAutoRotating(true), 5000)
-  }, [])
-
-  /* -- carousel navigation --------------------------------------------- */
-
-  const rotateLeft = useCallback(() => {
-    pauseAutoRotate()
-    setCarouselIndex((prev) => prev - 1)
-    resumeAutoRotateDelayed()
-  }, [pauseAutoRotate, resumeAutoRotateDelayed])
-
-  const rotateRight = useCallback(() => {
-    pauseAutoRotate()
-    setCarouselIndex((prev) => prev + 1)
-    resumeAutoRotateDelayed()
-  }, [pauseAutoRotate, resumeAutoRotateDelayed])
-
-  /* -- brand selection handler (must be before keyboard effect) -------- */
+  /* -- brand click (declared before any useEffect that references it) -- */
 
   const handleBrandClick = useCallback((brand) => {
     setSelectedBrand(brand)
     setSearchTerm('')
+  }, [])
+
+  /* -- scroll arrows --------------------------------------------------- */
+
+  const scrollCarousel = useCallback((direction) => {
+    if (!scrollRef.current) return
+    const scrollAmount = 400
+    scrollRef.current.scrollBy({
+      left: direction === 'left' ? -scrollAmount : scrollAmount,
+      behavior: 'smooth',
+    })
   }, [])
 
   /* -- keyboard navigation --------------------------------------------- */
@@ -226,40 +181,15 @@ function GuidesPage() {
     const handleKeyDown = (e) => {
       if (e.key === 'ArrowLeft') {
         e.preventDefault()
-        rotateLeft()
+        scrollCarousel('left')
       } else if (e.key === 'ArrowRight') {
         e.preventDefault()
-        rotateRight()
-      } else if (e.key === 'Enter' && frontBrand) {
-        e.preventDefault()
-        handleBrandClick(frontBrand)
+        scrollCarousel('right')
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [selectedBrand, rotateLeft, rotateRight, frontBrand, handleBrandClick])
-
-  /* -- drag / swipe support -------------------------------------------- */
-
-  const handlePointerDown = useCallback((e) => {
-    dragStartX.current = e.clientX
-  }, [])
-
-  const handlePointerUp = useCallback((e) => {
-    if (dragStartX.current === null) return
-    const diff = e.clientX - dragStartX.current
-    dragStartX.current = null
-    if (Math.abs(diff) > DRAG_THRESHOLD) {
-      if (diff > 0) rotateLeft()
-      else rotateRight()
-    }
-  }, [rotateLeft, rotateRight])
-
-  /* -- reset carousel index when search changes filtered brands -------- */
-
-  useEffect(() => {
-    setCarouselIndex(0)
-  }, [searchTerm])
+  }, [selectedBrand, scrollCarousel])
 
   /* -- responsive ------------------------------------------------------ */
 
@@ -394,39 +324,8 @@ function GuidesPage() {
   const startChatLabel =
     lang === 'fr' ? 'Commencer' : lang === 'ko' ? '\uCC44\uD305 \uC2DC\uC791' : 'Start'
 
-  /* -- carousel item position helper ----------------------------------- */
-
-  const getItemStyle = (idx) => {
-    if (numBrands === 0) return {}
-
-    // Normalize the visual index relative to front
-    const normalizedCurrent = ((carouselIndex % numBrands) + numBrands) % numBrands
-    let offset = idx - normalizedCurrent
-    // Wrap around so items are positioned on the shorter arc
-    if (offset > numBrands / 2) offset -= numBrands
-    if (offset < -numBrands / 2) offset += numBrands
-
-    const itemAngle = offset * angleStep
-    const radians = (itemAngle * Math.PI) / 180
-
-    // Project 3D onto 2D
-    const x = Math.sin(radians) * carouselRadius
-    const z = Math.cos(radians) * carouselRadius
-
-    // Scale and opacity based on z-depth (front = max z = carouselRadius)
-    const depthRatio = (z + carouselRadius) / (2 * carouselRadius) // 0..1, 1 = front
-    const scale = 0.55 + 0.55 * depthRatio
-    const opacity = 0.2 + 0.8 * depthRatio
-    const zIndex = Math.round(depthRatio * 100)
-    const isFront = offset === 0
-
-    return {
-      transform: `translateX(${x}px) translateZ(${z}px) scale(${isFront ? 1.3 : scale})`,
-      opacity: isFront ? 1 : opacity,
-      zIndex: isFront ? 200 : zIndex,
-      filter: isFront ? 'none' : `brightness(${0.6 + 0.4 * depthRatio})`,
-    }
-  }
+  const chooseBrandTitle =
+    lang === 'fr' ? 'Choisissez votre marque' : lang === 'ko' ? '\uBE0C\uB79C\uB4DC\uB97C \uC120\uD0DD\uD558\uC138\uC694' : 'Choose your brand'
 
   /* -- render ---------------------------------------------------------- */
 
@@ -559,15 +458,6 @@ function GuidesPage() {
 
         {/* -- main content -- */}
         <section className="guides-content">
-          <Motion.div
-            className="guides-intro"
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.06, duration: 0.45 }}
-          >
-            <h1>{t.guides.title}</h1>
-            <p>{t.guides.subtitle}</p>
-          </Motion.div>
 
           {/* loading / error / empty states */}
           {loading && (
@@ -593,88 +483,101 @@ function GuidesPage() {
             </div>
           )}
 
-          {/* -- loaded: carousel + vehicle cards -- */}
+          {/* -- loaded content: carousel OR vehicle list (not both) -- */}
           {!loading && !errorKey && guides.length > 0 && (
-            <>
-              {/* search bar */}
-              <div className="guides-search-bar">
-                <svg className="guides-search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                  <circle cx="11" cy="11" r="8" />
-                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                </svg>
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  className="guides-search-input"
-                  placeholder={t.guides.searchPlaceholder || 'Search...'}
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  aria-label={t.guides.searchPlaceholder}
-                />
-                {searchTerm && (
-                  <button
-                    type="button"
-                    className="guides-search-clear"
-                    onClick={() => setSearchTerm('')}
-                    aria-label="Clear"
+            <AnimatePresence mode="wait">
+              {!selectedBrand ? (
+                /* ============================================
+                   Phase 1: Brand Selection (horizontal scroll)
+                   ============================================ */
+                <Motion.div
+                  key="brand-selection"
+                  className="brand-selection"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.35, ease: 'easeOut' }}
+                >
+                  <Motion.h1
+                    className="brand-selection-title"
+                    initial={{ opacity: 0, y: 14 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.06, duration: 0.45 }}
                   >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
-                      <line x1="18" y1="6" x2="6" y2="18" />
-                      <line x1="6" y1="6" x2="18" y2="18" />
+                    {chooseBrandTitle}
+                  </Motion.h1>
+                  <p className="brand-selection-subtitle">{t.guides.subtitle}</p>
+
+                  {/* search bar */}
+                  <div className="guides-search-bar">
+                    <svg className="guides-search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                      <circle cx="11" cy="11" r="8" />
+                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
                     </svg>
-                  </button>
-                )}
-              </div>
-
-              {/* -- Phase 1: 3D Brand Carousel -- */}
-              <div className={`carousel-section${selectedBrand ? ' carousel-section--dimmed' : ''}`}>
-                {numBrands === 0 && (
-                  <div className="guides-state-block">
-                    <p>{t.guides.noBrandMatch}</p>
-                  </div>
-                )}
-
-                {numBrands > 0 && (
-                  <>
-                    <div
-                      className="carousel-container"
-                      ref={carouselRef}
-                      onPointerDown={handlePointerDown}
-                      onPointerUp={handlePointerUp}
-                      onMouseEnter={pauseAutoRotate}
-                      onMouseLeave={() => !selectedBrand && setIsAutoRotating(true)}
-                    >
-                      <div
-                        className="carousel-track"
-                        style={{ '--rotation': `${currentRotation}deg` }}
+                    <input
+                      ref={searchInputRef}
+                      type="text"
+                      className="guides-search-input"
+                      placeholder={t.guides.searchPlaceholder || 'Search...'}
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      aria-label={t.guides.searchPlaceholder}
+                    />
+                    {searchTerm && (
+                      <button
+                        type="button"
+                        className="guides-search-clear"
+                        onClick={() => setSearchTerm('')}
+                        aria-label="Clear"
                       >
-                        {filteredBrands.map((brand, idx) => {
-                          const slug = toBrandSlug(brand)
-                          const normalizedCurrent = ((carouselIndex % numBrands) + numBrands) % numBrands
-                          const isFront = idx === normalizedCurrent
-                          const itemStyle = getItemStyle(idx)
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+                          <line x1="18" y1="6" x2="6" y2="18" />
+                          <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
 
+                  {filteredBrands.length === 0 && (
+                    <div className="guides-state-block">
+                      <p>{t.guides.noBrandMatch}</p>
+                    </div>
+                  )}
+
+                  {filteredBrands.length > 0 && (
+                    <div className="brand-carousel-wrapper">
+                      {/* left arrow */}
+                      <button
+                        type="button"
+                        className="brand-arrow brand-arrow--left"
+                        onClick={() => scrollCarousel('left')}
+                        aria-label="Previous brands"
+                      >
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                          <path d="M15 18l-6-6 6-6" />
+                        </svg>
+                      </button>
+
+                      {/* scrollable brand row */}
+                      <div className="brand-scroll" ref={scrollRef}>
+                        {filteredBrands.map((brand, i) => {
+                          const slug = toBrandSlug(brand)
+                          const count = (brandGroups[brand] || []).length
                           return (
-                            <button
+                            <Motion.button
                               key={brand}
                               type="button"
-                              className={`carousel-item${isFront ? ' carousel-item--active' : ''}`}
-                              style={itemStyle}
-                              onClick={() => {
-                                if (isFront) {
-                                  handleBrandClick(brand)
-                                } else {
-                                  // Rotate to this brand
-                                  pauseAutoRotate()
-                                  setCarouselIndex(idx)
-                                  resumeAutoRotateDelayed()
-                                }
-                              }}
-                              aria-label={brand}
+                              className="brand-card"
+                              onClick={() => handleBrandClick(brand)}
+                              initial={{ opacity: 0, y: 16 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: Math.min(i * 0.04, 0.3), duration: 0.3 }}
+                              whileHover={{ y: -6 }}
+                              whileTap={{ scale: 0.97 }}
                             >
-                              <div className="carousel-item-inner">
+                              <div className="brand-card-logo-wrap">
                                 <img
-                                  className="carousel-item-logo"
+                                  className="brand-card-logo"
                                   src={`/logos/${slug}.svg`}
                                   alt={brand}
                                   onError={(e) => {
@@ -684,144 +587,154 @@ function GuidesPage() {
                                     }
                                   }}
                                 />
-                                <span className="carousel-item-fallback" style={{ display: 'none' }}>
+                                <span className="brand-card-fallback" style={{ display: 'none' }}>
                                   {brand.charAt(0).toUpperCase()}
                                 </span>
                               </div>
-                            </button>
+                              <span className="brand-card-name">{brand}</span>
+                              <span className="brand-card-count">{vehicleCountLabel(count)}</span>
+                            </Motion.button>
                           )
                         })}
                       </div>
-                    </div>
 
-                    {/* carousel info below */}
-                    <div className="carousel-info">
-                      <h2 className="carousel-brand-name">{frontBrand || ''}</h2>
-                      <span className="carousel-brand-count">
-                        {frontBrand ? vehicleCountLabel((brandGroups[frontBrand] || []).length) : ''}
-                      </span>
-                    </div>
-
-                    {/* arrow navigation */}
-                    <div className="carousel-nav">
+                      {/* right arrow */}
                       <button
                         type="button"
-                        className="carousel-nav-btn carousel-nav-btn--left"
-                        onClick={rotateLeft}
-                        aria-label="Previous brand"
+                        className="brand-arrow brand-arrow--right"
+                        onClick={() => scrollCarousel('right')}
+                        aria-label="Next brands"
                       >
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                          <path d="M15 18l-6-6 6-6" />
-                        </svg>
-                      </button>
-                      <button
-                        type="button"
-                        className="carousel-nav-btn carousel-nav-btn--right"
-                        onClick={rotateRight}
-                        aria-label="Next brand"
-                      >
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                           <path d="M9 6l6 6-6 6" />
                         </svg>
                       </button>
                     </div>
-                  </>
-                )}
-              </div>
+                  )}
+                </Motion.div>
+              ) : (
+                /* ============================================
+                   Phase 2: Vehicle List (replaces carousel)
+                   ============================================ */
+                <Motion.div
+                  key="vehicle-list"
+                  className="guides-vehicle-section"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.35, ease: 'easeOut' }}
+                >
+                  <div className="guides-vehicle-header">
+                    <button
+                      type="button"
+                      className="guides-back-btn"
+                      onClick={handleBackToBrands}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                        <path d="M15 18l-6-6 6-6" />
+                      </svg>
+                      <span>{backLabel}</span>
+                    </button>
+                    <div className="guides-vehicle-brand-info">
+                      <img
+                        className="guides-vehicle-brand-logo"
+                        src={`/logos/${toBrandSlug(selectedBrand)}.svg`}
+                        alt={selectedBrand}
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none'
+                        }}
+                      />
+                      <h2>{selectedBrand}</h2>
+                    </div>
+                  </div>
 
-              {/* -- Phase 2: Vehicle cards after brand selection -- */}
-              <AnimatePresence>
-                {selectedBrand && (
-                  <Motion.div
-                    key="vehicle-section"
-                    className="guides-vehicle-section"
-                    initial={{ opacity: 0, y: 40 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 40 }}
-                    transition={{ duration: 0.4, ease: 'easeOut' }}
-                  >
-                    <div className="guides-vehicle-header">
+                  {/* search bar for vehicles */}
+                  <div className="guides-search-bar">
+                    <svg className="guides-search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                      <circle cx="11" cy="11" r="8" />
+                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    <input
+                      ref={searchInputRef}
+                      type="text"
+                      className="guides-search-input"
+                      placeholder={t.guides.searchPlaceholder || 'Search...'}
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      aria-label={t.guides.searchPlaceholder}
+                    />
+                    {searchTerm && (
                       <button
                         type="button"
-                        className="guides-back-btn"
-                        onClick={handleBackToBrands}
+                        className="guides-search-clear"
+                        onClick={() => setSearchTerm('')}
+                        aria-label="Clear"
                       >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                          <path d="M15 18l-6-6 6-6" />
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+                          <line x1="18" y1="6" x2="6" y2="18" />
+                          <line x1="6" y1="6" x2="18" y2="18" />
                         </svg>
-                        <span>{backLabel}</span>
                       </button>
-                      <div className="guides-vehicle-brand-info">
-                        <img
-                          className="guides-vehicle-brand-logo"
-                          src={`/logos/${toBrandSlug(selectedBrand)}.svg`}
-                          alt={selectedBrand}
-                          onError={(e) => {
-                            e.currentTarget.style.display = 'none'
-                          }}
-                        />
-                        <h2>{selectedBrand}</h2>
-                      </div>
-                    </div>
+                    )}
+                  </div>
 
-                    <div className="guides-vehicle-grid">
-                      {filteredVehiclesForBrand.length === 0 && (
-                        <div className="guides-state-block">
-                          <p>{t.guides.noBrandMatch}</p>
-                        </div>
-                      )}
-                      {filteredVehiclesForBrand.map((guide, i) => {
-                        const slug = toBrandSlug(selectedBrand)
-                        return (
-                          <Motion.article
-                            key={guide.slug}
-                            className="guides-vcard"
-                            initial={{ opacity: 0, y: 24 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: Math.min(i * 0.06, 0.36), duration: 0.35, ease: 'easeOut' }}
-                            whileHover={{ y: -4, scale: 1.015 }}
-                          >
-                            <div className="guides-vcard-top">
-                              <img
-                                className="guides-vcard-brand-logo"
-                                src={`/logos/${slug}.svg`}
-                                alt={selectedBrand}
-                                onError={(e) => { e.currentTarget.style.display = 'none' }}
-                              />
-                            </div>
-                            <div className="guides-vcard-body">
-                              <h3 className="guides-vcard-name">{guide.name}</h3>
-                              {guide.coverage_note && (
-                                <span className="guides-vcard-year">{guide.coverage_note}</span>
+                  <div className="guides-vehicle-grid">
+                    {filteredVehiclesForBrand.length === 0 && (
+                      <div className="guides-state-block">
+                        <p>{t.guides.noBrandMatch}</p>
+                      </div>
+                    )}
+                    {filteredVehiclesForBrand.map((guide, i) => {
+                      const slug = toBrandSlug(selectedBrand)
+                      return (
+                        <Motion.article
+                          key={guide.slug}
+                          className="guides-vcard"
+                          initial={{ opacity: 0, y: 24 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: Math.min(i * 0.06, 0.36), duration: 0.35, ease: 'easeOut' }}
+                          whileHover={{ y: -4, scale: 1.015 }}
+                        >
+                          <div className="guides-vcard-top">
+                            <img
+                              className="guides-vcard-brand-logo"
+                              src={`/logos/${slug}.svg`}
+                              alt={selectedBrand}
+                              onError={(e) => { e.currentTarget.style.display = 'none' }}
+                            />
+                          </div>
+                          <div className="guides-vcard-body">
+                            <h3 className="guides-vcard-name">{guide.name}</h3>
+                            {guide.coverage_note && (
+                              <span className="guides-vcard-year">{guide.coverage_note}</span>
+                            )}
+                            <div className="guides-vcard-badges">
+                              {guide.segment && (
+                                <span className={`guides-segment-badge guides-segment-badge--${guide.segment}`}>
+                                  {(t.guides.segments || {})[guide.segment] || guide.segment}
+                                </span>
                               )}
-                              <div className="guides-vcard-badges">
-                                {guide.segment && (
-                                  <span className={`guides-segment-badge guides-segment-badge--${guide.segment}`}>
-                                    {(t.guides.segments || {})[guide.segment] || guide.segment}
-                                  </span>
-                                )}
-                              </div>
                             </div>
-                            <Motion.button
-                              type="button"
-                              className="guides-vcard-btn"
-                              onClick={() => openConfirmPopup(guide)}
-                              whileHover={{ scale: 1.03 }}
-                              whileTap={{ scale: 0.96 }}
-                            >
-                              {startChatLabel}
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
-                                <path d="M5 12h14M12 5l7 7-7 7" />
-                              </svg>
-                            </Motion.button>
-                          </Motion.article>
-                        )
-                      })}
-                    </div>
-                  </Motion.div>
-                )}
-              </AnimatePresence>
-            </>
+                          </div>
+                          <Motion.button
+                            type="button"
+                            className="guides-vcard-btn"
+                            onClick={() => openConfirmPopup(guide)}
+                            whileHover={{ scale: 1.03 }}
+                            whileTap={{ scale: 0.96 }}
+                          >
+                            {startChatLabel}
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+                              <path d="M5 12h14M12 5l7 7-7 7" />
+                            </svg>
+                          </Motion.button>
+                        </Motion.article>
+                      )
+                    })}
+                  </div>
+                </Motion.div>
+              )}
+            </AnimatePresence>
           )}
         </section>
       </div>

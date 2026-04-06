@@ -1,5 +1,5 @@
 /* ============================================================
-   GuidesPage — Design System (matches LandingPage / ChatPage)
+   GuidesPage — Clean Horizontal Carousel Design
    ============================================================ */
 
 :root {
@@ -167,25 +167,15 @@
 .guides-content {
   max-width: 1200px; margin: 0 auto; padding: 0 20px 24px;
   width: 100%; flex: 1; min-height: 0; overflow-y: auto;
+  display: flex; flex-direction: column;
   scrollbar-width: thin; scrollbar-color: rgba(200,168,78,0.15) transparent;
-}
-.guides-intro { text-align: center; margin-bottom: 12px; }
-.guides-intro h1 {
-  font-family: var(--font-heading);
-  font-size: clamp(1.1rem, 2.2vw, 1.6rem);
-  letter-spacing: 0.04em; color: var(--text-primary);
-  margin-bottom: 6px; font-weight: 700;
-}
-.guides-intro p {
-  font-family: var(--font-body); font-size: 0.82rem;
-  color: var(--text-muted); max-width: 560px; margin: 0 auto; line-height: 1.5;
 }
 
 /* -- search bar -------------------------------------------------------- */
 
 .guides-search-bar {
   position: relative; display: flex; align-items: center;
-  margin: 0 auto 18px; max-width: min(440px, 92vw);
+  margin: 0 auto 24px; max-width: min(440px, 92vw); width: 100%;
 }
 .guides-search-icon { position: absolute; left: 14px; color: var(--text-muted); pointer-events: none; }
 .guides-search-input {
@@ -207,181 +197,153 @@
 .guides-search-clear:hover { color: var(--accent); }
 
 /* ======================================================================
-   3D CAROUSEL (Phase 1)
+   BRAND SELECTION (Phase 1) — Horizontal Scroll Carousel
    ====================================================================== */
 
-.carousel-section {
-  position: relative;
-  transition: opacity 0.4s ease, filter 0.4s ease;
-}
-.carousel-section--dimmed {
-  opacity: 0.35;
-  filter: blur(2px);
-  pointer-events: none;
+.brand-selection {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  flex: 1; min-height: 0;
 }
 
-.carousel-container {
+.brand-selection-title {
+  font-family: var(--font-heading);
+  font-size: clamp(1.3rem, 3vw, 2rem);
+  font-weight: 700; letter-spacing: 0.03em;
+  color: var(--text-primary);
+  text-align: center; margin: 0 0 8px;
+}
+
+.brand-selection-subtitle {
+  font-family: var(--font-body); font-size: 0.85rem;
+  color: var(--text-muted); max-width: 560px;
+  margin: 0 auto 28px; line-height: 1.5; text-align: center;
+}
+
+/* -- carousel wrapper with arrows -------------------------------------- */
+
+.brand-carousel-wrapper {
   position: relative;
+  width: 100%; max-width: 1100px;
+  display: flex; align-items: center;
+}
+
+/* -- arrow buttons ----------------------------------------------------- */
+
+.brand-arrow {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  z-index: 4;
+  width: 48px; height: 48px; border-radius: 50%;
+  border: 1px solid var(--border-gold);
+  background: rgba(20, 20, 31, 0.85);
+  color: var(--text-muted);
+  display: grid; place-items: center;
+  cursor: pointer; backdrop-filter: blur(10px);
+  transition: border-color 0.2s ease, color 0.2s ease,
+              background 0.2s ease, transform 0.15s ease,
+              box-shadow 0.2s ease;
+}
+.brand-arrow--left { left: -8px; }
+.brand-arrow--right { right: -8px; }
+.brand-arrow:hover {
+  border-color: var(--accent); color: var(--accent);
+  background: var(--bg-elevated);
+  transform: translateY(-50%) scale(1.08);
+  box-shadow: 0 0 16px rgba(200,168,78,0.15);
+}
+.brand-arrow:active { transform: translateY(-50%) scale(0.95); }
+
+/* -- scrollable brand row ---------------------------------------------- */
+
+.brand-scroll {
+  display: flex;
+  gap: 20px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding: 20px 52px;
+  scrollbar-width: none;
   width: 100%;
+}
+.brand-scroll::-webkit-scrollbar { display: none; }
+
+/* -- brand card -------------------------------------------------------- */
+
+.brand-card {
+  flex: 0 0 180px;
   height: 200px;
-  perspective: 1000px;
-  overflow: visible;
-  cursor: grab;
-  user-select: none;
-  touch-action: pan-y;
-}
-.carousel-container:active {
-  cursor: grabbing;
-}
-
-.carousel-track {
-  position: absolute;
-  width: 0;
-  height: 0;
-  left: 50%;
-  top: 50%;
-  transform-style: preserve-3d;
-  transition: none;
-}
-
-/* -- carousel items ---------------------------------------------------- */
-
-.carousel-item {
-  position: absolute;
-  width: 160px;
-  height: 160px;
-  margin-left: -80px;
-  margin-top: -80px;
-  border: none;
-  background: transparent;
+  scroll-snap-align: center;
+  border-radius: 18px;
+  border: 1px solid var(--glass-border);
+  background: rgba(30, 30, 50, 0.7);
+  backdrop-filter: blur(10px);
   cursor: pointer;
   padding: 0;
-  transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-              opacity 0.5s ease,
-              filter 0.5s ease;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 10px;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
 }
 
-.carousel-item-inner {
-  width: 100%;
-  height: 100%;
-  border-radius: 20px;
-  border: 1px solid var(--glass-border);
-  background: rgba(30, 30, 50, 0.85);
-  backdrop-filter: blur(12px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.4);
-}
-
-.carousel-item:hover .carousel-item-inner {
-  border-color: var(--border-strong);
-}
-
-/* active (front-center) item */
-.carousel-item--active .carousel-item-inner {
+.brand-card:hover,
+.brand-card:focus-visible {
   border-color: var(--accent);
   box-shadow:
-    0 0 30px rgba(200,168,78,0.25),
-    0 0 60px rgba(200,168,78,0.1),
-    0 8px 32px rgba(0,0,0,0.4);
+    0 0 24px rgba(200,168,78,0.2),
+    0 0 48px rgba(200,168,78,0.08),
+    0 8px 28px rgba(0,0,0,0.35);
+}
+.brand-card:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 3px;
 }
 
-.carousel-item-logo {
-  max-width: 100px;
-  max-height: 100px;
+.brand-card-logo-wrap {
+  width: 120px; height: 120px;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.brand-card-logo {
+  max-width: 100px; max-height: 100px;
   object-fit: contain;
   filter: brightness(1.1) drop-shadow(0 2px 8px rgba(0,0,0,0.4));
   transition: filter 0.3s ease;
 }
-
-.carousel-item--active .carousel-item-logo {
-  filter: brightness(1.3) drop-shadow(0 4px 16px rgba(200,168,78,0.3));
+.brand-card:hover .brand-card-logo {
+  filter: brightness(1.3) drop-shadow(0 4px 14px rgba(200,168,78,0.25));
 }
 
-.carousel-item-fallback {
-  width: 90px; height: 90px; border-radius: 16px;
+.brand-card-fallback {
+  width: 80px; height: 80px; border-radius: 16px;
   background: rgba(200,168,78,0.1); border: 1px solid var(--border-gold);
   display: flex; align-items: center; justify-content: center;
   font-family: var(--font-heading); font-size: 2.2rem; font-weight: 700;
   color: var(--accent);
 }
 
-/* -- carousel info below ----------------------------------------------- */
-
-.carousel-info {
-  text-align: center;
-  margin-top: 12px;
-  min-height: 52px;
-}
-
-.carousel-brand-name {
-  margin: 0;
+.brand-card-name {
   font-family: var(--font-heading);
-  font-size: clamp(1.1rem, 2.5vw, 1.5rem);
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  color: var(--text-primary);
-  transition: opacity 0.3s ease;
+  font-size: 0.92rem; font-weight: 700;
+  letter-spacing: 0.02em; color: var(--text-primary);
+  text-align: center; line-height: 1.2;
 }
 
-.carousel-brand-count {
-  display: block;
-  margin-top: 4px;
+.brand-card-count {
   font-family: var(--font-mono);
-  font-size: 0.65rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-size: 0.6rem; font-weight: 600;
+  letter-spacing: 0.1em; text-transform: uppercase;
   color: var(--text-muted);
-}
-
-/* -- carousel navigation arrows ---------------------------------------- */
-
-.carousel-nav {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 24px;
-  margin-top: 12px;
-}
-
-.carousel-nav-btn {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
+  background: rgba(200,168,78,0.08);
   border: 1px solid var(--border-gold);
-  background: var(--glass-bg);
-  color: var(--text-muted);
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-  backdrop-filter: blur(10px);
-  transition: border-color 0.2s ease, color 0.2s ease,
-              background 0.2s ease, transform 0.15s ease,
-              box-shadow 0.2s ease;
-}
-
-.carousel-nav-btn:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: var(--bg-elevated);
-  transform: scale(1.08);
-  box-shadow: 0 0 16px rgba(200,168,78,0.15);
-}
-
-.carousel-nav-btn:active {
-  transform: scale(0.95);
+  border-radius: 999px; padding: 2px 10px;
 }
 
 /* ======================================================================
-   VEHICLE CARDS (Phase 2)
+   VEHICLE CARDS (Phase 2) — replaces carousel in same space
    ====================================================================== */
 
 .guides-vehicle-section {
-  padding-top: 8px;
-  padding-bottom: 24px;
+  flex: 1; min-height: 0;
+  display: flex; flex-direction: column;
 }
 
 .guides-vehicle-header {
@@ -415,11 +377,13 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 16px;
+  overflow-y: auto;
+  scrollbar-width: thin; scrollbar-color: rgba(200,168,78,0.15) transparent;
+  padding-bottom: 16px;
 }
 
 .guides-vcard {
-  display: flex;
-  flex-direction: column;
+  display: flex; flex-direction: column;
   border-radius: 16px;
   border: 1px solid var(--glass-border);
   background: var(--glass-bg);
@@ -428,78 +392,48 @@
   transition: border-color 0.25s ease, box-shadow 0.25s ease;
   box-shadow: 0 4px 16px rgba(0,0,0,0.25);
 }
-
 .guides-vcard:hover {
   border-color: var(--border-strong);
   box-shadow: 0 8px 28px rgba(0,0,0,0.35), 0 0 20px rgba(200,168,78,0.06);
 }
 
-.guides-vcard-top {
-  padding: 12px 14px 0;
-}
+.guides-vcard-top { padding: 12px 14px 0; }
 
 .guides-vcard-brand-logo {
-  width: 28px;
-  height: 28px;
-  object-fit: contain;
-  opacity: 0.6;
+  width: 28px; height: 28px; object-fit: contain; opacity: 0.6;
   filter: brightness(0.9) drop-shadow(0 1px 3px rgba(0,0,0,0.3));
 }
 
 .guides-vcard-body {
   padding: 8px 14px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  flex: 1;
+  display: flex; flex-direction: column; gap: 6px; flex: 1;
 }
 
 .guides-vcard-name {
-  margin: 0;
-  font-family: var(--font-heading);
-  font-size: 0.95rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  color: var(--text-primary);
-  line-height: 1.25;
+  margin: 0; font-family: var(--font-heading);
+  font-size: 0.95rem; font-weight: 700;
+  letter-spacing: 0.02em; color: var(--text-primary); line-height: 1.25;
 }
 
 .guides-vcard-year {
-  font-family: var(--font-mono);
-  font-size: 0.62rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-muted);
+  font-family: var(--font-mono); font-size: 0.62rem;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted);
 }
 
-.guides-vcard-badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 2px;
-}
+.guides-vcard-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
 
 .guides-vcard-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
+  display: flex; align-items: center; justify-content: center; gap: 7px;
   margin: 0 14px 14px;
-  border: 1px solid var(--accent);
-  border-radius: 10px;
+  border: 1px solid var(--accent); border-radius: 10px;
   background: linear-gradient(135deg, var(--accent), var(--accent-dark));
   color: var(--bg-primary);
-  font-family: var(--font-body);
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  padding: 10px 16px;
-  cursor: pointer;
+  font-family: var(--font-body); font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.04em; text-transform: uppercase;
+  padding: 10px 16px; cursor: pointer;
   transition: box-shadow 0.2s ease;
   box-shadow: 0 4px 12px rgba(200,168,78,0.2);
 }
-
 .guides-vcard-btn:hover {
   box-shadow: 0 6px 20px rgba(200,168,78,0.3), 0 0 16px rgba(200,168,78,0.12);
 }
@@ -642,54 +576,54 @@
    RESPONSIVE
    ====================================================================== */
 
-@media (max-width: 1200px) {
-  .guides-vehicle-grid { grid-template-columns: repeat(3, 1fr); }
-}
-
 @media (max-width: 1024px) {
   .guides-header { flex-wrap: nowrap; }
   .guides-nav-backdrop { padding: 72px 16px 16px; }
   .guides-vehicle-grid { grid-template-columns: repeat(2, 1fr); }
+  .brand-arrow { width: 40px; height: 40px; }
 }
 
 @media (max-width: 768px) {
-  .carousel-container { height: 160px; }
-  .carousel-item { width: 130px; height: 130px; margin-left: -65px; margin-top: -65px; }
-  .carousel-item-logo { max-width: 80px; max-height: 80px; }
   .guides-vehicle-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
   .guides-vcard-name { font-size: 0.88rem; }
   .guides-vehicle-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .brand-card { flex: 0 0 150px; height: 180px; }
+  .brand-card-logo-wrap { width: 100px; height: 100px; }
+  .brand-card-logo { max-width: 80px; max-height: 80px; }
+  .brand-scroll { gap: 14px; padding: 16px 44px; }
 }
 
 @media (max-width: 700px) {
   .guides-header { padding: 14px 12px 6px; align-items: center; }
   .guides-home-trigger img { width: min(108px, 34vw); }
   .guides-content { padding: 0 12px 16px; }
-  .guides-intro { margin-bottom: 10px; }
-  .guides-intro h1 { font-size: clamp(0.94rem, 5.4vw, 1.2rem); margin-bottom: 6px; }
-  .guides-intro p { font-size: 0.8rem; }
+  .brand-selection-title { font-size: clamp(1rem, 5.4vw, 1.4rem); }
+  .brand-selection-subtitle { font-size: 0.8rem; margin-bottom: 20px; }
   .guides-lang-menu { right: 0; left: auto; transform: none; }
 }
 
 @media (max-width: 560px) {
-  .carousel-container { height: 140px; }
-  .carousel-item { width: 110px; height: 110px; margin-left: -55px; margin-top: -55px; }
-  .carousel-item-logo { max-width: 68px; max-height: 68px; }
-  .carousel-item-fallback { width: 68px; height: 68px; font-size: 1.5rem; }
-  .carousel-brand-name { font-size: 1rem; }
-  .carousel-nav-btn { width: 38px; height: 38px; }
   .guides-vehicle-grid { grid-template-columns: 1fr; gap: 10px; }
+  .brand-card { flex: 0 0 140px; height: 170px; }
+  .brand-card-logo-wrap { width: 90px; height: 90px; }
+  .brand-card-logo { max-width: 68px; max-height: 68px; }
+  .brand-card-fallback { width: 60px; height: 60px; font-size: 1.5rem; }
+  .brand-card-name { font-size: 0.82rem; }
+  .brand-arrow { width: 36px; height: 36px; }
+  .brand-arrow--left { left: -4px; }
+  .brand-arrow--right { right: -4px; }
+  .brand-scroll { gap: 12px; padding: 14px 36px; }
 }
 
 @media (max-width: 480px) {
-  .carousel-container { height: 120px; }
-  .carousel-item { width: 80px; height: 80px; margin-left: -40px; margin-top: -40px; }
-  .carousel-item-logo { max-width: 42px; max-height: 42px; }
-  .carousel-nav { gap: 16px; margin-top: 8px; }
+  .brand-card { flex: 0 0 120px; height: 155px; }
+  .brand-card-logo-wrap { width: 76px; height: 76px; }
+  .brand-card-logo { max-width: 56px; max-height: 56px; }
+  .brand-card-name { font-size: 0.76rem; }
+  .brand-card-count { font-size: 0.5rem; padding: 1px 7px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .carousel-item { transition: none; }
-  .carousel-section { transition: none; }
+  .brand-card { transition: none; }
   .guides-vcard { transition: none; }
 }
