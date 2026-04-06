@@ -614,7 +614,7 @@ export default function LandingPage() {
       <nav className={`landing-nav${navScrolled ? ' nav-scrolled' : ''}`}>
         <div className="landing-container">
           <button type="button" className="nav-brand" onClick={() => navigate('/')} aria-label="Home">
-            <img className="nav-brand__mark nav-brand__mark--wide" src="/logo top left.png" alt="Mechora" />
+            <img className="nav-brand__mark nav-brand__mark--wide" src="/logo mechora.png" alt="Mechora" />
           </button>
 
           <ul className="nav-links">
