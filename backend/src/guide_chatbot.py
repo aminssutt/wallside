@@ -1182,6 +1182,8 @@ REGLES STRICTES:
             question=question, lang=lang, session_id=session_id, mode=payload_mode,
         )
 
+        yield {"type": "status", "step": "manual_search", "message_id": message_id}
+
         early_answer = payload.get("early_answer")
         if isinstance(early_answer, str):
             yield {"type": "chunk", "text": early_answer, "message_id": message_id}
@@ -1202,6 +1204,7 @@ REGLES STRICTES:
 
         # --- Fallback: if RAG found nothing, do a quick web search to enrich prompt ---
         if not p_has_ctx and ENABLE_WEB_ENRICHMENT:
+            yield {"type": "status", "step": "web_search", "message_id": message_id}
             enrichment_query = f"{self.guide.name} {question}".strip()
             budget = max(0.5, ENRICHMENT_TIME_BUDGET_SECONDS)
             try:
@@ -1238,6 +1241,8 @@ REGLES STRICTES:
             web_future = _enrichment_executor.submit(
                 web_search_results, enrichment_query, WEB_MAX_RESULTS, budget,
             )
+
+        yield {"type": "status", "step": "generating", "message_id": message_id}
 
         try:
             stream = self.client.models.generate_content_stream(

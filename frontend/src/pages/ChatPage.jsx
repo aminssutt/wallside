@@ -24,6 +24,7 @@ const KNOWN_STREAM_EVENTS = new Set([
   'start', 'chunk', 'end', 'error',
   'sources_start', 'source_item', 'sources_end',
   'video_result', 'video_none',
+  'status',
 ])
 
 const generateSessionId = () => {
@@ -511,6 +512,7 @@ function ChatPage() {
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isStreaming, setIsStreaming] = useState(false)
+  const [streamStatus, setStreamStatus] = useState('')
   const [errorKey, setErrorKey] = useState('')
   const [langOpen, setLangOpen] = useState(false)
   const [navMenuOpen, setNavMenuOpen] = useState(false)
@@ -872,6 +874,12 @@ function ChatPage() {
         return
       }
 
+      if (eventName === 'status') {
+        const step = (data && typeof data === 'object') ? data.step : ''
+        setStreamStatus(step || '')
+        return
+      }
+
       if (eventName === 'chunk') {
         const chunkText = extractStreamText(data)
         if (!chunkText) return
@@ -882,6 +890,7 @@ function ChatPage() {
       }
 
       if (eventName === 'end') {
+        setStreamStatus('')
         const confidence = (data && typeof data === 'object') ? (data.confidence || '') : ''
         if (confidence) {
           setMessages((prev) => {
@@ -1008,6 +1017,7 @@ function ChatPage() {
   const sendMessage = async (messageText) => {
     const text = (messageText || input).trim()
     if (!text || isLoading || isStreaming) return
+    setStreamStatus('')
 
     // Cancel any pending drain from a previous stream
     if (drainTimerRef.current) {
@@ -1333,6 +1343,14 @@ function ChatPage() {
                   </div>
                   <div className="msg-bubble msg-typing">
                     <span /><span /><span />
+                    {streamStatus && (
+                      <p className="typing-status">{
+                        streamStatus === 'manual_search' ? (lang === 'fr' ? 'Recherche dans le manuel...' : 'Searching manual...') :
+                        streamStatus === 'web_search' ? (lang === 'fr' ? 'Recherche sur le web...' : 'Searching the web...') :
+                        streamStatus === 'generating' ? (lang === 'fr' ? 'Génération en cours...' : 'Generating response...') :
+                        ''
+                      }</p>
+                    )}
                   </div>
                 </Motion.div>
               )}

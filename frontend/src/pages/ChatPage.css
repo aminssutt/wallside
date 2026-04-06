@@ -885,6 +885,21 @@ button.bot-source-link {
   align-items: center;
   gap: 5px;
   padding: 16px 20px;
+  flex-wrap: wrap;
+}
+
+.typing-status {
+  font-size: 0.68rem;
+  color: rgba(180, 195, 215, 0.6);
+  font-family: 'Share Tech Mono', monospace;
+  letter-spacing: 0.04em;
+  margin: 6px 0 0 0;
+  animation: statusFadeIn 0.3s ease;
+}
+
+@keyframes statusFadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .msg-typing span {

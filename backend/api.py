@@ -329,6 +329,8 @@ def chat_stream(slug):
                         end_payload["fix_mode"] = event["fix_mode"]
                     yield _sse_event("end", end_payload)
                     ended = True
+                elif event_type == "status":
+                    yield _sse_event("status", {"step": event.get("step", ""), "message_id": mid})
                 elif event_type == "sources_start":
                     yield _sse_event("sources_start", {"message_id": mid})
                 elif event_type == "source_item":
