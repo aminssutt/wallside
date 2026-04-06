@@ -52,6 +52,9 @@ const normalizeBrandName = (raw) => {
 const toBrandSlug = (name) =>
   (name || '').trim().toLowerCase().replace(/\s+/g, '-')
 
+const PNG_BRANDS = new Set(['alpine', 'cupra', 'genesis', 'lancia', 'lexus', 'mercedes'])
+const brandLogoSrc = (slug) => `/logos/${slug}.${PNG_BRANDS.has(slug) ? 'png' : 'svg'}`
+
 /* -- component --------------------------------------------------------- */
 
 function GuidesPage() {
@@ -578,7 +581,7 @@ function GuidesPage() {
                               <div className="brand-card-logo-wrap">
                                 <img
                                   className="brand-card-logo"
-                                  src={`/logos/${slug}.svg`}
+                                  src={brandLogoSrc(slug)}
                                   alt={brand}
                                   onError={(e) => {
                                     e.currentTarget.style.display = 'none'
@@ -638,7 +641,7 @@ function GuidesPage() {
                     <div className="guides-vehicle-brand-info">
                       <img
                         className="guides-vehicle-brand-logo"
-                        src={`/logos/${toBrandSlug(selectedBrand)}.svg`}
+                        src={brandLogoSrc(toBrandSlug(selectedBrand))}
                         alt={selectedBrand}
                         onError={(e) => {
                           e.currentTarget.style.display = 'none'
@@ -698,7 +701,7 @@ function GuidesPage() {
                           <div className="guides-vcard-top">
                             <img
                               className="guides-vcard-brand-logo"
-                              src={`/logos/${slug}.svg`}
+                              src={brandLogoSrc(slug)}
                               alt={selectedBrand}
                               onError={(e) => { e.currentTarget.style.display = 'none' }}
                             />
