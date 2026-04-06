@@ -27,14 +27,14 @@ RUN apt-get update \
 COPY backend/requirements.txt /app/backend/requirements.txt
 RUN pip install --no-cache-dir -r /app/backend/requirements.txt
 
-RUN addgroup --system app && adduser --system --ingroup app app
+RUN addgroup --system app && adduser --system --home /home/app --ingroup app app
 
 COPY backend/ /app/backend/
 COPY manuel/ /app/manuel/
 COPY ["car data/", "/app/car_data/"]
 COPY --from=frontend-builder /app/frontend/dist /app/frontend/dist
 
-RUN chown -R app:app /app
+RUN chown -R app:app /app /home/app
 
 WORKDIR /app/backend
 
