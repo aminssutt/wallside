@@ -21,7 +21,7 @@ const COPY = {
     navFaq: 'FAQ',
     navContact: 'Contact',
     heroTitle: 'Mechora',
-    heroSubtitle: 'Votre assistant technique automobile intelligent',
+    heroSubtitle: 'Votre compagnon technique automobile intelligent',
     heroStats: ['130+ véhicules', 'Manuels officiels', 'Réponses instantanées'],
     ctaPrimary: 'Commencer gratuitement',
     ctaSecondary: 'En savoir plus',
@@ -116,7 +116,7 @@ const COPY = {
     navFaq: 'FAQ',
     navContact: 'Contact',
     heroTitle: 'Mechora',
-    heroSubtitle: 'Your intelligent automotive technical assistant',
+    heroSubtitle: 'Your intelligent automotive companion',
     heroStats: ['130+ vehicles', 'Official manuals', 'Instant answers'],
     ctaPrimary: 'Start for free',
     ctaSecondary: 'Learn more',
@@ -211,7 +211,7 @@ const COPY = {
     navFaq: 'FAQ',
     navContact: '문의',
     heroTitle: 'Mechora',
-    heroSubtitle: '당신의 지능형 자동차 기술 어시스턴트',
+    heroSubtitle: '당신의 지능형 자동차 컴패니언',
     heroStats: ['130+ 차량', '공식 매뉴얼', '즉각적인 답변'],
     ctaPrimary: '무료로 시작하기',
     ctaSecondary: '자세히 보기',
@@ -1182,7 +1182,7 @@ export default function LandingPage() {
         <div className="container">
           <div className="footer__grid">
             <div className="footer__col footer__col--brand">
-              <img src="/mechora-writing.png" alt="Mechora" className="footer__logo" />
+              <img src="/logo-mechora.png" alt="Mechora" className="footer__logo" />
               <p className="footer__bio">{t.footerBio}</p>
               <a href="mailto:lakhdarberache@gmail.com" className="footer__email">lakhdarberache@gmail.com</a>
             </div>
