@@ -227,9 +227,9 @@ const extractStreamError = (payload) => {
 }
 
 const SOURCE_I18N = {
-  fr: { title: 'Sources', newTab: 'Nouvel onglet', unavailable: 'PDF non disponible pour le moment' },
-  en: { title: 'Sources', newTab: 'New tab', unavailable: 'PDF not available at the moment' },
-  ko: { title: '\uCD9C\uCC98', newTab: '\uC0C8 \uD0ED', unavailable: 'PDF\uB97C \uD604\uC7AC \uC0AC\uC6A9\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4' },
+  fr: { title: 'Sources', newTab: 'Nouvel onglet', unavailable: 'PDF non disponible pour le moment', externalPdf: 'Ce PDF est hébergé sur un site externe. Cliquez ci-dessous pour le consulter.', openPdf: 'Ouvrir le PDF' },
+  en: { title: 'Sources', newTab: 'New tab', unavailable: 'PDF not available at the moment', externalPdf: 'This PDF is hosted externally. Click below to view it.', openPdf: 'Open PDF' },
+  ko: { title: '\uCD9C\uCC98', newTab: '\uC0C8 \uD0ED', unavailable: 'PDF\uB97C \uD604\uC7AC \uC0AC\uC6A9\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4', externalPdf: '\uC774 PDF\uB294 \uC678\uBD80 \uC0AC\uC774\uD2B8\uC5D0 \uD638\uC2A4\uD305\uB418\uC5B4 \uC788\uC2B5\uB2C8\uB2E4.', openPdf: 'PDF \uC5F4\uAE30' },
 }
 
 function SourcesList({ sources, lang }) {
@@ -290,13 +290,32 @@ function SourcesList({ sources, lang }) {
                 <p>{i.unavailable}</p>
                 {proofSrc.excerpt && <p className="proof-excerpt">{proofSrc.excerpt}</p>}
               </div>
+            ) : proofSrc.pdf_url ? (
+              /* External PDF (inspirauto.fr etc.) — can't embed cross-origin, open in new tab */
+              <div className="proof-external">
+                <p className="proof-external__text">
+                  {i.externalPdf || 'Ce PDF est hébergé sur un site externe. Cliquez ci-dessous pour le consulter.'}
+                </p>
+                <a
+                  href={`${proofSrc.pdf_url}#page=${String(proofSrc.page).split('-')[0]}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="proof-external__btn"
+                >
+                  {i.openPdf || 'Ouvrir le PDF'}
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                    <polyline points="15 3 21 3 21 9" />
+                    <line x1="10" y1="14" x2="21" y2="3" />
+                  </svg>
+                </a>
+                {proofSrc.excerpt && <p className="proof-excerpt">{proofSrc.excerpt}</p>}
+              </div>
             ) : (
+              /* Local PDF — safe to embed */
               <iframe
                 className="proof-iframe"
-                sandbox="allow-same-origin allow-scripts allow-popups"
-                src={proofSrc.pdf_url
-                  ? `${proofSrc.pdf_url}#page=${String(proofSrc.page).split('-')[0]}`
-                  : `${API_URL}/guides/${proofSrc.slug}/pdf#page=${String(proofSrc.page).split('-')[0]}`}
+                src={`${API_URL}/guides/${proofSrc.slug}/pdf#page=${String(proofSrc.page).split('-')[0]}`}
                 title={`${proofSrc.label} - page ${proofSrc.page}`}
                 onError={() => setPdfError(true)}
                 onLoad={(e) => {
@@ -538,6 +557,7 @@ function ChatPage() {
   const chunkBufferRef = useRef('')
   const drainTimerRef = useRef(null)
   const streamDoneRef = useRef(false)
+  const userScrolledUpRef = useRef(false)
   const t = UI_TEXT[lang] || UI_TEXT.fr
   const toastCopy = TOAST_COPY[lang] || TOAST_COPY.en
   const coverageLabel = t.chat.coverageLabel || '{coverage}'
@@ -598,7 +618,21 @@ function ChatPage() {
     void loadGuide()
   }, [slug])
 
+  /* -- detect user scrolling up (don't force scroll during streaming) -- */
   useEffect(() => {
+    const el = chatContainerRef.current
+    if (!el) return
+    const handleScroll = () => {
+      const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+      userScrolledUpRef.current = distanceFromBottom > 120
+    }
+    el.addEventListener('scroll', handleScroll, { passive: true })
+    return () => el.removeEventListener('scroll', handleScroll)
+  }, [])
+
+  /* -- auto-scroll only if user is near bottom ------------------------- */
+  useEffect(() => {
+    if (userScrolledUpRef.current) return
     const frame = requestAnimationFrame(() => {
       if (chatContainerRef.current) {
         chatContainerRef.current.scrollTo({
@@ -609,6 +643,13 @@ function ChatPage() {
     })
     return () => cancelAnimationFrame(frame)
   }, [messages, isLoading, isStreaming])
+
+  /* -- reset scroll flag when user sends a new message ----------------- */
+  useEffect(() => {
+    if (isLoading) {
+      userScrolledUpRef.current = false
+    }
+  }, [isLoading])
 
   useEffect(() => {
     if (!langOpen) return undefined

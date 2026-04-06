@@ -1118,7 +1118,8 @@ button.bot-source-link {
   word-break: break-word;
 }
 
-.proof-unavailable {
+.proof-unavailable,
+.proof-external {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -1128,6 +1129,35 @@ button.bot-source-link {
   text-align: center;
   color: var(--text-muted);
   gap: 16px;
+}
+
+.proof-external__text {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  max-width: 400px;
+}
+
+.proof-external__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
+  color: #0A0A0F;
+  border: none;
+  border-radius: 10px;
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.proof-external__btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(200, 168, 78, 0.25);
 }
 
 .proof-unavailable p:first-child {
