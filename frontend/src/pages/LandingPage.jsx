@@ -687,47 +687,54 @@ export default function LandingPage() {
           </div>
         </div>
 
-        <Motion.div
-          className="hero-content"
-          variants={stagger}
-          initial="hidden"
-          animate="visible"
-        >
-          <Motion.h1 variants={fadeInUp} className="hero-title">
-            <span className="hero-title-accent">{t.heroTitle}</span>
-          </Motion.h1>
+        <div className="hero-split">
+          <Motion.div
+            className="hero-content"
+            variants={stagger}
+            initial="hidden"
+            animate="visible"
+          >
+            <Motion.h1 variants={fadeInUp} className="hero-title">
+              <span className="hero-title-accent">{t.heroTitle}</span>
+            </Motion.h1>
 
-          <Motion.p variants={fadeInUp} className="hero-subtitle">
-            {t.heroSubtitle}
-          </Motion.p>
+            <Motion.p variants={fadeInUp} className="hero-subtitle">
+              {t.heroSubtitle}
+            </Motion.p>
 
-          <Motion.div variants={fadeInUp} className="hero-stats">
-            {t.heroStats.map((stat, idx) => (
-              <React.Fragment key={idx}>
-                {idx > 0 && <span className="hero-stats-separator" />}
-                <span>{stat}</span>
-              </React.Fragment>
-            ))}
+            <Motion.div variants={fadeInUp} className="hero-stats">
+              {t.heroStats.map((stat, idx) => (
+                <React.Fragment key={idx}>
+                  {idx > 0 && <span className="hero-stats-separator" />}
+                  <span>{stat}</span>
+                </React.Fragment>
+              ))}
+            </Motion.div>
+
+            <Motion.div variants={fadeInUp} className="hero-actions">
+              <button className="btn-gold" onClick={goToGuides}>
+                <span>{t.ctaPrimary}</span>
+                <IconArrowRight />
+              </button>
+              <button className="btn-ghost" onClick={() => scrollTo('features')}>
+                {t.ctaSecondary}
+              </button>
+            </Motion.div>
           </Motion.div>
 
-          <Motion.div variants={fadeInUp} className="hero-actions">
-            <button className="btn-gold" onClick={goToGuides}>
-              <span>{t.ctaPrimary}</span>
-              <IconArrowRight />
-            </button>
-            <button className="btn-ghost" onClick={() => scrollTo('features')}>
-              {t.ctaSecondary}
-            </button>
-          </Motion.div>
-
-          <Motion.div variants={fadeInUp} className="hero-chat-wrapper">
+          <Motion.div
+            className="hero-chat-wrapper"
+            initial={{ opacity: 0, x: 40 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.6, duration: 0.8 }}
+          >
             <ChatDemo
               userMsg={t.chatDemoUser}
               aiMsg={t.chatDemoAi}
               sourceMsg={t.chatDemoSource}
             />
           </Motion.div>
-        </Motion.div>
+        </div>
 
         <button
           type="button"

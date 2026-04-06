@@ -423,15 +423,24 @@
   animation-delay: -6s;
 }
 
-.hero-content {
+.hero-split {
   position: relative;
   z-index: 2;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: 60px;
+  max-width: 1200px;
+  width: 100%;
+  padding: 0 40px;
+}
+
+.hero-content {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   gap: 20px;
-  max-width: 800px;
-  padding: 0 20px;
+  text-align: left;
 }
 
 .hero-title {
@@ -1239,8 +1248,7 @@
 
 .hero-chat-wrapper {
   width: 100%;
-  max-width: 600px;
-  margin-top: 20px;
+  max-width: 100%;
 }
 
 .chat-demo {
@@ -1701,6 +1709,17 @@
 }
 
 @media (max-width: 768px) {
+  .hero-split {
+    grid-template-columns: 1fr;
+    gap: 40px;
+    padding: 0 20px;
+  }
+
+  .hero-content {
+    align-items: center;
+    text-align: center;
+  }
+
   .hero-title {
     font-size: clamp(2.4rem, 10vw, 4rem);
   }
