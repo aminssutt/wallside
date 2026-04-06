@@ -936,9 +936,6 @@ class GuideChatbot:
         min_rrf = RELEVANCE_THRESHOLD * 0.1  # ~0.015 threshold
         filtered = [doc_map[k] for k in sorted_keys if rrf_scores[k] >= min_rrf]
 
-        if not filtered and sorted_keys:
-            filtered = [doc_map[sorted_keys[0]]]
-
         return filtered[:k]
 
     def _prepare_chat_payload(
