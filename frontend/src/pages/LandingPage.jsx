@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion as Motion, AnimatePresence, useInView } from 'framer-motion';
+import { motion as Motion, AnimatePresence, useInView, useScroll, useTransform } from 'framer-motion';
 import { LANGUAGES, useAppLanguage } from '../i18n';
 import './LandingPage.css';
 
@@ -608,6 +608,49 @@ const HowPreviewAnswer = () => (
 const HOW_PREVIEWS = [HowPreviewBrands, HowPreviewQuestion, HowPreviewAnswer];
 
 /* ============================================================
+   Scroll-based Rotating Gear (automotive wow effect)
+   ============================================================ */
+
+function ScrollGear() {
+  const { scrollYProgress } = useScroll();
+  const rotate = useTransform(scrollYProgress, [0, 1], [0, 720]);
+  const scale = useTransform(scrollYProgress, [0, 0.1, 0.9, 1], [0.9, 1, 1, 0.9]);
+  const opacity = useTransform(scrollYProgress, [0, 0.05, 0.9, 1], [0.08, 0.12, 0.12, 0.04]);
+
+  return (
+    <div className="scroll-gear" aria-hidden="true">
+      <Motion.svg
+        viewBox="0 0 200 200"
+        className="scroll-gear__svg scroll-gear__svg--1"
+        style={{ rotate, scale, opacity }}
+      >
+        <path
+          d="M100 18l6 18h4l10-15 8 5-4 17 3 2 14-10 6 7-10 14 2 3 17-4 4 8-16 9 1 4 18 2v9l-18 2-1 4 16 9-4 8-17-4-2 3 10 14-6 7-14-10-3 2 4 17-8 5-10-15h-4l-6 18h-9l-6-18h-4l-10 15-8-5 4-17-3-2-14 10-6-7 10-14-2-3-17 4-4-8 16-9-1-4-18-2v-9l18-2 1-4-16-9 4-8 17 4 2-3-10-14 6-7 14 10 3-2-4-17 8-5 10 15h4l6-18h9z"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+        />
+        <circle cx="100" cy="100" r="30" fill="none" stroke="currentColor" strokeWidth="1.5" />
+        <circle cx="100" cy="100" r="12" fill="none" stroke="currentColor" strokeWidth="1" />
+      </Motion.svg>
+      <Motion.svg
+        viewBox="0 0 200 200"
+        className="scroll-gear__svg scroll-gear__svg--2"
+        style={{ rotate: useTransform(scrollYProgress, [0, 1], [0, -540]), opacity }}
+      >
+        <path
+          d="M100 22l5 16h3l9-13 7 4-3 15 3 2 12-9 5 6-9 12 2 3 15-3 3 7-14 8 1 3 16 2v8l-16 2-1 3 14 8-3 7-15-3-2 3 9 12-5 6-12-9-3 2 3 15-7 4-9-13h-3l-5 16h-8l-5-16h-3l-9 13-7-4 3-15-3-2-12 9-5-6 9-12-2-3-15 3-3-7 14-8-1-3-16-2v-8l16-2 1-3-14-8 3-7 15 3 2-3-9-12 5-6 12 9 3-2-3-15 7-4 9 13h3l5-16h8z"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.2"
+        />
+        <circle cx="100" cy="100" r="24" fill="none" stroke="currentColor" strokeWidth="1.2" />
+      </Motion.svg>
+    </div>
+  );
+}
+
+/* ============================================================
    Main Component
    ============================================================ */
 
@@ -682,11 +725,15 @@ export default function LandingPage() {
   return (
     <main className="landing">
 
+      {/* ======== SCROLL GEAR (wow effect) ======== */}
+      <ScrollGear />
+
       {/* ======== NAVIGATION ======== */}
       <nav className={`nav${navScrolled ? ' nav--scrolled' : ''}`}>
         <div className="nav__inner">
           <button type="button" className="nav__brand" onClick={() => navigate('/')} aria-label="Home">
             <img className="nav__logo" src="/logo-mechora.png" alt="Mechora" />
+            <img className="nav__wordmark" src="/mechora-writing.png" alt="Mechora" />
           </button>
 
           <ul className="nav__links">

@@ -35,22 +35,38 @@ const TOAST_COPY = {
   },
 }
 
+const normalizeBrandKey = (value = '') =>
+  (value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/['’]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+
 const BRAND_NAME_MAP = {
   bmw: 'BMW',
   citroen: 'Citro\u00ebn',
   mercedes: 'Mercedes-Benz',
+  'mercedes benz': 'Mercedes-Benz',
   ds: 'DS',
+  'ds automobiles': 'DS Automobiles',
+}
+
+const BRAND_SLUG_MAP = {
+  'mercedes benz': 'mercedes',
+  'ds automobiles': 'ds',
 }
 
 const COMPACT_MENU_BREAKPOINT = 1024
 
 const normalizeBrandName = (raw) => {
-  const lower = (raw || '').trim().toLowerCase()
-  return BRAND_NAME_MAP[lower] || raw.trim()
+  const key = normalizeBrandKey(raw)
+  return BRAND_NAME_MAP[key] || (raw || '').trim()
 }
 
 const toBrandSlug = (name) =>
-  (name || '').trim().toLowerCase().replace(/\s+/g, '-')
+  BRAND_SLUG_MAP[normalizeBrandKey(name)] || normalizeBrandKey(name).replace(/\s+/g, '-')
 
 const PNG_BRANDS = new Set(['alpine', 'cupra', 'ds', 'genesis', 'lancia', 'lexus', 'mercedes'])
 const brandLogoSrc = (slug) => `/logos/${slug}.${PNG_BRANDS.has(slug) ? 'png' : 'svg'}`
@@ -66,7 +82,9 @@ function GuidesPage() {
   const [loading, setLoading] = useState(true)
   const [errorKey, setErrorKey] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedBrand, setSelectedBrand] = useState(null)
+  const [selectedBrand, setSelectedBrand] = useState(() => {
+    return sessionStorage.getItem('mechora_selected_brand') || null
+  })
   const [pendingGuide, setPendingGuide] = useState(null)
   const [launchingSlug, setLaunchingSlug] = useState(null)
   const [langOpen, setLangOpen] = useState(false)
@@ -84,9 +102,40 @@ function GuidesPage() {
   const toastCopy = TOAST_COPY[lang] || TOAST_COPY.en
   const currentLang = LANGUAGES.find((entry) => entry.code === lang) || LANGUAGES[0]
 
+  /* -- sync selectedBrand to sessionStorage ----------------------------- */
+
+  useEffect(() => {
+    if (selectedBrand) {
+      sessionStorage.setItem('mechora_selected_brand', selectedBrand)
+    } else {
+      sessionStorage.removeItem('mechora_selected_brand')
+    }
+  }, [selectedBrand])
+
   /* -- fetch guides ---------------------------------------------------- */
 
   useEffect(() => {
+    const cached = sessionStorage.getItem('mechora_guides')
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached)
+        const guidesList = (parsed || []).map((guide) => ({
+          ...guide,
+          brand: normalizeBrandName(guide.brand || ''),
+          coverage_note: (guide.coverage_note || '').trim(),
+        }))
+        const sortedGuides = guidesList.sort((a, b) => a.name.localeCompare(b.name))
+        const derivedBrands = [...new Set(sortedGuides.map((g) => g.brand).filter(Boolean))]
+          .sort((a, b) => a.localeCompare(b))
+        setGuides(sortedGuides)
+        setBrands(derivedBrands)
+        setLoading(false)
+        return
+      } catch {
+        sessionStorage.removeItem('mechora_guides')
+      }
+    }
+
     const fetchGuides = async () => {
       try {
         const res = await fetch(`${API_URL}/guides`)
@@ -95,6 +144,8 @@ function GuidesPage() {
           setErrorKey('loadError')
           return
         }
+
+        sessionStorage.setItem('mechora_guides', JSON.stringify(data.guides))
 
         const guidesList = (data.guides || []).map((guide) => ({
           ...guide,

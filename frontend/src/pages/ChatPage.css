@@ -694,6 +694,7 @@
 .msg.bot .msg-bubble {
   background: var(--bg-surface);
   border: 1px solid var(--glass-border);
+  border-left: 2px solid rgba(200, 168, 78, 0.3);
   color: var(--text-primary);
   border-top-left-radius: 4px;
   white-space: normal;
@@ -710,15 +711,15 @@
 
 .bot-heading {
   font-family: var(--font-heading);
-  font-size: 0.88rem;
-  font-weight: 600;
-  color: var(--accent-light);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #E8D48A;
   border: none;
   background: none;
   border-radius: 0;
   padding: 2px 0 4px 12px;
   border-left: 2px solid var(--accent);
-  margin-top: 2px;
+  margin: 12px 0 6px;
   overflow-wrap: anywhere;
   text-transform: none;
   letter-spacing: 0.01em;
@@ -740,6 +741,11 @@
 .bot-list li {
   color: rgba(240, 237, 230, 0.88);
   line-height: 1.6;
+  padding: 3px 0;
+}
+
+.bot-list li::marker {
+  color: var(--accent);
 }
 
 .bot-rich-message strong {
@@ -782,17 +788,18 @@
 .confidence-badge {
   display: inline-block;
   font-family: var(--font-mono);
-  font-size: 0.6rem;
-  font-weight: 500;
-  letter-spacing: 0.05em;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  padding: 3px 10px;
+  padding: 4px 12px;
   border-radius: 20px;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
+  backdrop-filter: blur(4px);
 }
 
 .confidence-high {
-  background: transparent;
+  background: rgba(200, 168, 78, 0.08);
   color: var(--accent-light);
   border: 1px solid var(--accent);
 }
@@ -948,11 +955,22 @@
    ============================================================ */
 
 .bot-sources-section {
-  margin-top: 16px;
-  padding-top: 12px;
-  border-top: 1px solid var(--accent);
-  border-top-width: 1px;
-  border-image: linear-gradient(90deg, var(--accent), transparent) 1;
+  margin-top: 12px;
+  padding: 12px 14px;
+  background: rgba(14, 14, 24, 0.5);
+  border: 1px solid rgba(200, 168, 78, 0.1);
+  border-radius: 12px;
+  border-top: none;
+  border-image: none;
+}
+
+.bot-sources-section::before {
+  content: '';
+  display: block;
+  height: 1px;
+  margin: -12px -14px 10px;
+  background: linear-gradient(90deg, transparent, rgba(200, 168, 78, 0.3), transparent);
+  border-radius: 12px 12px 0 0;
 }
 
 .bot-sources-list {

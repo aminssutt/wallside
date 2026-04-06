@@ -187,7 +187,7 @@
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 .guides-search-input::placeholder { color: var(--text-muted); letter-spacing: 0.03em; }
-.guides-search-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(200,168,78,0.15); }
+.guides-search-input:focus { border-color: #C8A84E; box-shadow: 0 0 0 3px rgba(200, 168, 78, 0.12), 0 0 20px rgba(200, 168, 78, 0.08); }
 .guides-search-clear {
   position: absolute; right: 10px; border: none; background: transparent;
   color: var(--text-muted); cursor: pointer; padding: 4px;
@@ -212,6 +212,14 @@
   font-weight: 700; letter-spacing: 0.03em;
   color: var(--text-primary);
   text-align: center; margin: 0 0 8px;
+  position: relative; padding-bottom: 16px;
+}
+.brand-selection-title::after {
+  content: '';
+  position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 48px; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  border-radius: 2px;
 }
 
 .brand-selection-subtitle {
@@ -287,11 +295,12 @@
 
 .brand-card:hover,
 .brand-card:focus-visible {
-  border-color: var(--accent);
+  border-color: rgba(200, 168, 78, 0.4);
   box-shadow:
+    0 0 20px rgba(200, 168, 78, 0.1),
     0 0 24px rgba(200,168,78,0.2),
     0 0 48px rgba(200,168,78,0.08),
-    0 8px 28px rgba(0,0,0,0.35);
+    0 8px 32px rgba(0, 0, 0, 0.4);
 }
 .brand-card:focus-visible {
   outline: 2px solid var(--accent); outline-offset: 3px;
@@ -390,6 +399,7 @@
 }
 
 .guides-vcard {
+  position: relative;
   display: flex; flex-direction: column;
   border-radius: 16px;
   border: 1px solid var(--glass-border);
@@ -398,6 +408,30 @@
   overflow: hidden;
   transition: border-color 0.25s ease, box-shadow 0.25s ease;
   box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+}
+.guides-vcard::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, transparent 20%, #C8A84E 35%, #E8D48A 50%, #C8A84E 65%, transparent 80%);
+  background-size: 300% 300%;
+  animation: borderRotate 6s linear infinite;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.5s;
+  pointer-events: none;
+}
+.guides-vcard:hover::before {
+  opacity: 1;
+}
+@keyframes borderRotate {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 .guides-vcard:hover {
   border-color: var(--border-strong);

@@ -228,6 +228,7 @@
 .nav__brand {
   display: inline-flex;
   align-items: center;
+  gap: 10px;
   background: none;
   border: none;
   cursor: pointer;
@@ -235,15 +236,24 @@
 }
 
 .nav__logo {
-  height: 34px;
+  height: 44px;
   width: auto;
   object-fit: contain;
   filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.4));
   transition: opacity 0.2s;
 }
 
-.nav__brand:hover .nav__logo {
-  opacity: 0.85;
+.nav__wordmark {
+  height: 22px;
+  width: auto;
+  object-fit: contain;
+  opacity: 0.9;
+  transition: opacity 0.2s;
+}
+
+.nav__brand:hover .nav__logo,
+.nav__brand:hover .nav__wordmark {
+  opacity: 0.8;
 }
 
 .nav__links {
@@ -786,6 +796,43 @@
   height: 48px;
   background: linear-gradient(180deg, transparent, var(--border-strong), transparent);
   flex-shrink: 0;
+}
+
+/* ============================================================
+   SCROLL GEAR (interactive wow effect)
+   ============================================================ */
+
+.scroll-gear {
+  position: fixed;
+  top: 0;
+  right: -60px;
+  width: 280px;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.scroll-gear__svg {
+  position: absolute;
+  color: var(--accent);
+  will-change: transform;
+}
+
+.scroll-gear__svg--1 {
+  width: 220px;
+  height: 220px;
+  right: 0;
+  top: 30%;
+}
+
+.scroll-gear__svg--2 {
+  width: 140px;
+  height: 140px;
+  right: 130px;
+  top: calc(30% + 140px);
 }
 
 /* ============================================================
@@ -1835,6 +1882,10 @@
     grid-template-columns: 1fr 1fr;
     gap: 32px;
   }
+
+  .scroll-gear {
+    display: none;
+  }
 }
 
 @media (max-width: 768px) {
@@ -1971,7 +2022,11 @@
   }
 
   .nav__logo {
-    height: 28px;
+    height: 32px;
+  }
+
+  .nav__wordmark {
+    display: none;
   }
 
   .feature-card__content {
