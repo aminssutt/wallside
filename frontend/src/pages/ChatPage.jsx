@@ -149,7 +149,8 @@ const formatInline = (text) => {
 
 const normalizeAssistantText = (rawText) => {
   const clean = (rawText || '').trim()
-  return clean.replace(/^[\s:*"]+/u, '').trim()
+  // Only strip leading whitespace and quotes, NOT asterisks (breaks bold markdown)
+  return clean.replace(/^[\s"]+/u, '').trim()
 }
 
 const parseSseEventBlock = (rawBlock) => {
