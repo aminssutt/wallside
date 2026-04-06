@@ -6,7 +6,7 @@ import { API_URL } from '../api'
 import { useToast } from '../toast'
 import './GuidesPage.css'
 
-/* ── constants ─────────────────────────────────────────────── */
+/* -- constants --------------------------------------------------------- */
 
 const FLAG_BY_LANG = {
   fr: '/flags/fr.svg',
@@ -23,26 +23,28 @@ const pageVariants = {
 const TOAST_COPY = {
   fr: {
     openingAssistant: "Ouverture de l'assistant...",
-    redirectingHome: 'Action validée. Redirection en cours...',
+    redirectingHome: 'Action validee. Redirection en cours...',
   },
   en: {
     openingAssistant: 'Opening assistant...',
     redirectingHome: 'Action confirmed. Redirecting...',
   },
   ko: {
-    openingAssistant: '어시스턴트를 여는 중...',
-    redirectingHome: '확인되었습니다. 이동 중입니다...',
+    openingAssistant: '\uC5B4\uC2DC\uC2A4\uD134\uD2B8\uB97C \uC5EC\uB294 \uC911...',
+    redirectingHome: '\uD655\uC778\uB418\uC5C8\uC2B5\uB2C8\uB2E4. \uC774\uB3D9 \uC911\uC785\uB2C8\uB2E4...',
   },
 }
 
 const BRAND_NAME_MAP = {
   bmw: 'BMW',
-  citroen: 'Citroën',
+  citroen: 'Citro\u00ebn',
   mercedes: 'Mercedes-Benz',
   ds: 'DS',
 }
 
 const COMPACT_MENU_BREAKPOINT = 1024
+const AUTO_ROTATE_INTERVAL = 3000
+const DRAG_THRESHOLD = 40
 
 const normalizeBrandName = (raw) => {
   const lower = (raw || '').trim().toLowerCase()
@@ -52,7 +54,7 @@ const normalizeBrandName = (raw) => {
 const toBrandSlug = (name) =>
   (name || '').trim().toLowerCase().replace(/\s+/g, '-')
 
-/* ── component ─────────────────────────────────────────────── */
+/* -- component --------------------------------------------------------- */
 
 function GuidesPage() {
   const navigate = useNavigate()
@@ -73,6 +75,13 @@ function GuidesPage() {
     typeof window !== 'undefined' ? window.innerWidth <= COMPACT_MENU_BREAKPOINT : false,
   )
 
+  /* -- carousel state -------------------------------------------------- */
+  const [carouselIndex, setCarouselIndex] = useState(0)
+  const [isAutoRotating, setIsAutoRotating] = useState(true)
+  const autoRotateTimer = useRef(null)
+  const dragStartX = useRef(null)
+  const carouselRef = useRef(null)
+
   const langDropdownRef = useRef(null)
   const searchInputRef = useRef(null)
 
@@ -80,7 +89,7 @@ function GuidesPage() {
   const toastCopy = TOAST_COPY[lang] || TOAST_COPY.en
   const currentLang = LANGUAGES.find((entry) => entry.code === lang) || LANGUAGES[0]
 
-  /* ── fetch guides ─────────────────────────────────────────── */
+  /* -- fetch guides ---------------------------------------------------- */
 
   useEffect(() => {
     const fetchGuides = async () => {
@@ -114,7 +123,7 @@ function GuidesPage() {
     void fetchGuides()
   }, [])
 
-  /* ── brand grouping ───────────────────────────────────────── */
+  /* -- brand grouping -------------------------------------------------- */
 
   const brandGroups = useMemo(() => {
     const map = {}
@@ -126,7 +135,7 @@ function GuidesPage() {
     return map
   }, [guides, t.guides.brandUnknown])
 
-  /* ── search filtering ─────────────────────────────────────── */
+  /* -- search filtering ------------------------------------------------ */
 
   const filteredBrands = useMemo(() => {
     if (!searchTerm.trim()) return brands
@@ -155,7 +164,97 @@ function GuidesPage() {
     )
   }, [selectedBrand, brandGroups, searchTerm])
 
-  /* ── responsive ───────────────────────────────────────────── */
+  /* -- carousel math --------------------------------------------------- */
+
+  const numBrands = filteredBrands.length
+  const angleStep = numBrands > 0 ? 360 / numBrands : 0
+  const currentRotation = -(carouselIndex * angleStep)
+  // Radius scales with number of items so they don't overlap
+  const carouselRadius = Math.max(250, numBrands * 32)
+
+  const frontBrand = numBrands > 0
+    ? filteredBrands[((carouselIndex % numBrands) + numBrands) % numBrands]
+    : null
+
+  /* -- auto-rotate ------------------------------------------------------ */
+
+  useEffect(() => {
+    if (autoRotateTimer.current) clearInterval(autoRotateTimer.current)
+    if (isAutoRotating && numBrands > 1 && !selectedBrand) {
+      autoRotateTimer.current = setInterval(() => {
+        setCarouselIndex((prev) => prev + 1)
+      }, AUTO_ROTATE_INTERVAL)
+    }
+    return () => {
+      if (autoRotateTimer.current) clearInterval(autoRotateTimer.current)
+    }
+  }, [isAutoRotating, numBrands, selectedBrand])
+
+  const pauseAutoRotate = useCallback(() => {
+    setIsAutoRotating(false)
+  }, [])
+
+  const resumeAutoRotateDelayed = useCallback(() => {
+    setTimeout(() => setIsAutoRotating(true), 5000)
+  }, [])
+
+  /* -- carousel navigation --------------------------------------------- */
+
+  const rotateLeft = useCallback(() => {
+    pauseAutoRotate()
+    setCarouselIndex((prev) => prev - 1)
+    resumeAutoRotateDelayed()
+  }, [pauseAutoRotate, resumeAutoRotateDelayed])
+
+  const rotateRight = useCallback(() => {
+    pauseAutoRotate()
+    setCarouselIndex((prev) => prev + 1)
+    resumeAutoRotateDelayed()
+  }, [pauseAutoRotate, resumeAutoRotateDelayed])
+
+  /* -- keyboard navigation --------------------------------------------- */
+
+  useEffect(() => {
+    if (selectedBrand) return undefined
+    const handleKeyDown = (e) => {
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault()
+        rotateLeft()
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault()
+        rotateRight()
+      } else if (e.key === 'Enter' && frontBrand) {
+        e.preventDefault()
+        handleBrandClick(frontBrand)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [selectedBrand, rotateLeft, rotateRight, frontBrand, handleBrandClick])
+
+  /* -- drag / swipe support -------------------------------------------- */
+
+  const handlePointerDown = useCallback((e) => {
+    dragStartX.current = e.clientX
+  }, [])
+
+  const handlePointerUp = useCallback((e) => {
+    if (dragStartX.current === null) return
+    const diff = e.clientX - dragStartX.current
+    dragStartX.current = null
+    if (Math.abs(diff) > DRAG_THRESHOLD) {
+      if (diff > 0) rotateLeft()
+      else rotateRight()
+    }
+  }, [rotateLeft, rotateRight])
+
+  /* -- reset carousel index when search changes filtered brands -------- */
+
+  useEffect(() => {
+    setCarouselIndex(0)
+  }, [searchTerm])
+
+  /* -- responsive ------------------------------------------------------ */
 
   useEffect(() => {
     const handleResize = () => {
@@ -168,7 +267,7 @@ function GuidesPage() {
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  /* ── outside click / escape handlers ──────────────────────── */
+  /* -- outside click / escape handlers --------------------------------- */
 
   useEffect(() => {
     if (!langOpen) return undefined
@@ -215,7 +314,7 @@ function GuidesPage() {
     return () => document.removeEventListener('keydown', handleEscape)
   }, [pendingGuide])
 
-  /* ── actions ──────────────────────────────────────────────── */
+  /* -- actions --------------------------------------------------------- */
 
   const handleLangSelect = (nextLang) => {
     setLang(nextLang)
@@ -256,17 +355,17 @@ function GuidesPage() {
     }, 520)
   }
 
-  const handleBrandClick = (brand) => {
+  const handleBrandClick = useCallback((brand) => {
     setSelectedBrand(brand)
     setSearchTerm('')
-  }
+  }, [])
 
-  const handleBackToBrands = () => {
+  const handleBackToBrands = useCallback(() => {
     setSelectedBrand(null)
     setSearchTerm('')
-  }
+  }, [])
 
-  /* ── i18n shortcuts ───────────────────────────────────────── */
+  /* -- i18n shortcuts -------------------------------------------------- */
 
   const exitConfirmTitle = t.guides.exitConfirmTitle || 'Leave this page?'
   const exitConfirmText = t.guides.exitConfirmText || 'Are you sure you want to go back home?'
@@ -276,24 +375,58 @@ function GuidesPage() {
     lang === 'fr'
       ? 'TERMINER LA LIAISON ?'
       : lang === 'ko'
-        ? '링크를 종료하시겠습니까?'
+        ? '\uB9C1\uD06C\uB97C \uC885\uB8CC\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C?'
         : 'TERMINATE NEURAL LINK?'
   const exitNodeLabel =
-    lang === 'fr' ? 'NOEUD.ACTIF' : lang === 'ko' ? '활성 노드' : 'ACTIVE.NODE'
+    lang === 'fr' ? 'NOEUD.ACTIF' : lang === 'ko' ? '\uD65C\uC131 \uB178\uB4DC' : 'ACTIVE.NODE'
 
   const vehicleCountLabel = (count) => {
-    if (lang === 'fr') return `${count} véhicule${count > 1 ? 's' : ''}`
-    if (lang === 'ko') return `${count}대 차량`
+    if (lang === 'fr') return `${count} v\u00e9hicule${count > 1 ? 's' : ''}`
+    if (lang === 'ko') return `${count}\uB300 \uCC28\uB7C9`
     return `${count} vehicle${count > 1 ? 's' : ''}`
   }
 
   const backLabel =
-    lang === 'fr' ? 'Retour aux marques' : lang === 'ko' ? '브랜드로 돌아가기' : 'Back to brands'
+    lang === 'fr' ? 'Retour aux marques' : lang === 'ko' ? '\uBE0C\uB79C\uB4DC\uB85C \uB3CC\uC544\uAC00\uAE30' : 'Back to brands'
 
   const startChatLabel =
-    lang === 'fr' ? 'Ouvrir le chat' : lang === 'ko' ? '채팅 시작' : 'Start chat'
+    lang === 'fr' ? 'Commencer' : lang === 'ko' ? '\uCC44\uD305 \uC2DC\uC791' : 'Start'
 
-  /* ── render ───────────────────────────────────────────────── */
+  /* -- carousel item position helper ----------------------------------- */
+
+  const getItemStyle = (idx) => {
+    if (numBrands === 0) return {}
+
+    // Normalize the visual index relative to front
+    const normalizedCurrent = ((carouselIndex % numBrands) + numBrands) % numBrands
+    let offset = idx - normalizedCurrent
+    // Wrap around so items are positioned on the shorter arc
+    if (offset > numBrands / 2) offset -= numBrands
+    if (offset < -numBrands / 2) offset += numBrands
+
+    const itemAngle = offset * angleStep
+    const radians = (itemAngle * Math.PI) / 180
+
+    // Project 3D onto 2D
+    const x = Math.sin(radians) * carouselRadius
+    const z = Math.cos(radians) * carouselRadius
+
+    // Scale and opacity based on z-depth (front = max z = carouselRadius)
+    const depthRatio = (z + carouselRadius) / (2 * carouselRadius) // 0..1, 1 = front
+    const scale = 0.55 + 0.55 * depthRatio
+    const opacity = 0.2 + 0.8 * depthRatio
+    const zIndex = Math.round(depthRatio * 100)
+    const isFront = offset === 0
+
+    return {
+      transform: `translateX(${x}px) translateZ(${z}px) scale(${isFront ? 1.3 : scale})`,
+      opacity: isFront ? 1 : opacity,
+      zIndex: isFront ? 200 : zIndex,
+      filter: isFront ? 'none' : `brightness(${0.6 + 0.4 * depthRatio})`,
+    }
+  }
+
+  /* -- render ---------------------------------------------------------- */
 
   return (
     <Motion.main className="guides-page" variants={pageVariants} initial="initial" animate="animate" exit="exit">
@@ -302,7 +435,7 @@ function GuidesPage() {
       <div className="guides-bg-image" />
 
       <div className="guides-main-ui">
-        {/* ── header ── */}
+        {/* -- header -- */}
         <header className="guides-header">
           <div className="guides-header-left">
             <button type="button" className="guides-home-trigger" onClick={openExitConfirm} aria-label={t.guides.home}>
@@ -379,7 +512,7 @@ function GuidesPage() {
           )}
         </header>
 
-        {/* ── compact nav menu ── */}
+        {/* -- compact nav menu -- */}
         <AnimatePresence>
           {isCompactNav && navMenuOpen && (
             <Motion.div
@@ -422,7 +555,7 @@ function GuidesPage() {
           )}
         </AnimatePresence>
 
-        {/* ── main content ── */}
+        {/* -- main content -- */}
         <section className="guides-content">
           <Motion.div
             className="guides-intro"
@@ -458,7 +591,7 @@ function GuidesPage() {
             </div>
           )}
 
-          {/* ── loaded: brand grid or vehicle list ── */}
+          {/* -- loaded: carousel + vehicle cards -- */}
           {!loading && !errorKey && guides.length > 0 && (
             <>
               {/* search bar */}
@@ -491,66 +624,119 @@ function GuidesPage() {
                 )}
               </div>
 
-              <AnimatePresence mode="wait">
-                {!selectedBrand ? (
-                  /* ── Phase 1: Brand grid ── */
-                  <Motion.div
-                    key="brand-grid"
-                    className="guides-brand-grid"
-                    initial={{ opacity: 0, y: 16 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -16 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    {filteredBrands.length === 0 && (
-                      <div className="guides-state-block">
-                        <p>{t.guides.noBrandMatch}</p>
-                      </div>
-                    )}
-                    {filteredBrands.map((brand, i) => {
-                      const count = (brandGroups[brand] || []).length
-                      const slug = toBrandSlug(brand)
-                      return (
-                        <Motion.button
-                          key={brand}
-                          type="button"
-                          className="guides-brand-card"
-                          onClick={() => handleBrandClick(brand)}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: Math.min(i * 0.04, 0.4), duration: 0.35 }}
-                          whileHover={{ y: -4, scale: 1.02 }}
-                          whileTap={{ scale: 0.97 }}
-                        >
-                          <div className="guides-brand-logo-wrap">
-                            <img
-                              className="guides-brand-logo"
-                              src={`/logos/${slug}.svg`}
-                              alt={brand}
-                              onError={(e) => {
-                                e.currentTarget.style.display = 'none'
-                                e.currentTarget.nextElementSibling.style.display = 'flex'
+              {/* -- Phase 1: 3D Brand Carousel -- */}
+              <div className={`carousel-section${selectedBrand ? ' carousel-section--dimmed' : ''}`}>
+                {numBrands === 0 && (
+                  <div className="guides-state-block">
+                    <p>{t.guides.noBrandMatch}</p>
+                  </div>
+                )}
+
+                {numBrands > 0 && (
+                  <>
+                    <div
+                      className="carousel-container"
+                      ref={carouselRef}
+                      onPointerDown={handlePointerDown}
+                      onPointerUp={handlePointerUp}
+                      onMouseEnter={pauseAutoRotate}
+                      onMouseLeave={() => !selectedBrand && setIsAutoRotating(true)}
+                    >
+                      <div
+                        className="carousel-track"
+                        style={{ '--rotation': `${currentRotation}deg` }}
+                      >
+                        {filteredBrands.map((brand, idx) => {
+                          const slug = toBrandSlug(brand)
+                          const normalizedCurrent = ((carouselIndex % numBrands) + numBrands) % numBrands
+                          const isFront = idx === normalizedCurrent
+                          const itemStyle = getItemStyle(idx)
+
+                          return (
+                            <button
+                              key={brand}
+                              type="button"
+                              className={`carousel-item${isFront ? ' carousel-item--active' : ''}`}
+                              style={itemStyle}
+                              onClick={() => {
+                                if (isFront) {
+                                  handleBrandClick(brand)
+                                } else {
+                                  // Rotate to this brand
+                                  pauseAutoRotate()
+                                  setCarouselIndex(idx)
+                                  resumeAutoRotateDelayed()
+                                }
                               }}
-                            />
-                            <span className="guides-brand-logo-fallback" style={{ display: 'none' }}>
-                              {brand.charAt(0).toUpperCase()}
-                            </span>
-                          </div>
-                          <span className="guides-brand-card-name">{brand}</span>
-                          <span className="guides-brand-card-count">{vehicleCountLabel(count)}</span>
-                        </Motion.button>
-                      )
-                    })}
-                  </Motion.div>
-                ) : (
-                  /* ── Phase 2: Vehicle list ── */
+                              aria-label={brand}
+                            >
+                              <div className="carousel-item-inner">
+                                <img
+                                  className="carousel-item-logo"
+                                  src={`/logos/${slug}.svg`}
+                                  alt={brand}
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none'
+                                    if (e.currentTarget.nextElementSibling) {
+                                      e.currentTarget.nextElementSibling.style.display = 'flex'
+                                    }
+                                  }}
+                                />
+                                <span className="carousel-item-fallback" style={{ display: 'none' }}>
+                                  {brand.charAt(0).toUpperCase()}
+                                </span>
+                              </div>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    {/* carousel info below */}
+                    <div className="carousel-info">
+                      <h2 className="carousel-brand-name">{frontBrand || ''}</h2>
+                      <span className="carousel-brand-count">
+                        {frontBrand ? vehicleCountLabel((brandGroups[frontBrand] || []).length) : ''}
+                      </span>
+                    </div>
+
+                    {/* arrow navigation */}
+                    <div className="carousel-nav">
+                      <button
+                        type="button"
+                        className="carousel-nav-btn carousel-nav-btn--left"
+                        onClick={rotateLeft}
+                        aria-label="Previous brand"
+                      >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                          <path d="M15 18l-6-6 6-6" />
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        className="carousel-nav-btn carousel-nav-btn--right"
+                        onClick={rotateRight}
+                        aria-label="Next brand"
+                      >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                          <path d="M9 6l6 6-6 6" />
+                        </svg>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* -- Phase 2: Vehicle cards after brand selection -- */}
+              <AnimatePresence>
+                {selectedBrand && (
                   <Motion.div
-                    key="vehicle-list"
+                    key="vehicle-section"
                     className="guides-vehicle-section"
-                    initial={{ opacity: 0, x: 40 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -40 }}
-                    transition={{ duration: 0.3 }}
+                    initial={{ opacity: 0, y: 40 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 40 }}
+                    transition={{ duration: 0.4, ease: 'easeOut' }}
                   >
                     <div className="guides-vehicle-header">
                       <button
@@ -576,52 +762,59 @@ function GuidesPage() {
                       </div>
                     </div>
 
-                    <div className="guides-vehicle-list">
+                    <div className="guides-vehicle-grid">
                       {filteredVehiclesForBrand.length === 0 && (
                         <div className="guides-state-block">
                           <p>{t.guides.noBrandMatch}</p>
                         </div>
                       )}
-                      {filteredVehiclesForBrand.map((guide, i) => (
-                        <Motion.article
-                          key={guide.slug}
-                          className="guides-vehicle-card"
-                          initial={{ opacity: 0, y: 14 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: Math.min(i * 0.05, 0.3), duration: 0.3 }}
-                          whileHover={{ y: -2 }}
-                        >
-                          <div className="guides-vehicle-card-info">
-                            <h3>{guide.name}</h3>
-                            <div className="guides-vehicle-card-meta">
-                              {guide.segment && (
-                                <span className={`guides-segment-badge guides-segment-badge--${guide.segment}`}>
-                                  {(t.guides.segments || {})[guide.segment] || guide.segment}
-                                </span>
-                              )}
-                              {guide.coverage_note && (
-                                <span className="guides-vehicle-coverage">
-                                  {formatText(t.guides.coverageLabel || '{coverage}', {
-                                    coverage: guide.coverage_note,
-                                  })}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <Motion.button
-                            type="button"
-                            className="guides-vehicle-start-btn"
-                            onClick={() => openConfirmPopup(guide)}
-                            whileHover={{ scale: 1.04 }}
-                            whileTap={{ scale: 0.96 }}
+                      {filteredVehiclesForBrand.map((guide, i) => {
+                        const slug = toBrandSlug(selectedBrand)
+                        return (
+                          <Motion.article
+                            key={guide.slug}
+                            className="guides-vcard"
+                            initial={{ opacity: 0, y: 24 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: Math.min(i * 0.06, 0.36), duration: 0.35, ease: 'easeOut' }}
+                            whileHover={{ y: -4, scale: 1.015 }}
                           >
-                            {startChatLabel}
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
-                              <path d="M5 12h14M12 5l7 7-7 7" />
-                            </svg>
-                          </Motion.button>
-                        </Motion.article>
-                      ))}
+                            <div className="guides-vcard-top">
+                              <img
+                                className="guides-vcard-brand-logo"
+                                src={`/logos/${slug}.svg`}
+                                alt={selectedBrand}
+                                onError={(e) => { e.currentTarget.style.display = 'none' }}
+                              />
+                            </div>
+                            <div className="guides-vcard-body">
+                              <h3 className="guides-vcard-name">{guide.name}</h3>
+                              {guide.coverage_note && (
+                                <span className="guides-vcard-year">{guide.coverage_note}</span>
+                              )}
+                              <div className="guides-vcard-badges">
+                                {guide.segment && (
+                                  <span className={`guides-segment-badge guides-segment-badge--${guide.segment}`}>
+                                    {(t.guides.segments || {})[guide.segment] || guide.segment}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <Motion.button
+                              type="button"
+                              className="guides-vcard-btn"
+                              onClick={() => openConfirmPopup(guide)}
+                              whileHover={{ scale: 1.03 }}
+                              whileTap={{ scale: 0.96 }}
+                            >
+                              {startChatLabel}
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+                                <path d="M5 12h14M12 5l7 7-7 7" />
+                              </svg>
+                            </Motion.button>
+                          </Motion.article>
+                        )
+                      })}
                     </div>
                   </Motion.div>
                 )}
@@ -631,7 +824,7 @@ function GuidesPage() {
         </section>
       </div>
 
-      {/* ── confirm vehicle popup ── */}
+      {/* -- confirm vehicle popup -- */}
       <AnimatePresence>
         {pendingGuide && (
           <Motion.div
@@ -673,7 +866,7 @@ function GuidesPage() {
         )}
       </AnimatePresence>
 
-      {/* ── launching overlay ── */}
+      {/* -- launching overlay -- */}
       <AnimatePresence>
         {launchingSlug && (
           <Motion.div
@@ -688,7 +881,7 @@ function GuidesPage() {
         )}
       </AnimatePresence>
 
-      {/* ── exit confirmation ── */}
+      {/* -- exit confirmation -- */}
       <AnimatePresence>
         {showExitConfirm && (
           <Motion.div

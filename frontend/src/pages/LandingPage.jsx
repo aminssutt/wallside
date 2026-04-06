@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion as Motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion, AnimatePresence, useInView } from 'framer-motion';
 import { LANGUAGES, useAppLanguage } from '../i18n';
 import './LandingPage.css';
 
@@ -76,6 +76,13 @@ const COPY = {
     contactEmail: 'Email',
     contactMessage: 'Message',
     contactSend: 'Envoyer',
+    chatDemoUser: 'Comment changer les plaquettes de frein sur ma Peugeot 308 ?',
+    chatDemoAi: "Pour remplacer les plaquettes de frein de votre Peugeot 308 (2022):\n\n**Outils necessaires**: Cric, cle de 13mm, repousse-piston\n\n**Etapes**:\n1. Soulevez le vehicule et retirez la roue\n2. Devissez les deux boulons de l'etrier...",
+    chatDemoSource: 'Sources: Manuel Peugeot 308, page 142',
+    statsVehicles: 'vehicules',
+    statsBrands: 'marques',
+    statsPages: 'pages analysees',
+    statsLangs: 'langues',
     footerGuides: 'Guides',
     footerFaq: 'FAQ',
     footerContact: 'Contact',
@@ -142,6 +149,13 @@ const COPY = {
     contactEmail: 'Email',
     contactMessage: 'Message',
     contactSend: 'Send',
+    chatDemoUser: 'How to change the brake pads on my Peugeot 308?',
+    chatDemoAi: "To replace the brake pads on your Peugeot 308 (2022):\n\n**Tools needed**: Jack, 13mm wrench, piston compressor\n\n**Steps**:\n1. Raise the vehicle and remove the wheel\n2. Unscrew the two caliper bolts...",
+    chatDemoSource: 'Sources: Peugeot 308 Manual, page 142',
+    statsVehicles: 'vehicles',
+    statsBrands: 'brands',
+    statsPages: 'pages analyzed',
+    statsLangs: 'languages',
     footerGuides: 'Guides',
     footerFaq: 'FAQ',
     footerContact: 'Contact',
@@ -208,6 +222,13 @@ const COPY = {
     contactEmail: '이메일',
     contactMessage: '메시지',
     contactSend: '보내기',
+    chatDemoUser: '푸조 308의 브레이크 패드를 어떻게 교체하나요?',
+    chatDemoAi: "푸조 308 (2022)의 브레이크 패드 교체:\n\n**필요 도구**: 잭, 13mm 렌치, 피스톤 압축기\n\n**단계**:\n1. 차량을 들어올리고 바퀴를 제거합니다\n2. 캘리퍼 볼트 두 개를 풀어주세요...",
+    chatDemoSource: '출처: 푸조 308 매뉴얼, 142페이지',
+    statsVehicles: '차량',
+    statsBrands: '브랜드',
+    statsPages: '분석된 페이지',
+    statsLangs: '언어',
     footerGuides: '가이드',
     footerFaq: 'FAQ',
     footerContact: '문의',
@@ -297,6 +318,224 @@ const stagger = {
   hidden: { opacity: 0 },
   visible: { opacity: 1, transition: { staggerChildren: 0.12 } },
 };
+
+/* ============================================================
+   Animated Counter (for stats section)
+   ============================================================ */
+
+function AnimatedCounter({ target, suffix = '', duration = 2000 }) {
+  const ref = useRef(null);
+  const inView = useInView(ref, { once: true, amount: 0.5 });
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    if (!inView) return;
+    let start = 0;
+    const step = Math.max(1, Math.floor(target / (duration / 16)));
+    const timer = setInterval(() => {
+      start += step;
+      if (start >= target) {
+        setCount(target);
+        clearInterval(timer);
+      } else {
+        setCount(start);
+      }
+    }, 16);
+    return () => clearInterval(timer);
+  }, [inView, target, duration]);
+
+  return (
+    <span ref={ref} className="stat-number">
+      {count.toLocaleString()}{suffix}
+    </span>
+  );
+}
+
+/* ============================================================
+   Chat Demo (hero animated conversation)
+   ============================================================ */
+
+function ChatDemo({ userMsg, aiMsg, sourceMsg }) {
+  const TYPING_SPEED = 28;
+  const PAUSE_BEFORE_AI = 800;
+  const PAUSE_BEFORE_SOURCE = 600;
+  const LOOP_DELAY = 5000;
+
+  const [phase, setPhase] = useState('user');
+  const [charIndex, setCharIndex] = useState(0);
+  const [showSource, setShowSource] = useState(false);
+  const [showUser, setShowUser] = useState(false);
+
+  const resetCycle = useCallback(() => {
+    setPhase('user');
+    setCharIndex(0);
+    setShowSource(false);
+    setShowUser(false);
+  }, []);
+
+  useEffect(() => {
+    resetCycle();
+  }, [userMsg, aiMsg, sourceMsg, resetCycle]);
+
+  useEffect(() => {
+    let timeout;
+    if (phase === 'user') {
+      timeout = setTimeout(() => {
+        setShowUser(true);
+        setPhase('pause');
+      }, 400);
+    } else if (phase === 'pause') {
+      timeout = setTimeout(() => setPhase('typing'), PAUSE_BEFORE_AI);
+    } else if (phase === 'typing') {
+      if (charIndex < aiMsg.length) {
+        timeout = setTimeout(() => setCharIndex((i) => i + 1), TYPING_SPEED);
+      } else {
+        timeout = setTimeout(() => {
+          setShowSource(true);
+          setPhase('done');
+        }, PAUSE_BEFORE_SOURCE);
+      }
+    } else if (phase === 'done') {
+      timeout = setTimeout(() => resetCycle(), LOOP_DELAY);
+    }
+    return () => clearTimeout(timeout);
+  }, [phase, charIndex, aiMsg, resetCycle]);
+
+  const formatAiText = (text) => {
+    return text.split('\n').map((line, i) => {
+      const boldParts = line.split(/(\*\*[^*]+\*\*)/g);
+      return (
+        <React.Fragment key={i}>
+          {i > 0 && <br />}
+          {boldParts.map((part, j) =>
+            part.startsWith('**') && part.endsWith('**')
+              ? <strong key={j}>{part.slice(2, -2)}</strong>
+              : part
+          )}
+        </React.Fragment>
+      );
+    });
+  };
+
+  return (
+    <div className="chat-demo">
+      <div className="chat-demo__header">
+        <div className="chat-demo__dot" />
+        <div className="chat-demo__dot" />
+        <div className="chat-demo__dot" />
+        <span className="chat-demo__title">CarChat</span>
+      </div>
+      <div className="chat-demo__body">
+        {showUser && (
+          <Motion.div
+            className="chat-demo__msg chat-demo__msg--user"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <span className="chat-demo__label">Vous</span>
+            <p>{userMsg}</p>
+          </Motion.div>
+        )}
+        {(phase === 'typing' || phase === 'done') && (
+          <Motion.div
+            className="chat-demo__msg chat-demo__msg--ai"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <span className="chat-demo__label">CarChat AI</span>
+            <p>{formatAiText(aiMsg.slice(0, charIndex))}</p>
+            {phase === 'typing' && <span className="chat-demo__cursor" />}
+          </Motion.div>
+        )}
+        {showSource && (
+          <Motion.div
+            className="chat-demo__source"
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+          >
+            {sourceMsg}
+          </Motion.div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   Feature Card Animations (CSS-only micro-illustrations)
+   ============================================================ */
+
+const FeatureBookAnim = () => (
+  <div className="feat-anim feat-anim--book">
+    <div className="feat-book__page feat-book__page--1" />
+    <div className="feat-book__page feat-book__page--2" />
+    <div className="feat-book__spine" />
+  </div>
+);
+
+const FeatureTypingAnim = () => (
+  <div className="feat-anim feat-anim--typing">
+    <span className="feat-typing__dot" />
+    <span className="feat-typing__dot" />
+    <span className="feat-typing__dot" />
+  </div>
+);
+
+const FeatureCheckAnim = () => (
+  <div className="feat-anim feat-anim--check">
+    <svg viewBox="0 0 32 32" className="feat-check__svg">
+      <circle cx="16" cy="16" r="14" className="feat-check__circle" />
+      <polyline points="10 16 14 20 22 12" className="feat-check__tick" />
+    </svg>
+  </div>
+);
+
+const FeatureLangAnim = () => (
+  <div className="feat-anim feat-anim--lang">
+    <span className="feat-lang__text">FR</span>
+    <span className="feat-lang__text">EN</span>
+    <span className="feat-lang__text">KO</span>
+  </div>
+);
+
+const FEATURE_ANIMS = [FeatureBookAnim, FeatureTypingAnim, FeatureCheckAnim, FeatureLangAnim];
+
+/* ============================================================
+   How-step preview illustrations
+   ============================================================ */
+
+const HowPreviewBrands = () => (
+  <div className="how-preview how-preview--brands">
+    {['Peugeot', 'BMW', 'Toyota', 'Hyundai', 'Audi', 'Renault'].map((b) => (
+      <div key={b} className="how-preview__brand">{b.slice(0, 2).toUpperCase()}</div>
+    ))}
+  </div>
+);
+
+const HowPreviewQuestion = () => (
+  <div className="how-preview how-preview--question">
+    <div className="how-preview__input">
+      <span className="how-preview__placeholder">Comment changer...</span>
+      <span className="how-preview__send-icon">
+        <IconSend />
+      </span>
+    </div>
+  </div>
+);
+
+const HowPreviewAnswer = () => (
+  <div className="how-preview how-preview--answer">
+    <div className="how-preview__line how-preview__line--title" />
+    <div className="how-preview__line how-preview__line--text" />
+    <div className="how-preview__line how-preview__line--text how-preview__line--short" />
+    <div className="how-preview__source-tag">p.142</div>
+  </div>
+);
+
+const HOW_PREVIEWS = [HowPreviewBrands, HowPreviewQuestion, HowPreviewAnswer];
 
 /* ============================================================
    Component
@@ -480,6 +719,14 @@ export default function LandingPage() {
               {t.ctaSecondary}
             </button>
           </Motion.div>
+
+          <Motion.div variants={fadeInUp} className="hero-chat-wrapper">
+            <ChatDemo
+              userMsg={t.chatDemoUser}
+              aiMsg={t.chatDemoAi}
+              sourceMsg={t.chatDemoSource}
+            />
+          </Motion.div>
         </Motion.div>
 
         <button
@@ -490,6 +737,39 @@ export default function LandingPage() {
         >
           <IconChevronDown />
         </button>
+      </section>
+
+      {/* ---- STATS BAR ---- */}
+      <section className="landing-section stats-section">
+        <div className="landing-container">
+          <Motion.div
+            className="stats-bar"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, amount: 0.5 }}
+            variants={stagger}
+          >
+            <Motion.div className="stat-item" variants={fadeInUp}>
+              <AnimatedCounter target={130} suffix="+" />
+              <span className="stat-label">{t.statsVehicles}</span>
+            </Motion.div>
+            <span className="stats-divider" />
+            <Motion.div className="stat-item" variants={fadeInUp}>
+              <AnimatedCounter target={30} suffix="+" />
+              <span className="stat-label">{t.statsBrands}</span>
+            </Motion.div>
+            <span className="stats-divider" />
+            <Motion.div className="stat-item" variants={fadeInUp}>
+              <AnimatedCounter target={50000} suffix="+" duration={2500} />
+              <span className="stat-label">{t.statsPages}</span>
+            </Motion.div>
+            <span className="stats-divider" />
+            <Motion.div className="stat-item" variants={fadeInUp}>
+              <AnimatedCounter target={3} />
+              <span className="stat-label">{t.statsLangs}</span>
+            </Motion.div>
+          </Motion.div>
+        </div>
       </section>
 
       {/* ---- FEATURES ---- */}
@@ -515,11 +795,13 @@ export default function LandingPage() {
           >
             {t.features.map((feature, idx) => {
               const Icon = FEATURE_ICONS[idx] || IconBook;
+              const Anim = FEATURE_ANIMS[idx] || null;
               return (
                 <Motion.div key={idx} className="glass-card" variants={fadeInUp}>
                   <div className="feature-icon-wrap">
                     <Icon />
                   </div>
+                  {Anim && <Anim />}
                   <h3 className="feature-title">{feature.title}</h3>
                   <p className="feature-desc">{feature.desc}</p>
                 </Motion.div>
@@ -550,14 +832,18 @@ export default function LandingPage() {
             whileInView="visible"
             viewport={{ once: true, amount: 0.3 }}
           >
-            {t.howSteps.map((step, idx) => (
-              <Motion.div key={idx} className="how-step" variants={fadeInUp}>
-                <div className="how-step-number">{idx + 1}</div>
-                {idx < t.howSteps.length - 1 && <div className="how-step-connector" />}
-                <h3 className="how-step-title">{step.title}</h3>
-                <p className="how-step-desc">{step.desc}</p>
-              </Motion.div>
-            ))}
+            {t.howSteps.map((step, idx) => {
+              const Preview = HOW_PREVIEWS[idx] || null;
+              return (
+                <Motion.div key={idx} className="how-step" variants={fadeInUp}>
+                  <div className="how-step-number">{idx + 1}</div>
+                  {idx < t.howSteps.length - 1 && <div className="how-step-connector" />}
+                  {Preview && <div className="how-step-preview"><Preview /></div>}
+                  <h3 className="how-step-title">{step.title}</h3>
+                  <p className="how-step-desc">{step.desc}</p>
+                </Motion.div>
+              );
+            })}
           </Motion.div>
         </div>
       </section>
