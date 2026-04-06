@@ -169,6 +169,37 @@ def _is_conversational(question: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# Prompt injection sanitization
+# ---------------------------------------------------------------------------
+_INJECTION_PATTERNS = re.compile(
+    r"(?i)"
+    r"(?:ignore|oublie|forget|disregard|override|bypass)\s+"
+    r"(?:all|tout|les|tes|the|your|previous|precedent|above|ci-dessus)?\s*"
+    r"(?:instructions?|regles?|rules?|prompt|consignes?|system|contexte|context)"
+    r"|(?:system\s*prompt|system\s*message|instruction\s*systeme)"
+    r"|(?:tu\s+es\s+maintenant|you\s+are\s+now|act\s+as|agis\s+comme)"
+    r"|(?:repete|repeat|affiche|print|show|display|output|donne)\s+"
+    r"(?:le\s+)?(?:system|prompt|instruction|configuration|config|cle|key|api)"
+    r"|(?:GOOGLE_API_KEY|API_KEY|SECRET|\.env)"
+    r"|(?:\[SYSTEM\]|\[INST\]|<\|system\|>|<\|im_start\|>)"
+)
+
+
+def sanitize_user_input(text: str) -> str:
+    """Remove prompt injection markers from user input."""
+    clean = (text or "").strip()
+    # Remove LLM control tokens
+    clean = re.sub(r"<\|[^>]+\|>", "", clean)
+    clean = re.sub(r"\[/?(?:SYSTEM|INST|SYS)\]", "", clean, flags=re.IGNORECASE)
+    return clean.strip()
+
+
+def detect_injection(text: str) -> bool:
+    """Return True if the text contains prompt injection patterns."""
+    return bool(_INJECTION_PATTERNS.search(text or ""))
+
+
+# ---------------------------------------------------------------------------
 # Query routing: manual_only / manual_plus_web_blocking / manual_plus_web_async
 # ---------------------------------------------------------------------------
 MANUAL_ONLY = "manual_only"
@@ -919,6 +950,12 @@ class GuideChatbot:
         fix_mode: bool = False,
     ) -> Dict[str, Any]:
         """Build chat payload (prompt + retrieval context) shared by sync and stream paths."""
+        # Sanitize input and check for injection attempts
+        question = sanitize_user_input(question)
+        if detect_injection(question):
+            log.warning("Prompt injection detected: %s", question[:100])
+            question = re.sub(_INJECTION_PATTERNS, "[filtered]", question)
+
         if not lang:
             lang = detect_language(question)
 
