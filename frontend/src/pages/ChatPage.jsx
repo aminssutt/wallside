@@ -293,7 +293,7 @@ function SourcesList({ sources, lang }) {
             ) : (
               <iframe
                 className="proof-iframe"
-                sandbox="allow-same-origin"
+                sandbox="allow-same-origin allow-scripts allow-popups"
                 src={proofSrc.pdf_url
                   ? `${proofSrc.pdf_url}#page=${String(proofSrc.page).split('-')[0]}`
                   : `${API_URL}/guides/${proofSrc.slug}/pdf#page=${String(proofSrc.page).split('-')[0]}`}

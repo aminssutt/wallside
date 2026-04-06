@@ -789,44 +789,6 @@
   flex-shrink: 0;
 }
 
-/* ============================================================
-   SCROLL WHEEL (interactive automotive wow effect)
-   ============================================================ */
-
-.scroll-wheel {
-  position: fixed;
-  top: 0;
-  right: 0;
-  width: 320px;
-  height: 100vh;
-  pointer-events: none;
-  z-index: 1;
-}
-
-.scroll-wheel__rim {
-  position: absolute;
-  top: 20%;
-  right: -40px;
-  width: 260px;
-  height: 260px;
-  color: var(--accent);
-  will-change: transform;
-}
-
-.scroll-wheel__gear {
-  position: absolute;
-  top: calc(20% + 180px);
-  right: 160px;
-  width: 120px;
-  height: 120px;
-  color: var(--accent);
-  will-change: transform;
-}
-
-.scroll-wheel__svg {
-  width: 100%;
-  height: 100%;
-}
 
 /* ============================================================
    FEATURES
@@ -1876,9 +1838,6 @@
     gap: 32px;
   }
 
-  .scroll-wheel {
-    display: none;
-  }
 }
 
 @media (max-width: 768px) {

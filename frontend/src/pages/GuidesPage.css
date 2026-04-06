@@ -362,48 +362,48 @@
   display: flex; flex-direction: column;
 }
 
-/* -- Brand strip (Phase 2 header — brand card animates to top) -------- */
+/* -- Brand showcase (Phase 2 — centered logo + name) ----------------- */
 
-.guides-brand-strip {
+.guides-brand-showcase {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: 8px;
   margin-bottom: 20px;
-  padding: 16px 20px;
-  background: linear-gradient(135deg, rgba(200, 168, 78, 0.04), rgba(14, 14, 24, 0.5));
-  border: 1px solid rgba(200, 168, 78, 0.12);
-  border-radius: 16px;
-  backdrop-filter: blur(10px);
+  padding: 20px 20px 16px;
 }
 
-.guides-brand-strip__card {
+.guides-brand-showcase__logo-wrap {
+  width: 100px;
+  height: 100px;
   display: flex;
   align-items: center;
-  gap: 14px;
+  justify-content: center;
 }
 
-.guides-brand-strip__logo {
-  width: 44px;
-  height: 44px;
+.guides-brand-showcase__logo {
+  max-width: 90px;
+  max-height: 90px;
   object-fit: contain;
-  filter: brightness(0.95) drop-shadow(0 2px 8px rgba(0, 0, 0, 0.4));
+  filter: brightness(0.95) drop-shadow(0 4px 16px rgba(0, 0, 0, 0.5));
 }
 
-.guides-brand-strip__logo[src$=".svg"] {
-  filter: invert(1) brightness(0.95) drop-shadow(0 2px 8px rgba(0, 0, 0, 0.4));
+.guides-brand-showcase__logo[src$=".svg"] {
+  filter: invert(1) brightness(0.95) drop-shadow(0 4px 16px rgba(0, 0, 0, 0.5));
 }
 
-.guides-brand-strip__name {
+.guides-brand-showcase__name {
   font-family: var(--font-heading);
-  font-size: clamp(1.1rem, 3vw, 1.5rem);
+  font-size: clamp(1.4rem, 4vw, 2rem);
   font-weight: 700;
   color: var(--text-primary);
-  letter-spacing: 0.02em;
+  letter-spacing: 0.03em;
+  margin: 0;
 }
 
-.guides-brand-strip__count {
+.guides-brand-showcase__count {
   font-family: var(--font-mono);
-  font-size: 0.6rem;
+  font-size: 0.62rem;
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -411,7 +411,7 @@
   background: rgba(200, 168, 78, 0.08);
   border: 1px solid var(--border-gold);
   border-radius: 999px;
-  padding: 3px 10px;
+  padding: 3px 12px;
 }
 
 .guides-back-btn {
@@ -421,27 +421,52 @@
   font-family: var(--font-mono); font-size: 0.65rem;
   letter-spacing: 0.08em; text-transform: uppercase;
   padding: 8px 14px 8px 10px; cursor: pointer; flex-shrink: 0;
+  align-self: flex-start;
+  margin-bottom: 4px;
   transition: border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
 }
 .guides-back-btn:hover { border-color: var(--accent); color: var(--accent); transform: translateX(-2px); }
 
-/* -- Vehicle carousel cards (same shape as brand cards) --------------- */
+/* -- Vehicle carousel cards ------------------------------------------- */
 
 .vehicle-scroll {
   scroll-snap-type: x proximity;
 }
 
 .vehicle-card {
-  flex: 0 0 200px;
-  height: 220px;
-  justify-content: space-between;
-  padding: 16px 14px;
-  text-align: left;
+  flex: 0 0 190px;
+  height: 230px;
+  justify-content: center;
+  padding: 18px 14px 14px;
+  text-align: center;
+  gap: 8px;
+  transition: transform 0.35s ease, opacity 0.35s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.vehicle-card__logo-wrap {
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 4px;
+}
+
+.vehicle-card__logo {
+  max-width: 40px;
+  max-height: 40px;
+  object-fit: contain;
+  filter: brightness(0.8) drop-shadow(0 2px 6px rgba(0, 0, 0, 0.4));
+  opacity: 0.6;
+}
+
+.vehicle-card__logo[src$=".svg"] {
+  filter: invert(1) brightness(0.8) drop-shadow(0 2px 6px rgba(0, 0, 0, 0.4));
 }
 
 .vehicle-card__name {
   font-family: var(--font-heading);
-  font-size: 0.88rem;
+  font-size: 0.85rem;
   font-weight: 700;
   color: var(--text-primary);
   line-height: 1.25;
@@ -450,7 +475,7 @@
 
 .vehicle-card__year {
   font-family: var(--font-mono);
-  font-size: 0.58rem;
+  font-size: 0.55rem;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -463,18 +488,19 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 8px 14px;
+  padding: 9px 14px;
   background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
   color: #0A0A0F;
   border: none;
   border-radius: 8px;
   font-family: var(--font-mono);
-  font-size: 0.62rem;
+  font-size: 0.6rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   width: 100%;
   margin-top: auto;
+  box-shadow: 0 2px 10px rgba(200, 168, 78, 0.15);
 }
 
 /* -- vehicle card grid (legacy fallback) ------------------------------- */
@@ -712,13 +738,13 @@
 @media (max-width: 768px) {
   .guides-vcard-name { font-size: 0.88rem; }
   .brand-card { flex: 0 0 150px; height: 180px; }
-  .vehicle-card { flex: 0 0 170px; height: 200px; }
+  .vehicle-card { flex: 0 0 165px; height: 210px; }
   .brand-card-logo-wrap { width: 100px; height: 100px; }
   .brand-card-logo { max-width: 80px; max-height: 80px; }
   .brand-scroll { gap: 14px; padding: 16px 44px; }
-  .guides-brand-strip { flex-direction: column; align-items: flex-start; gap: 12px; padding: 14px 16px; }
-  .guides-brand-strip__logo { width: 36px; height: 36px; }
-  .guides-brand-strip__name { font-size: 1rem; }
+  .guides-brand-showcase__logo { max-width: 70px; max-height: 70px; }
+  .guides-brand-showcase__name { font-size: 1.2rem; }
+  .guides-brand-showcase { padding: 14px 16px 12px; margin-bottom: 14px; }
 }
 
 @media (max-width: 700px) {
@@ -732,8 +758,13 @@
 
 @media (max-width: 560px) {
   .brand-card { flex: 0 0 140px; height: 170px; }
-  .vehicle-card { flex: 0 0 150px; height: 190px; }
-  .vehicle-card__name { font-size: 0.78rem; }
+  .vehicle-card { flex: 0 0 150px; height: 195px; padding: 14px 10px 12px; }
+  .vehicle-card__name { font-size: 0.76rem; }
+  .vehicle-card__logo-wrap { width: 40px; height: 40px; }
+  .vehicle-card__logo { max-width: 32px; max-height: 32px; }
+  .guides-brand-showcase__logo-wrap { width: 70px; height: 70px; }
+  .guides-brand-showcase__logo { max-width: 60px; max-height: 60px; }
+  .guides-brand-showcase__name { font-size: 1rem; }
   .brand-card-logo-wrap { width: 90px; height: 90px; }
   .brand-card-logo { max-width: 68px; max-height: 68px; }
   .brand-card-fallback { width: 60px; height: 60px; font-size: 1.5rem; }

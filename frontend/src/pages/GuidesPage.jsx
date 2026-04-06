@@ -240,20 +240,27 @@ function GuidesPage() {
 
   /* -- depth effect: scale/opacity based on distance from center ------- */
 
-  const updateCenterCard = useCallback(() => {
-    const el = scrollRef.current
+  const applyDepthEffect = useCallback((el) => {
     if (!el) return
     const center = el.scrollLeft + el.clientWidth / 2
-    const cards = el.querySelectorAll('.brand-card')
+    const cards = el.querySelectorAll('.brand-card, .vehicle-card')
     cards.forEach(card => {
       const cardCenter = card.offsetLeft + card.offsetWidth / 2
       const distance = Math.abs(center - cardCenter)
-      const scale = Math.max(0.85, 1 - distance / 800)
-      const opacity = Math.max(0.5, 1 - distance / 600)
+      const scale = Math.max(0.82, 1.08 - distance / 500)
+      const opacity = Math.max(0.45, 1 - distance / 500)
       card.style.transform = `scale(${scale})`
       card.style.opacity = opacity
     })
   }, [])
+
+  const updateCenterCard = useCallback(() => {
+    applyDepthEffect(scrollRef.current)
+  }, [applyDepthEffect])
+
+  const updateVehicleCenterCard = useCallback(() => {
+    applyDepthEffect(vehicleScrollRef.current)
+  }, [applyDepthEffect])
 
   useEffect(() => {
     const el = scrollRef.current
@@ -262,6 +269,14 @@ function GuidesPage() {
     updateCenterCard()
     return () => el.removeEventListener('scroll', updateCenterCard)
   }, [updateCenterCard, filteredBrands])
+
+  useEffect(() => {
+    const el = vehicleScrollRef.current
+    if (!el) return
+    el.addEventListener('scroll', updateVehicleCenterCard)
+    updateVehicleCenterCard()
+    return () => el.removeEventListener('scroll', updateVehicleCenterCard)
+  }, [updateVehicleCenterCard, filteredVehiclesForBrand])
 
   /* -- infinite scroll: triple brands and jump to middle on edges ----- */
 
@@ -729,35 +744,37 @@ function GuidesPage() {
                   exit={{ opacity: 0, y: -20 }}
                   transition={{ duration: 0.35, ease: 'easeOut' }}
                 >
-                  {/* Brand card — animated to top */}
-                  <Motion.div
-                    className="guides-brand-strip"
-                    initial={{ opacity: 0, y: 30 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.45, ease: [0.25, 0.1, 0.25, 1] }}
+                  {/* Back button */}
+                  <button
+                    type="button"
+                    className="guides-back-btn"
+                    onClick={handleBackToBrands}
                   >
-                    <button
-                      type="button"
-                      className="guides-back-btn"
-                      onClick={handleBackToBrands}
-                    >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                        <path d="M15 18l-6-6 6-6" />
-                      </svg>
-                      <span>{backLabel}</span>
-                    </button>
-                    <div className="guides-brand-strip__card">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                      <path d="M15 18l-6-6 6-6" />
+                    </svg>
+                    <span>{backLabel}</span>
+                  </button>
+
+                  {/* Brand logo centered + name */}
+                  <Motion.div
+                    className="guides-brand-showcase"
+                    initial={{ opacity: 0, scale: 0.8, y: 30 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    transition={{ duration: 0.6, ease: [0.25, 0.1, 0.25, 1] }}
+                  >
+                    <div className="guides-brand-showcase__logo-wrap">
                       <img
-                        className="guides-brand-strip__logo"
+                        className="guides-brand-showcase__logo"
                         src={brandLogoSrc(toBrandSlug(selectedBrand))}
                         alt={selectedBrand}
                         onError={(e) => { e.currentTarget.style.display = 'none' }}
                       />
-                      <span className="guides-brand-strip__name">{selectedBrand}</span>
-                      <span className="guides-brand-strip__count">
-                        {vehicleCountLabel((brandGroups[selectedBrand] || []).length)}
-                      </span>
                     </div>
+                    <h2 className="guides-brand-showcase__name">{selectedBrand}</h2>
+                    <span className="guides-brand-showcase__count">
+                      {vehicleCountLabel((brandGroups[selectedBrand] || []).length)}
+                    </span>
                   </Motion.div>
 
                   {/* search bar for vehicles */}
@@ -790,7 +807,7 @@ function GuidesPage() {
                     )}
                   </div>
 
-                  {/* Vehicle carousel — same style as brand carousel */}
+                  {/* Vehicle carousel with depth effect */}
                   {filteredVehiclesForBrand.length === 0 ? (
                     <div className="guides-state-block">
                       <p>{t.guides.noBrandMatch}</p>
@@ -809,30 +826,36 @@ function GuidesPage() {
                       </button>
 
                       <div className="brand-scroll vehicle-scroll" ref={vehicleScrollRef}>
-                        {filteredVehiclesForBrand.map((guide, i) => (
-                          <button
-                            key={guide.slug}
-                            type="button"
-                            className="brand-card vehicle-card"
-                            onClick={() => openConfirmPopup(guide)}
-                          >
-                            <div className="vehicle-card__name">{guide.name}</div>
-                            {guide.coverage_note && (
-                              <span className="vehicle-card__year">{guide.coverage_note}</span>
-                            )}
-                            {guide.segment && (
-                              <span className={`guides-segment-badge guides-segment-badge--${guide.segment}`}>
-                                {(t.guides.segments || {})[guide.segment] || guide.segment}
+                        {filteredVehiclesForBrand.map((guide) => {
+                          const slug = toBrandSlug(selectedBrand)
+                          return (
+                            <button
+                              key={guide.slug}
+                              type="button"
+                              className="brand-card vehicle-card"
+                              onClick={() => openConfirmPopup(guide)}
+                            >
+                              <div className="vehicle-card__logo-wrap">
+                                <img
+                                  className="vehicle-card__logo"
+                                  src={brandLogoSrc(slug)}
+                                  alt={selectedBrand}
+                                  onError={(e) => { e.currentTarget.style.display = 'none' }}
+                                />
+                              </div>
+                              <div className="vehicle-card__name">{guide.name}</div>
+                              {guide.coverage_note && (
+                                <span className="vehicle-card__year">{guide.coverage_note}</span>
+                              )}
+                              <span className="vehicle-card__cta">
+                                {startChatLabel}
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+                                  <path d="M5 12h14M12 5l7 7-7 7" />
+                                </svg>
                               </span>
-                            )}
-                            <span className="vehicle-card__cta">
-                              {startChatLabel}
-                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
-                                <path d="M5 12h14M12 5l7 7-7 7" />
-                              </svg>
-                            </span>
-                          </button>
-                        ))}
+                            </button>
+                          )
+                        })}
                       </div>
 
                       <button
