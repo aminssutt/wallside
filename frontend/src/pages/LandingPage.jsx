@@ -68,10 +68,10 @@ const COPY = {
     aboutLabel: 'À propos',
     aboutName: 'Lakhdar Berache',
     aboutRole: 'Créateur de Mechora',
-    aboutBio: "Étudiant en école d'ingénieur, passionné d'automobile. Après un stage ingénieur en automobile, j'ai voulu rendre accessibles les informations techniques des véhicules pour tous.",
+    aboutBio: "Passionn\u00e9 d'automobile et \u00e9tudiant en \u00e9cole d'ing\u00e9nieur, j'ai cr\u00e9\u00e9 Mechora apr\u00e8s un stage en ing\u00e9nierie automobile. Mon objectif : rendre l'information technique automobile accessible \u00e0 tous, gratuitement. Chaque r\u00e9ponse est sourc\u00e9e directement depuis les manuels officiels des constructeurs.",
     contactLabel: 'Contact',
     contactTitle: 'Contactez-nous',
-    contactSubtitle: 'Une question ? Un retour ? Écrivez-nous.',
+    contactSubtitle: 'Une question, une suggestion, ou un partenariat ?',
     contactName: 'Nom',
     contactEmail: 'Email',
     contactMessage: 'Message',
@@ -141,10 +141,10 @@ const COPY = {
     aboutLabel: 'About',
     aboutName: 'Lakhdar Berache',
     aboutRole: 'Creator of Mechora',
-    aboutBio: 'Engineering student, passionate about cars. After an automotive engineering internship, I wanted to make vehicle technical information accessible to everyone.',
+    aboutBio: 'Passionate about cars and studying engineering, I created Mechora after an automotive engineering internship. My goal: make technical automotive information accessible to everyone, for free. Every answer is sourced directly from official manufacturer manuals.',
     contactLabel: 'Contact',
     contactTitle: 'Contact us',
-    contactSubtitle: 'Have a question? Feedback? Write to us.',
+    contactSubtitle: 'A question, a suggestion, or a partnership?',
     contactName: 'Name',
     contactEmail: 'Email',
     contactMessage: 'Message',
@@ -214,10 +214,10 @@ const COPY = {
     aboutLabel: '소개',
     aboutName: 'Lakhdar Berache',
     aboutRole: 'Mechora 제작자',
-    aboutBio: '공학도이자 자동차 마니아. 자동차 공학 인턴십을 마친 후, 모든 사람이 차량 기술 정보에 쉽게 접근할 수 있도록 만들고 싶었습니다.',
+    aboutBio: '자동차에 대한 열정과 공학을 공부하면서, 자동차 엔지니어링 인턴십 후에 Mechora를 만들었습니다. 목표: 기술적인 자동차 정보를 모두에게 무료로 제공하는 것입니다.',
     contactLabel: '문의',
     contactTitle: '문의하기',
-    contactSubtitle: '질문이나 피드백이 있으신가요?',
+    contactSubtitle: '질문, 제안 또는 파트너십이 있으신가요?',
     contactName: '이름',
     contactEmail: '이메일',
     contactMessage: '메시지',
@@ -423,7 +423,7 @@ function ChatDemo({ userMsg, aiMsg, sourceMsg }) {
         <div className="chat-demo__dot" />
         <div className="chat-demo__dot" />
         <div className="chat-demo__dot" />
-        <span className="chat-demo__title">Mechora</span>
+        <img src="/mechora writing.png" alt="Mechora" className="chat-demo__logo" />
       </div>
       <div className="chat-demo__body">
         {showUser && (
@@ -695,7 +695,7 @@ export default function LandingPage() {
             animate="visible"
           >
             <Motion.h1 variants={fadeInUp} className="hero-title">
-              <span className="hero-title-accent">{t.heroTitle}</span>
+              <img src="/mechora writing.png" alt="Mechora" className="hero-title-logo" />
             </Motion.h1>
 
             <Motion.p variants={fadeInUp} className="hero-subtitle">
@@ -1009,21 +1009,36 @@ export default function LandingPage() {
           >
             <div className="contact-field">
               <label htmlFor="contact-name">{t.contactName}</label>
-              <input id="contact-name" name="name" type="text" required autoComplete="name" />
+              <input id="contact-name" name="name" type="text" required autoComplete="name" placeholder={t.contactName} />
             </div>
             <div className="contact-field">
               <label htmlFor="contact-email">{t.contactEmail}</label>
-              <input id="contact-email" name="email" type="email" required autoComplete="email" />
+              <input id="contact-email" name="email" type="email" required autoComplete="email" placeholder={t.contactEmail} />
             </div>
             <div className="contact-field">
               <label htmlFor="contact-message">{t.contactMessage}</label>
-              <textarea id="contact-message" name="message" required rows={5} />
+              <textarea id="contact-message" name="message" required rows={5} placeholder={t.contactMessage} />
             </div>
             <button type="submit" className="contact-submit">
               <span>{t.contactSend}</span>
               <IconSend />
             </button>
           </Motion.form>
+
+          <div className="contact-socials">
+            <a
+              href="#"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="contact-social-link"
+              aria-label="LinkedIn"
+            >
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zM6.84 20.452H3.834V9H6.84v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+              </svg>
+              <span>LinkedIn</span>
+            </a>
+          </div>
         </div>
       </section>
 
@@ -1032,8 +1047,7 @@ export default function LandingPage() {
         <div className="landing-container">
           <div className="footer-inner">
             <div className="footer-brand">
-              <span className="footer-logo">Mechora</span>
-              <span className="footer-copy">&copy; 2026</span>
+              <img src="/mechora writing.png" alt="Mechora" className="footer-logo-img" />
             </div>
 
             <ul className="footer-links">
@@ -1043,30 +1057,7 @@ export default function LandingPage() {
               <li><button type="button" className="footer-link" onClick={() => scrollTo('about')}>{t.footerAbout}</button></li>
             </ul>
 
-            <div className="footer-socials">
-              <a
-                href="https://linkedin.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="footer-social"
-                aria-label="LinkedIn"
-              >
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zM6.84 20.452H3.834V9H6.84v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
-                </svg>
-              </a>
-              <a
-                href="https://github.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="footer-social"
-                aria-label="GitHub"
-              >
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
-                </svg>
-              </a>
-            </div>
+            <span className="footer-copy">&copy; 2026 Mechora. Tous droits r&eacute;serv&eacute;s.</span>
           </div>
         </div>
       </footer>

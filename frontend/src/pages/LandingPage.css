@@ -179,8 +179,8 @@
 }
 
 .nav-brand__mark--wide {
-  width: min(120px, 24vw);
-  height: auto;
+  height: 40px;
+  width: auto;
   filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.4));
 }
 
@@ -457,6 +457,12 @@
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+.hero-title-logo {
+  max-width: 400px;
+  height: auto;
+  display: block;
 }
 
 .hero-subtitle {
@@ -1173,19 +1179,15 @@
   gap: 12px;
 }
 
-.footer-logo {
-  font-family: var(--font-heading);
-  font-size: 1.2rem;
-  font-weight: 700;
-  background: linear-gradient(135deg, var(--accent), var(--accent-light));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+.footer-logo-img {
+  max-width: 160px;
+  height: auto;
 }
 
 .footer-copy {
   font-size: 0.8rem;
   color: var(--text-muted);
+  white-space: nowrap;
 }
 
 .footer-links {
@@ -1211,35 +1213,39 @@
   color: var(--accent-light);
 }
 
-.footer-socials {
+/* Contact social links */
+.contact-socials {
   display: flex;
-  gap: 12px;
+  justify-content: center;
+  margin-top: 24px;
 }
 
-.footer-social {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
+.contact-social-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
   background: rgba(200, 168, 78, 0.08);
   border: 1px solid rgba(200, 168, 78, 0.15);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  border-radius: 10px;
   color: var(--accent);
-  cursor: pointer;
-  transition: all 0.2s ease;
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  font-weight: 500;
   text-decoration: none;
+  transition: all 0.2s ease;
 }
 
-.footer-social:hover {
+.contact-social-link:hover {
   background: rgba(200, 168, 78, 0.15);
   border-color: var(--accent);
   transform: translateY(-2px);
+  color: var(--accent-light);
 }
 
-.footer-social svg {
-  width: 16px;
-  height: 16px;
+.contact-social-link svg {
+  width: 18px;
+  height: 18px;
 }
 
 /* ============================================================
@@ -1303,6 +1309,12 @@
   font-size: 0.7rem;
   color: var(--text-muted);
   letter-spacing: 0.05em;
+}
+
+.chat-demo__logo {
+  height: 20px;
+  width: auto;
+  margin-left: 8px;
 }
 
 .chat-demo__body {
@@ -1724,6 +1736,11 @@
     font-size: clamp(2.4rem, 10vw, 4rem);
   }
 
+  .hero-title-logo {
+    max-width: 280px;
+    margin: 0 auto;
+  }
+
   .features-grid {
     grid-template-columns: 1fr;
     gap: 16px;
@@ -1824,7 +1841,7 @@
   }
 
   .nav-brand__mark--wide {
-    width: min(100px, 28vw);
+    height: 32px;
   }
 
   .glass-card {
