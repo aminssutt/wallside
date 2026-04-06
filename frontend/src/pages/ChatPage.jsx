@@ -1344,12 +1344,13 @@ function ChatPage() {
                   <div className="msg-bubble msg-typing">
                     <span /><span /><span />
                     {streamStatus && (
-                      <p className="typing-status">{
-                        streamStatus === 'manual_search' ? (lang === 'fr' ? 'Recherche dans le manuel...' : 'Searching manual...') :
-                        streamStatus === 'web_search' ? (lang === 'fr' ? 'Recherche sur le web...' : 'Searching the web...') :
-                        streamStatus === 'generating' ? (lang === 'fr' ? 'Génération en cours...' : 'Generating response...') :
-                        ''
-                      }</p>
+                      <p className="typing-status">{{ fr: {
+                        manual_search: 'Recherche dans le manuel...', web_search: 'Recherche sur le web...', generating: 'Generation en cours...',
+                      }, en: {
+                        manual_search: 'Searching manual...', web_search: 'Searching the web...', generating: 'Generating response...',
+                      }, ko: {
+                        manual_search: '\uB9E4\uB274\uC5BC \uAC80\uC0C9 \uC911...', web_search: '\uC6F9 \uAC80\uC0C9 \uC911...', generating: '\uC751\uB2F5 \uC0DD\uC131 \uC911...',
+                      }}[lang]?.[streamStatus] || ''}</p>
                     )}
                   </div>
                 </Motion.div>
