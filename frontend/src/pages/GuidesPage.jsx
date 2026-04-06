@@ -212,6 +212,13 @@ function GuidesPage() {
     resumeAutoRotateDelayed()
   }, [pauseAutoRotate, resumeAutoRotateDelayed])
 
+  /* -- brand selection handler (must be before keyboard effect) -------- */
+
+  const handleBrandClick = useCallback((brand) => {
+    setSelectedBrand(brand)
+    setSearchTerm('')
+  }, [])
+
   /* -- keyboard navigation --------------------------------------------- */
 
   useEffect(() => {
@@ -354,11 +361,6 @@ function GuidesPage() {
       navigate(`/chat/${slug}`)
     }, 520)
   }
-
-  const handleBrandClick = useCallback((brand) => {
-    setSelectedBrand(brand)
-    setSearchTerm('')
-  }, [])
 
   const handleBackToBrands = useCallback(() => {
     setSelectedBrand(null)
