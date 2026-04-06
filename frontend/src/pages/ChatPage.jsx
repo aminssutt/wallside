@@ -285,56 +285,29 @@ function SourcesList({ sources, lang }) {
               )}
               <button type="button" className="proof-close" onClick={() => setProofIndex(null)}>&times;</button>
             </div>
-            {(() => {
-              const pdfPageHash = `#page=${String(proofSrc.page).split('-')[0]}`
-              const pdfSrc = proofSrc.pdf_url
-                ? `${proofSrc.pdf_url}${pdfPageHash}`
-                : `${API_URL}/guides/${proofSrc.slug}/pdf${pdfPageHash}`
-              // External = different origin (inspirauto.fr etc.) — can't iframe
-              const isExternal = proofSrc.pdf_url && !proofSrc.pdf_url.startsWith(API_URL)
-
-              if (pdfError) return (
-                <div className="proof-unavailable">
-                  <p>{i.unavailable}</p>
-                  {proofSrc.excerpt && <p className="proof-excerpt">{proofSrc.excerpt}</p>}
-                </div>
-              )
-
-              if (isExternal) return (
-                <div className="proof-external">
-                  <p className="proof-external__text">
-                    {i.externalPdf || 'Ce PDF est hébergé sur un site externe. Cliquez ci-dessous pour le consulter.'}
-                  </p>
-                  <a href={pdfSrc} target="_blank" rel="noopener noreferrer" className="proof-external__btn">
-                    {i.openPdf || 'Ouvrir le PDF'}
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                      <polyline points="15 3 21 3 21 9" />
-                      <line x1="10" y1="14" x2="21" y2="3" />
-                    </svg>
-                  </a>
-                  {proofSrc.excerpt && <p className="proof-excerpt">{proofSrc.excerpt}</p>}
-                </div>
-              )
-
-              // Same-origin or backend PDF — embed in iframe
-              return (
-                <iframe
-                  className="proof-iframe"
-                  src={pdfSrc}
-                  title={`${proofSrc.label} - page ${proofSrc.page}`}
-                  onError={() => setPdfError(true)}
-                  onLoad={(e) => {
-                    try {
-                      const doc = e.target.contentDocument
-                      if (doc && doc.body && doc.body.textContent.includes('PDF not found')) {
-                        setPdfError(true)
-                      }
-                    } catch { /* cross-origin, PDF loaded fine */ }
-                  }}
-                />
-              )
-            })()}
+            {pdfError ? (
+              <div className="proof-unavailable">
+                <p>{i.unavailable}</p>
+                {proofSrc.excerpt && <p className="proof-excerpt">{proofSrc.excerpt}</p>}
+              </div>
+            ) : (
+              <iframe
+                className="proof-iframe"
+                src={proofSrc.pdf_url
+                  ? `${proofSrc.pdf_url}#page=${String(proofSrc.page).split('-')[0]}`
+                  : `${API_URL}/guides/${proofSrc.slug}/pdf#page=${String(proofSrc.page).split('-')[0]}`}
+                title={`${proofSrc.label} - page ${proofSrc.page}`}
+                onError={() => setPdfError(true)}
+                onLoad={(e) => {
+                  try {
+                    const doc = e.target.contentDocument
+                    if (doc && doc.body && doc.body.textContent.includes('PDF not found')) {
+                      setPdfError(true)
+                    }
+                  } catch { /* cross-origin, PDF loaded fine */ }
+                }}
+              />
+            )}
           </div>
         </div>,
         document.body
