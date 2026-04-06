@@ -771,6 +771,17 @@ export default function LandingPage() {
 
       {/* ======== HERO ======== */}
       <section className="hero">
+        {/* Spline 3D particles background */}
+        <div className="hero__spline" aria-hidden="true">
+          <iframe
+            src="https://my.spline.design/particles-FxDSYX6mfXUpvpAYu9xHCIXJ/"
+            frameBorder="0"
+            width="100%"
+            height="100%"
+            title="Spline 3D Particles"
+          />
+        </div>
+
         {/* Background decorations */}
         <div className="hero__bg" aria-hidden="true">
           <div className="hero__orb hero__orb--1" />
