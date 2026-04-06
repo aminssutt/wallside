@@ -99,7 +99,7 @@
   {
     "slug": "bmw-3-series-2024",
     "name": "BMW Serie 3 (2024)",
-    "brand": "Bmw",
+    "brand": "BMW",
     "image": "bmw 3 series 2024.png",
     "source_pdf": "car data/BMW/BMW 3 Series 2024.pdf",
     "source_hash": "e9fb34fb024b4d6ba18eac6416216d52610b801b2854562a3fc680623d6edbf5",
@@ -129,7 +129,7 @@
   {
     "slug": "citroen-c3-2024",
     "name": "Citroën C3 (2024)",
-    "brand": "Citroen",
+    "brand": "Citroën",
     "image": "citroen c3 2024.png",
     "source_pdf": "car data/Citroen/Citroen C3 2024.pdf",
     "source_hash": "6c9b8788d10fa1ba3d0a3abbdcfbda1e4438940ffa065857eb226cb450ff80e5",
@@ -417,7 +417,7 @@
   {
     "slug": "mercedes-c-class-2022",
     "name": "Mercedes Classe C (2022)",
-    "brand": "Mercedes",
+    "brand": "Mercedes-Benz",
     "image": "mercedes c class 2022.png",
     "source_pdf": "car data/Mercedes/Mercedes C-Class 2022.pdf",
     "source_hash": "5c218a819b037ad26809d77a250dcc2f1f9c4e4f26d65518b0b962ff5296219d",
@@ -432,7 +432,7 @@
   {
     "slug": "mercedes-c-class-2022-mbux-multimedia",
     "name": "Mercedes C Class 2022 Mbux Multimedia",
-    "brand": "Mercedes",
+    "brand": "Mercedes-Benz",
     "image": "mercedes c class 2022.png",
     "source_pdf": "car data/Mercedes/Mercedes C-Class 2022 - MBUX Multimedia.pdf",
     "source_hash": "e589993335bd67448bf42cd4af21e5691cad6efc326f77a4f048d58255c9b354",
@@ -1143,7 +1143,7 @@
   {
     "slug": "mercedes-benz-classe-a",
     "name": "Mercedes Classe A (2018)",
-    "brand": "Mercedes",
+    "brand": "Mercedes-Benz",
     "image": "mercedes classe a.png",
     "source_pdf": null,
     "source_hash": "bbfe9150d88d491d73b1f7bdc6c207c49f06bfe33d7761c4d98a4978cffea89b",
@@ -1159,7 +1159,7 @@
   {
     "slug": "mercedes-benz-classe-b",
     "name": "Mercedes Classe B (2019)",
-    "brand": "Mercedes",
+    "brand": "Mercedes-Benz",
     "image": "mercedes classe b.png",
     "source_pdf": null,
     "source_hash": "4a2b508c617014c1738a693b3afc8b2d8f3e84e82962004e4ee755ae8162581a",
@@ -1175,7 +1175,7 @@
   {
     "slug": "mercedes-benz-classe-e",
     "name": "Mercedes Classe E (2024)",
-    "brand": "Mercedes",
+    "brand": "Mercedes-Benz",
     "image": "mercedes classe e.png",
     "source_pdf": null,
     "source_hash": "76d7eb6f60e3fc6560d84a3c3ae5598346495db220c80e283dd2441ec1c0d41b",
