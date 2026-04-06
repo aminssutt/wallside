@@ -340,7 +340,7 @@ function GuidesPage() {
         <header className="guides-header">
           <div className="guides-header-left">
             <button type="button" className="guides-home-trigger" onClick={openExitConfirm} aria-label={t.guides.home}>
-              <img src="/logo top left.png" alt="CarChat" />
+              <img src="/logo top left.png" alt="Mechora" />
             </button>
           </div>
 

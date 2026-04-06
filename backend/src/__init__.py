@@ -1,4 +1,4 @@
 """
-Core backend package for Car Chat : CC.
+Core backend package for Mechora.
 """
 

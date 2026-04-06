@@ -20,25 +20,25 @@ const COPY = {
     navPricing: 'Tarifs',
     navFaq: 'FAQ',
     navContact: 'Contact',
-    heroTitle: 'CarChat',
+    heroTitle: 'Mechora',
     heroSubtitle: 'Votre assistant technique automobile intelligent',
-    heroStats: ['130+ vehicules', 'Manuels officiels', 'Reponses instantanees'],
+    heroStats: ['130+ véhicules', 'Manuels officiels', 'Réponses instantanées'],
     ctaPrimary: 'Commencer gratuitement',
     ctaSecondary: 'En savoir plus',
-    featuresLabel: 'Fonctionnalites',
+    featuresLabel: 'Fonctionnalités',
     featuresTitle: 'Tout ce dont vous avez besoin',
     features: [
-      { title: 'Manuels officiels', desc: "Acces aux notices d'utilisation de 30+ marques automobiles." },
-      { title: 'IA conversationnelle', desc: 'Posez vos questions en langage naturel et obtenez des reponses claires.' },
-      { title: 'Sources verifiees', desc: 'Chaque reponse cite la page exacte du manuel technique.' },
-      { title: 'Multilingue', desc: 'Disponible en francais, anglais et coreen.' },
+      { title: 'Manuels officiels', desc: "Accès aux notices d'utilisation de 30+ marques automobiles." },
+      { title: 'IA conversationnelle', desc: 'Posez vos questions en langage naturel et obtenez des réponses claires.' },
+      { title: 'Sources vérifiées', desc: 'Chaque réponse cite la page exacte du manuel technique.' },
+      { title: 'Multilingue', desc: 'Disponible en français, anglais et coréen.' },
     ],
-    howLabel: 'Comment ca marche',
+    howLabel: 'Comment ça marche',
     howTitle: 'Simple comme 1, 2, 3',
     howSteps: [
-      { title: 'Choisissez votre vehicule', desc: 'Selectionnez parmi 130+ modeles disponibles.' },
-      { title: 'Posez votre question', desc: 'Decrivez votre probleme en langage naturel.' },
-      { title: 'Obtenez une reponse sourcee', desc: 'Recevez une reponse avec les pages exactes du manuel.' },
+      { title: 'Choisissez votre véhicule', desc: 'Sélectionnez parmi 130+ modèles disponibles.' },
+      { title: 'Posez votre question', desc: 'Décrivez votre problème en langage naturel.' },
+      { title: 'Obtenez une réponse sourcée', desc: 'Recevez une réponse avec les pages exactes du manuel.' },
     ],
     pricingLabel: 'Tarifs',
     pricingTitle: 'Choisissez votre formule',
@@ -46,54 +46,54 @@ const COPY = {
       badge: 'GRATUIT',
       name: 'Gratuit',
       price: '0\u20AC / mois',
-      features: ['10 questions par jour', '30+ marques disponibles', 'Sources du manuel', 'Publicites'],
+      features: ['10 questions par jour', '30+ marques disponibles', 'Sources du manuel', 'Publicités'],
       cta: 'Commencer gratuitement',
     },
     premiumPlan: {
       badge: 'PREMIUM',
       name: 'Premium',
       price: '9.99\u20AC / mois',
-      features: ['Questions illimitees', 'Sans publicites', 'Sources PDF directes', 'Video YouTube', 'Support prioritaire'],
+      features: ['Questions illimitées', 'Sans publicités', 'Sources PDF directes', 'Vidéo YouTube', 'Support prioritaire'],
       cta: 'Passer Premium',
     },
     faqLabel: 'FAQ',
-    faqTitle: 'Questions frequentes',
+    faqTitle: 'Questions fréquentes',
     faq: [
-      { q: 'Comment ca marche ?', a: "L'IA analyse le manuel officiel de votre vehicule pour vous fournir des reponses precises et sourcees. Selectionnez votre modele, posez votre question, et obtenez une reponse avec les references exactes du manuel." },
-      { q: 'Les reponses sont-elles fiables ?', a: 'Oui, chaque reponse cite la page exacte du manuel officiel du constructeur. Vous pouvez verifier chaque information directement dans le document source.' },
-      { q: 'Quels vehicules sont disponibles ?', a: 'Plus de 130 vehicules de 30+ marques sont disponibles, incluant les principales marques europeennes, japonaises et coreennes.' },
-      { q: "C'est gratuit ?", a: "Oui, la version gratuite donne acces a 10 questions par jour avec les sources du manuel. La version Premium offre un acces illimite sans publicites." },
-      { q: 'Comment devenir Premium ?', a: "Cliquez sur \"Passer Premium\" pour un acces illimite a toutes les fonctionnalites, sans publicites et avec le support prioritaire." },
+      { q: 'Comment ça marche ?', a: "L'IA analyse le manuel officiel de votre véhicule pour vous fournir des réponses précises et sourcées. Sélectionnez votre modèle, posez votre question, et obtenez une réponse avec les références exactes du manuel." },
+      { q: 'Les réponses sont-elles fiables ?', a: 'Oui, chaque réponse cite la page exacte du manuel officiel du constructeur. Vous pouvez vérifier chaque information directement dans le document source.' },
+      { q: 'Quels véhicules sont disponibles ?', a: 'Plus de 130 véhicules de 30+ marques sont disponibles, incluant les principales marques européennes, japonaises et coréennes.' },
+      { q: "C'est gratuit ?", a: "Oui, la version gratuite donne accès à 10 questions par jour avec les sources du manuel. La version Premium offre un accès illimité sans publicités." },
+      { q: 'Comment devenir Premium ?', a: "Cliquez sur \"Passer Premium\" pour un accès illimité à toutes les fonctionnalités, sans publicités et avec le support prioritaire." },
     ],
-    aboutLabel: 'A propos',
+    aboutLabel: 'À propos',
     aboutName: 'Lakhdar Berache',
-    aboutRole: 'Createur de CarChat',
-    aboutBio: "Etudiant en ecole d'ingenieur, passionne d'automobile. Apres un stage ingenieur en automobile, j'ai voulu rendre accessibles les informations techniques des vehicules pour tous.",
+    aboutRole: 'Créateur de Mechora',
+    aboutBio: "Étudiant en école d'ingénieur, passionné d'automobile. Après un stage ingénieur en automobile, j'ai voulu rendre accessibles les informations techniques des véhicules pour tous.",
     contactLabel: 'Contact',
     contactTitle: 'Contactez-nous',
-    contactSubtitle: 'Une question ? Un retour ? Ecrivez-nous.',
+    contactSubtitle: 'Une question ? Un retour ? Écrivez-nous.',
     contactName: 'Nom',
     contactEmail: 'Email',
     contactMessage: 'Message',
     contactSend: 'Envoyer',
     chatDemoUser: 'Comment changer les plaquettes de frein sur ma Peugeot 308 ?',
-    chatDemoAi: "Pour remplacer les plaquettes de frein de votre Peugeot 308 (2022):\n\n**Outils necessaires**: Cric, cle de 13mm, repousse-piston\n\n**Etapes**:\n1. Soulevez le vehicule et retirez la roue\n2. Devissez les deux boulons de l'etrier...",
+    chatDemoAi: "Pour remplacer les plaquettes de frein de votre Peugeot 308 (2022):\n\n**Outils nécessaires**: Cric, clé de 13mm, repousse-piston\n\n**Étapes**:\n1. Soulevez le véhicule et retirez la roue\n2. Dévissez les deux boulons de l'étrier...",
     chatDemoSource: 'Sources: Manuel Peugeot 308, page 142',
-    statsVehicles: 'vehicules',
+    statsVehicles: 'véhicules',
     statsBrands: 'marques',
-    statsPages: 'pages analysees',
+    statsPages: 'pages analysées',
     statsLangs: 'langues',
     footerGuides: 'Guides',
     footerFaq: 'FAQ',
     footerContact: 'Contact',
-    footerAbout: 'A propos',
+    footerAbout: 'À propos',
   },
   en: {
     navFeatures: 'Features',
     navPricing: 'Pricing',
     navFaq: 'FAQ',
     navContact: 'Contact',
-    heroTitle: 'CarChat',
+    heroTitle: 'Mechora',
     heroSubtitle: 'Your intelligent automotive technical assistant',
     heroStats: ['130+ vehicles', 'Official manuals', 'Instant answers'],
     ctaPrimary: 'Start for free',
@@ -140,7 +140,7 @@ const COPY = {
     ],
     aboutLabel: 'About',
     aboutName: 'Lakhdar Berache',
-    aboutRole: 'Creator of CarChat',
+    aboutRole: 'Creator of Mechora',
     aboutBio: 'Engineering student, passionate about cars. After an automotive engineering internship, I wanted to make vehicle technical information accessible to everyone.',
     contactLabel: 'Contact',
     contactTitle: 'Contact us',
@@ -166,7 +166,7 @@ const COPY = {
     navPricing: '요금',
     navFaq: 'FAQ',
     navContact: '문의',
-    heroTitle: 'CarChat',
+    heroTitle: 'Mechora',
     heroSubtitle: '당신의 지능형 자동차 기술 어시스턴트',
     heroStats: ['130+ 차량', '공식 매뉴얼', '즉각적인 답변'],
     ctaPrimary: '무료로 시작하기',
@@ -213,7 +213,7 @@ const COPY = {
     ],
     aboutLabel: '소개',
     aboutName: 'Lakhdar Berache',
-    aboutRole: 'CarChat 제작자',
+    aboutRole: 'Mechora 제작자',
     aboutBio: '공학도이자 자동차 마니아. 자동차 공학 인턴십을 마친 후, 모든 사람이 차량 기술 정보에 쉽게 접근할 수 있도록 만들고 싶었습니다.',
     contactLabel: '문의',
     contactTitle: '문의하기',
@@ -423,7 +423,7 @@ function ChatDemo({ userMsg, aiMsg, sourceMsg }) {
         <div className="chat-demo__dot" />
         <div className="chat-demo__dot" />
         <div className="chat-demo__dot" />
-        <span className="chat-demo__title">CarChat</span>
+        <span className="chat-demo__title">Mechora</span>
       </div>
       <div className="chat-demo__body">
         {showUser && (
@@ -444,7 +444,7 @@ function ChatDemo({ userMsg, aiMsg, sourceMsg }) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
           >
-            <span className="chat-demo__label">CarChat AI</span>
+            <span className="chat-demo__label">Mechora AI</span>
             <p>{formatAiText(aiMsg.slice(0, charIndex))}</p>
             {phase === 'typing' && <span className="chat-demo__cursor" />}
           </Motion.div>
@@ -602,7 +602,7 @@ export default function LandingPage() {
     const name = form.elements.name.value;
     const email = form.elements.email.value;
     const message = form.elements.message.value;
-    const subject = encodeURIComponent(`CarChat Contact - ${name}`);
+    const subject = encodeURIComponent(`Mechora Contact - ${name}`);
     const body = encodeURIComponent(`From: ${name}\nEmail: ${email}\n\n${message}`);
     window.location.href = `mailto:lakhdarberache@gmail.com?subject=${subject}&body=${body}`;
   };
@@ -614,7 +614,7 @@ export default function LandingPage() {
       <nav className={`landing-nav${navScrolled ? ' nav-scrolled' : ''}`}>
         <div className="landing-container">
           <button type="button" className="nav-brand" onClick={() => navigate('/')} aria-label="Home">
-            <img className="nav-brand__mark nav-brand__mark--wide" src="/logo top left.png" alt="CarChat" />
+            <img className="nav-brand__mark nav-brand__mark--wide" src="/logo top left.png" alt="Mechora" />
           </button>
 
           <ul className="nav-links">
@@ -1032,7 +1032,7 @@ export default function LandingPage() {
         <div className="landing-container">
           <div className="footer-inner">
             <div className="footer-brand">
-              <span className="footer-logo">CarChat</span>
+              <span className="footer-logo">Mechora</span>
               <span className="footer-copy">&copy; 2026</span>
             </div>
 

@@ -1,5 +1,5 @@
 """
-Automated RAG quality test suite for Car Chat.
+Automated RAG quality test suite for Mechora.
 Tests retrieval accuracy, hallucination resistance, language handling,
 off-topic rejection, and source grounding across multiple guides.
 """
@@ -340,7 +340,7 @@ def evaluate_test(test: dict, response: str) -> dict:
 
 def main():
     print("=" * 70)
-    print("  CAR CHAT - RAG QUALITY TEST SUITE")
+    print("  MECHORA - RAG QUALITY TEST SUITE")
     print("=" * 70)
 
     if not os.getenv("GOOGLE_API_KEY"):
