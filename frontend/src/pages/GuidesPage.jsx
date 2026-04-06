@@ -52,7 +52,7 @@ const normalizeBrandName = (raw) => {
 const toBrandSlug = (name) =>
   (name || '').trim().toLowerCase().replace(/\s+/g, '-')
 
-const PNG_BRANDS = new Set(['alpine', 'cupra', 'genesis', 'lancia', 'lexus', 'mercedes'])
+const PNG_BRANDS = new Set(['alpine', 'cupra', 'ds', 'genesis', 'lancia', 'lexus', 'mercedes'])
 const brandLogoSrc = (slug) => `/logos/${slug}.${PNG_BRANDS.has(slug) ? 'png' : 'svg'}`
 
 /* -- component --------------------------------------------------------- */
