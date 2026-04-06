@@ -95,6 +95,7 @@ function GuidesPage() {
   )
 
   const scrollRef = useRef(null)
+  const vehicleScrollRef = useRef(null)
   const langDropdownRef = useRef(null)
   const searchInputRef = useRef(null)
 
@@ -223,6 +224,15 @@ function GuidesPage() {
     if (!scrollRef.current) return
     const scrollAmount = 400
     scrollRef.current.scrollBy({
+      left: direction === 'left' ? -scrollAmount : scrollAmount,
+      behavior: 'smooth',
+    })
+  }, [])
+
+  const scrollVehicleCarousel = useCallback((direction) => {
+    if (!vehicleScrollRef.current) return
+    const scrollAmount = 400
+    vehicleScrollRef.current.scrollBy({
       left: direction === 'left' ? -scrollAmount : scrollAmount,
       behavior: 'smooth',
     })
@@ -719,12 +729,12 @@ function GuidesPage() {
                   exit={{ opacity: 0, y: -20 }}
                   transition={{ duration: 0.35, ease: 'easeOut' }}
                 >
-                  {/* Brand hero card — animates up on enter */}
+                  {/* Brand card — animated to top */}
                   <Motion.div
-                    className="guides-brand-hero"
-                    initial={{ opacity: 0, y: 40, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    transition={{ duration: 0.5, ease: [0.25, 0.1, 0.25, 1] }}
+                    className="guides-brand-strip"
+                    initial={{ opacity: 0, y: 30 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.45, ease: [0.25, 0.1, 0.25, 1] }}
                   >
                     <button
                       type="button"
@@ -736,19 +746,17 @@ function GuidesPage() {
                       </svg>
                       <span>{backLabel}</span>
                     </button>
-                    <div className="guides-brand-hero__content">
+                    <div className="guides-brand-strip__card">
                       <img
-                        className="guides-brand-hero__logo"
+                        className="guides-brand-strip__logo"
                         src={brandLogoSrc(toBrandSlug(selectedBrand))}
                         alt={selectedBrand}
                         onError={(e) => { e.currentTarget.style.display = 'none' }}
                       />
-                      <div className="guides-brand-hero__info">
-                        <h2>{selectedBrand}</h2>
-                        <span className="guides-brand-hero__count">
-                          {vehicleCountLabel((brandGroups[selectedBrand] || []).length)}
-                        </span>
-                      </div>
+                      <span className="guides-brand-strip__name">{selectedBrand}</span>
+                      <span className="guides-brand-strip__count">
+                        {vehicleCountLabel((brandGroups[selectedBrand] || []).length)}
+                      </span>
                     </div>
                   </Motion.div>
 
@@ -782,60 +790,63 @@ function GuidesPage() {
                     )}
                   </div>
 
-                  <div className="guides-vehicle-grid">
-                    {filteredVehiclesForBrand.length === 0 && (
-                      <div className="guides-state-block">
-                        <p>{t.guides.noBrandMatch}</p>
-                      </div>
-                    )}
-                    {filteredVehiclesForBrand.map((guide, i) => {
-                      const slug = toBrandSlug(selectedBrand)
-                      return (
-                        <Motion.article
-                          key={guide.slug}
-                          className="guides-vcard"
-                          initial={{ opacity: 0, y: 24 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: Math.min(i * 0.06, 0.36), duration: 0.35, ease: 'easeOut' }}
-                          whileHover={{ y: -4, scale: 1.015 }}
-                        >
-                          <div className="guides-vcard-top">
-                            <img
-                              className="guides-vcard-brand-logo"
-                              src={brandLogoSrc(slug)}
-                              alt={selectedBrand}
-                              onError={(e) => { e.currentTarget.style.display = 'none' }}
-                            />
-                          </div>
-                          <div className="guides-vcard-body">
-                            <h3 className="guides-vcard-name">{guide.name}</h3>
-                            {guide.coverage_note && (
-                              <span className="guides-vcard-year">{guide.coverage_note}</span>
-                            )}
-                            <div className="guides-vcard-badges">
-                              {guide.segment && (
-                                <span className={`guides-segment-badge guides-segment-badge--${guide.segment}`}>
-                                  {(t.guides.segments || {})[guide.segment] || guide.segment}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <Motion.button
+                  {/* Vehicle carousel — same style as brand carousel */}
+                  {filteredVehiclesForBrand.length === 0 ? (
+                    <div className="guides-state-block">
+                      <p>{t.guides.noBrandMatch}</p>
+                    </div>
+                  ) : (
+                    <div className="brand-carousel-wrapper">
+                      <button
+                        type="button"
+                        className="brand-arrow brand-arrow--left"
+                        onClick={() => scrollVehicleCarousel('left')}
+                        aria-label="Previous vehicles"
+                      >
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                          <path d="M15 18l-6-6 6-6" />
+                        </svg>
+                      </button>
+
+                      <div className="brand-scroll vehicle-scroll" ref={vehicleScrollRef}>
+                        {filteredVehiclesForBrand.map((guide, i) => (
+                          <button
+                            key={guide.slug}
                             type="button"
-                            className="guides-vcard-btn"
+                            className="brand-card vehicle-card"
                             onClick={() => openConfirmPopup(guide)}
-                            whileHover={{ scale: 1.03 }}
-                            whileTap={{ scale: 0.96 }}
                           >
-                            {startChatLabel}
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
-                              <path d="M5 12h14M12 5l7 7-7 7" />
-                            </svg>
-                          </Motion.button>
-                        </Motion.article>
-                      )
-                    })}
-                  </div>
+                            <div className="vehicle-card__name">{guide.name}</div>
+                            {guide.coverage_note && (
+                              <span className="vehicle-card__year">{guide.coverage_note}</span>
+                            )}
+                            {guide.segment && (
+                              <span className={`guides-segment-badge guides-segment-badge--${guide.segment}`}>
+                                {(t.guides.segments || {})[guide.segment] || guide.segment}
+                              </span>
+                            )}
+                            <span className="vehicle-card__cta">
+                              {startChatLabel}
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+                                <path d="M5 12h14M12 5l7 7-7 7" />
+                              </svg>
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+
+                      <button
+                        type="button"
+                        className="brand-arrow brand-arrow--right"
+                        onClick={() => scrollVehicleCarousel('right')}
+                        aria-label="Next vehicles"
+                      >
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                          <path d="M9 6l6 6-6 6" />
+                        </svg>
+                      </button>
+                    </div>
+                  )}
                 </Motion.div>
               )}
             </AnimatePresence>
