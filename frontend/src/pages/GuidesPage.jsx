@@ -177,6 +177,52 @@ function GuidesPage() {
     })
   }, [])
 
+  /* -- depth effect: scale/opacity based on distance from center ------- */
+
+  const updateCenterCard = useCallback(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const center = el.scrollLeft + el.clientWidth / 2
+    const cards = el.querySelectorAll('.brand-card')
+    cards.forEach(card => {
+      const cardCenter = card.offsetLeft + card.offsetWidth / 2
+      const distance = Math.abs(center - cardCenter)
+      const scale = Math.max(0.85, 1 - distance / 800)
+      const opacity = Math.max(0.5, 1 - distance / 600)
+      card.style.transform = `scale(${scale})`
+      card.style.opacity = opacity
+    })
+  }, [])
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    el.addEventListener('scroll', updateCenterCard)
+    updateCenterCard()
+    return () => el.removeEventListener('scroll', updateCenterCard)
+  }, [updateCenterCard, filteredBrands])
+
+  /* -- infinite scroll: triple brands and jump to middle on edges ----- */
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el || filteredBrands.length === 0) return
+    const cardWidth = 200 // card + gap
+    const singleSetWidth = filteredBrands.length * cardWidth
+
+    const handleScroll = () => {
+      if (el.scrollLeft < cardWidth) {
+        el.scrollLeft += singleSetWidth
+      } else if (el.scrollLeft > singleSetWidth * 2 - el.clientWidth) {
+        el.scrollLeft -= singleSetWidth
+      }
+    }
+    el.addEventListener('scrollend', handleScroll)
+    // Initial position: start at the middle copy
+    el.scrollLeft = singleSetWidth
+    return () => el.removeEventListener('scrollend', handleScroll)
+  }, [filteredBrands])
+
   /* -- keyboard navigation --------------------------------------------- */
 
   useEffect(() => {
@@ -561,22 +607,17 @@ function GuidesPage() {
                         </svg>
                       </button>
 
-                      {/* scrollable brand row */}
+                      {/* scrollable brand row (tripled for infinite scroll) */}
                       <div className="brand-scroll" ref={scrollRef}>
-                        {filteredBrands.map((brand, i) => {
+                        {[...filteredBrands, ...filteredBrands, ...filteredBrands].map((brand, i) => {
                           const slug = toBrandSlug(brand)
                           const count = (brandGroups[brand] || []).length
                           return (
-                            <Motion.button
-                              key={brand}
+                            <button
+                              key={`${brand}-${i}`}
                               type="button"
                               className="brand-card"
                               onClick={() => handleBrandClick(brand)}
-                              initial={{ opacity: 0, y: 16 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              transition={{ delay: Math.min(i * 0.04, 0.3), duration: 0.3 }}
-                              whileHover={{ y: -6 }}
-                              whileTap={{ scale: 0.97 }}
                             >
                               <div className="brand-card-logo-wrap">
                                 <img
@@ -596,7 +637,7 @@ function GuidesPage() {
                               </div>
                               <span className="brand-card-name">{brand}</span>
                               <span className="brand-card-count">{vehicleCountLabel(count)}</span>
-                            </Motion.button>
+                            </button>
                           )
                         })}
                       </div>
