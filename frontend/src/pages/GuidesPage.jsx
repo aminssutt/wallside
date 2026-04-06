@@ -719,7 +719,13 @@ function GuidesPage() {
                   exit={{ opacity: 0, y: -20 }}
                   transition={{ duration: 0.35, ease: 'easeOut' }}
                 >
-                  <div className="guides-vehicle-header">
+                  {/* Brand hero card — animates up on enter */}
+                  <Motion.div
+                    className="guides-brand-hero"
+                    initial={{ opacity: 0, y: 40, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{ duration: 0.5, ease: [0.25, 0.1, 0.25, 1] }}
+                  >
                     <button
                       type="button"
                       className="guides-back-btn"
@@ -730,18 +736,21 @@ function GuidesPage() {
                       </svg>
                       <span>{backLabel}</span>
                     </button>
-                    <div className="guides-vehicle-brand-info">
+                    <div className="guides-brand-hero__content">
                       <img
-                        className="guides-vehicle-brand-logo"
+                        className="guides-brand-hero__logo"
                         src={brandLogoSrc(toBrandSlug(selectedBrand))}
                         alt={selectedBrand}
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none'
-                        }}
+                        onError={(e) => { e.currentTarget.style.display = 'none' }}
                       />
-                      <h2>{selectedBrand}</h2>
+                      <div className="guides-brand-hero__info">
+                        <h2>{selectedBrand}</h2>
+                        <span className="guides-brand-hero__count">
+                          {vehicleCountLabel((brandGroups[selectedBrand] || []).length)}
+                        </span>
+                      </div>
                     </div>
-                  </div>
+                  </Motion.div>
 
                   {/* search bar for vehicles */}
                   <div className="guides-search-bar">

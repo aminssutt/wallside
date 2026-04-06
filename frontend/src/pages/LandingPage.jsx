@@ -608,44 +608,86 @@ const HowPreviewAnswer = () => (
 const HOW_PREVIEWS = [HowPreviewBrands, HowPreviewQuestion, HowPreviewAnswer];
 
 /* ============================================================
-   Scroll-based Rotating Gear (automotive wow effect)
+   Scroll-based Automotive Wheel (interactive wow effect)
    ============================================================ */
 
-function ScrollGear() {
+function ScrollWheel() {
   const { scrollYProgress } = useScroll();
-  const rotate = useTransform(scrollYProgress, [0, 1], [0, 720]);
-  const scale = useTransform(scrollYProgress, [0, 0.1, 0.9, 1], [0.9, 1, 1, 0.9]);
-  const opacity = useTransform(scrollYProgress, [0, 0.05, 0.9, 1], [0.08, 0.12, 0.12, 0.04]);
+  const rotate1 = useTransform(scrollYProgress, [0, 1], [0, 1080]);
+  const rotate2 = useTransform(scrollYProgress, [0, 1], [0, -720]);
+
+  // Spokes for the alloy wheel
+  const spokeCount = 5;
+  const spokes = Array.from({ length: spokeCount }, (_, i) => (360 / spokeCount) * i);
 
   return (
-    <div className="scroll-gear" aria-hidden="true">
-      <Motion.svg
-        viewBox="0 0 200 200"
-        className="scroll-gear__svg scroll-gear__svg--1"
-        style={{ rotate, scale, opacity }}
+    <div className="scroll-wheel" aria-hidden="true">
+      {/* Main wheel */}
+      <Motion.div
+        className="scroll-wheel__rim"
+        style={{ rotate: rotate1 }}
+        initial={{ opacity: 0, scale: 0.5 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 1.2, delay: 0.8, ease: [0.25, 0.1, 0.25, 1] }}
       >
-        <path
-          d="M100 18l6 18h4l10-15 8 5-4 17 3 2 14-10 6 7-10 14 2 3 17-4 4 8-16 9 1 4 18 2v9l-18 2-1 4 16 9-4 8-17-4-2 3 10 14-6 7-14-10-3 2 4 17-8 5-10-15h-4l-6 18h-9l-6-18h-4l-10 15-8-5 4-17-3-2-14 10-6-7 10-14-2-3-17 4-4-8 16-9-1-4-18-2v-9l18-2 1-4-16-9 4-8 17 4 2-3-10-14 6-7 14 10 3-2-4-17 8-5 10 15h4l6-18h9z"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-        />
-        <circle cx="100" cy="100" r="30" fill="none" stroke="currentColor" strokeWidth="1.5" />
-        <circle cx="100" cy="100" r="12" fill="none" stroke="currentColor" strokeWidth="1" />
-      </Motion.svg>
-      <Motion.svg
-        viewBox="0 0 200 200"
-        className="scroll-gear__svg scroll-gear__svg--2"
-        style={{ rotate: useTransform(scrollYProgress, [0, 1], [0, -540]), opacity }}
+        <svg viewBox="0 0 200 200" className="scroll-wheel__svg">
+          {/* Tire */}
+          <circle cx="100" cy="100" r="96" fill="none" stroke="currentColor" strokeWidth="3" opacity="0.2" />
+          <circle cx="100" cy="100" r="88" fill="none" stroke="currentColor" strokeWidth="7" opacity="0.08" />
+          {/* Rim outer */}
+          <circle cx="100" cy="100" r="72" fill="none" stroke="currentColor" strokeWidth="2" opacity="0.3" />
+          {/* Spokes */}
+          {spokes.map((angle, i) => {
+            const rad = (angle * Math.PI) / 180;
+            const x1 = 100 + 20 * Math.cos(rad);
+            const y1 = 100 + 20 * Math.sin(rad);
+            const x2 = 100 + 68 * Math.cos(rad);
+            const y2 = 100 + 68 * Math.sin(rad);
+            const cx1 = 100 + 44 * Math.cos(rad + 0.15);
+            const cy1 = 100 + 44 * Math.sin(rad + 0.15);
+            return (
+              <path
+                key={i}
+                d={`M ${x1} ${y1} Q ${cx1} ${cy1} ${x2} ${y2}`}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                opacity="0.25"
+                strokeLinecap="round"
+              />
+            );
+          })}
+          {/* Hub */}
+          <circle cx="100" cy="100" r="18" fill="none" stroke="currentColor" strokeWidth="2" opacity="0.35" />
+          <circle cx="100" cy="100" r="6" fill="currentColor" opacity="0.2" />
+          {/* Lug nuts */}
+          {spokes.map((angle, i) => {
+            const rad = (angle * Math.PI) / 180;
+            return <circle key={`lug-${i}`} cx={100 + 13 * Math.cos(rad)} cy={100 + 13 * Math.sin(rad)} r="2" fill="currentColor" opacity="0.2" />;
+          })}
+        </svg>
+      </Motion.div>
+
+      {/* Secondary smaller gear */}
+      <Motion.div
+        className="scroll-wheel__gear"
+        style={{ rotate: rotate2 }}
+        initial={{ opacity: 0, scale: 0.3 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 1, delay: 1.2, ease: [0.25, 0.1, 0.25, 1] }}
       >
-        <path
-          d="M100 22l5 16h3l9-13 7 4-3 15 3 2 12-9 5 6-9 12 2 3 15-3 3 7-14 8 1 3 16 2v8l-16 2-1 3 14 8-3 7-15-3-2 3 9 12-5 6-12-9-3 2 3 15-7 4-9-13h-3l-5 16h-8l-5-16h-3l-9 13-7-4 3-15-3-2-12 9-5-6 9-12-2-3-15 3-3-7 14-8-1-3-16-2v-8l16-2 1-3-14-8 3-7 15 3 2-3-9-12 5-6 12 9 3-2-3-15 7-4 9 13h3l5-16h8z"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.2"
-        />
-        <circle cx="100" cy="100" r="24" fill="none" stroke="currentColor" strokeWidth="1.2" />
-      </Motion.svg>
+        <svg viewBox="0 0 200 200" className="scroll-wheel__svg">
+          <path
+            d="M100 22l5 16h3l9-13 7 4-3 15 3 2 12-9 5 6-9 12 2 3 15-3 3 7-14 8 1 3 16 2v8l-16 2-1 3 14 8-3 7-15-3-2 3 9 12-5 6-12-9-3 2 3 15-7 4-9-13h-3l-5 16h-8l-5-16h-3l-9 13-7-4 3-15-3-2-12 9-5-6 9-12-2-3-15 3-3-7 14-8-1-3-16-2v-8l16-2 1-3-14-8 3-7 15 3 2-3-9-12 5-6 12 9 3-2-3-15 7-4 9 13h3l5-16h8z"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            opacity="0.2"
+          />
+          <circle cx="100" cy="100" r="24" fill="none" stroke="currentColor" strokeWidth="1.5" opacity="0.2" />
+          <circle cx="100" cy="100" r="8" fill="currentColor" opacity="0.12" />
+        </svg>
+      </Motion.div>
     </div>
   );
 }
@@ -725,15 +767,14 @@ export default function LandingPage() {
   return (
     <main className="landing">
 
-      {/* ======== SCROLL GEAR (wow effect) ======== */}
-      <ScrollGear />
+      {/* ======== SCROLL WHEEL (wow effect) ======== */}
+      <ScrollWheel />
 
       {/* ======== NAVIGATION ======== */}
       <nav className={`nav${navScrolled ? ' nav--scrolled' : ''}`}>
         <div className="nav__inner">
           <button type="button" className="nav__brand" onClick={() => navigate('/')} aria-label="Home">
             <img className="nav__logo" src="/logo-mechora.png" alt="Mechora" />
-            <img className="nav__wordmark" src="/mechora-writing.png" alt="Mechora" />
           </button>
 
           <ul className="nav__links">
