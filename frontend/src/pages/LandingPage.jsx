@@ -489,7 +489,7 @@ function ChatDemo({ userMsg, aiMsg, sourceMsg }) {
         <div className="chat-demo__dot" />
         <div className="chat-demo__dot" />
         <div className="chat-demo__dot" />
-        <img src="/mechora writing.png" alt="Mechora" className="chat-demo__logo" />
+        <img src="/mechora-writing.png" alt="Mechora" className="chat-demo__logo" />
       </div>
       <div className="chat-demo__body">
         {showUser && (
@@ -680,7 +680,7 @@ export default function LandingPage() {
       <nav className={`landing-nav${navScrolled ? ' nav-scrolled' : ''}`}>
         <div className="landing-container">
           <button type="button" className="nav-brand" onClick={() => navigate('/')} aria-label="Home">
-            <img className="nav-brand__mark nav-brand__mark--wide" src="/mechora writing.png" alt="Mechora" />
+            <img className="nav-brand__mark nav-brand__mark--wide" src="/mechora-writing.png" alt="Mechora" />
           </button>
 
           <ul className="nav-links">
@@ -761,7 +761,7 @@ export default function LandingPage() {
             animate="visible"
           >
             <Motion.h1 variants={fadeInUp} className="hero-title">
-              <img src="/mechora writing.png" alt="Mechora" className="hero-title-logo" />
+              <img src="/mechora-writing.png" alt="Mechora" className="hero-title-logo" />
             </Motion.h1>
 
             <Motion.p variants={fadeInUp} className="hero-subtitle">
@@ -1112,7 +1112,7 @@ export default function LandingPage() {
           <div className="footer-grid">
             {/* Column 1: Brand */}
             <div className="footer-col footer-col--brand">
-              <img src="/mechora writing.png" alt="Mechora" className="footer-brand-logo" />
+              <img src="/mechora-writing.png" alt="Mechora" className="footer-brand-logo" />
               <p className="footer-bio">{t.footerBio}</p>
               <a href="mailto:lakhdarberache@gmail.com" className="footer-email">lakhdarberache@gmail.com</a>
             </div>

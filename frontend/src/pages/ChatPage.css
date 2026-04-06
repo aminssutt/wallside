@@ -81,7 +81,7 @@
   pointer-events: none;
   background:
     radial-gradient(ellipse at 50% 20%, rgba(200, 168, 78, 0.03), transparent 60%),
-    url('/background chat.png') center 55% / min(660px, 82vw) auto no-repeat;
+    url('/background-chat.png') center 55% / min(660px, 82vw) auto no-repeat;
   opacity: 0.5;
   filter: grayscale(0.1) saturate(0.85) contrast(1.02);
 }
