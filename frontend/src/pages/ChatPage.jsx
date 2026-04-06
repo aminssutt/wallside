@@ -253,11 +253,14 @@ function SourcesList({ sources, lang }) {
               <button type="button" className="bot-source-link" onClick={() => openProof(idx)}>
                 {src.display || `${src.label}, page ${src.page}`}
               </button>
-            ) : src.kind === 'web' && src.url ? (
-              <a href={src.url} target="_blank" rel="noopener noreferrer" className="bot-source-link">
-                {src.display || src.label}
-              </a>
-            ) : (
+            ) : src.kind === 'web' && src.url ? (() => {
+              const safeHref = (src.url && /^https?:\/\//.test(src.url)) ? src.url : '#'
+              return (
+                <a href={safeHref} target="_blank" rel="noopener noreferrer" className="bot-source-link">
+                  {src.display || src.label}
+                </a>
+              )
+            })() : (
               <span>{src.display || src.label}</span>
             )}
           </li>
@@ -290,6 +293,7 @@ function SourcesList({ sources, lang }) {
             ) : (
               <iframe
                 className="proof-iframe"
+                sandbox="allow-same-origin"
                 src={proofSrc.pdf_url
                   ? `${proofSrc.pdf_url}#page=${String(proofSrc.page).split('-')[0]}`
                   : `${API_URL}/guides/${proofSrc.slug}/pdf#page=${String(proofSrc.page).split('-')[0]}`}
@@ -934,7 +938,7 @@ function ChatPage() {
       if (eventName === 'video_result') {
         const videoData = (data && typeof data === 'object') ? data : {}
         const url = String(videoData.url || '').trim()
-        if (!url) return
+        if (!url || !/^https:\/\//.test(url)) return
         setMessages((previous) => {
           if (previous.length === 0) return previous
           const updated = [...previous]

@@ -22,6 +22,15 @@ from src.guide_manager import guide_manager
 from src.guide_chatbot import get_guide_chatbot
 from src.config import DATA_DIR, ALLOWED_ORIGINS, MAX_MESSAGE_LENGTH
 
+
+def _csv_safe(value: str) -> str:
+    """Prevent CSV formula injection."""
+    s = str(value)
+    if s and s[0] in ('=', '+', '-', '@', '\t', '\r'):
+        return "'" + s
+    return s
+
+
 # Logging setup
 logging.basicConfig(
     level=logging.INFO,
@@ -176,6 +185,10 @@ def serve_guide_pdf(slug, filename=None):
         if not pdf_dir.exists():
             continue
         for pdf_path in pdf_dir.rglob("*.pdf"):
+            try:
+                pdf_path.resolve().relative_to(pdf_dir.resolve())
+            except ValueError:
+                continue
             norm_name = _normalize_pdf_name(pdf_path.stem)
             for t in targets:
                 if norm_name == _normalize_pdf_name(Path(t).stem) or t in norm_name or norm_name in t:
@@ -232,6 +245,8 @@ def chat(slug):
         lang = None
 
     session_id = data.get('session_id') or "default"
+    if len(session_id) > 64 or not re.match(r'^[a-zA-Z0-9_-]+$', session_id):
+        session_id = "default"
 
     try:
         chatbot = get_guide_chatbot(slug)
@@ -289,6 +304,8 @@ def chat_stream(slug):
         lang = None
 
     session_id = data.get('session_id') or "default"
+    if len(session_id) > 64 or not re.match(r'^[a-zA-Z0-9_-]+$', session_id):
+        session_id = "default"
 
     try:
         chatbot = get_guide_chatbot(slug)
@@ -380,6 +397,8 @@ def get_history(slug):
         }), 404
 
     session_id = request.args.get("session_id", "default")
+    if len(session_id) > 64 or not re.match(r'^[a-zA-Z0-9_-]+$', session_id):
+        session_id = "default"
 
     try:
         chatbot = get_guide_chatbot(slug)
@@ -401,7 +420,9 @@ def get_history(slug):
 def reset_chat(slug):
     """Reset conversation history for a guide session."""
     data = request.get_json(silent=True) or {}
-    session_id = data.get("session_id")
+    session_id = data.get("session_id") or "default"
+    if len(session_id) > 64 or not re.match(r'^[a-zA-Z0-9_-]+$', session_id):
+        session_id = "default"
 
     guide = guide_manager.get_guide(slug)
     if not guide or not guide.is_indexed:
@@ -453,8 +474,6 @@ def serve_image(filename):
 def health_check():
     return jsonify({
         "status": "ok",
-        "message": "API Vehicle Guide Chatbot",
-        "version": "3.0.0",
         "guides": len(guide_manager.list_guides()),
     })
 
@@ -516,9 +535,9 @@ def save_premium_waitlist_email():
                 if write_header:
                     writer.writeheader()
                 writer.writerow({
-                    "email": raw_email,
-                    "lang": lang,
-                    "source": source,
+                    "email": _csv_safe(raw_email),
+                    "lang": _csv_safe(lang),
+                    "source": _csv_safe(source),
                     "created_at": datetime.now(timezone.utc).isoformat(),
                 })
 
@@ -575,4 +594,7 @@ if __name__ == '__main__':
         print(f"   - {g['name']} ({g['slug']})")
     print(f" Server starting on http://localhost:{port}\n")
     is_debug = os.getenv("FLASK_DEBUG", "false").lower() in ("true", "1", "yes")
+    if is_debug and os.getenv("PORT"):
+        print("WARNING: FLASK_DEBUG=true with PORT set. Disabling debug for safety.")
+        is_debug = False
     app.run(host='127.0.0.1', port=port, debug=is_debug, use_reloader=False)
