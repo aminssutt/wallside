@@ -369,6 +369,12 @@ const IconSend = () => (
   </svg>
 );
 
+const IconSparkle = () => (
+  <svg viewBox="0 0 24 24" fill="currentColor">
+    <path d="M12 2L13.09 8.26L18 6L14.74 10.91L21 12L14.74 13.09L18 18L13.09 15.74L12 22L10.91 15.74L6 18L9.26 13.09L3 12L9.26 10.91L6 6L10.91 8.26L12 2Z" />
+  </svg>
+);
+
 const FEATURE_ICONS = [IconBook, IconChat, IconShield, IconGlobe];
 
 /* ============================================================
@@ -376,17 +382,55 @@ const FEATURE_ICONS = [IconBook, IconChat, IconShield, IconGlobe];
    ============================================================ */
 
 const fadeInUp = {
-  hidden: { opacity: 0, y: 30 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: 'easeOut' } },
+  hidden: { opacity: 0, y: 30, filter: 'blur(4px)' },
+  visible: { opacity: 1, y: 0, filter: 'blur(0px)', transition: { duration: 0.7, ease: [0.25, 0.1, 0.25, 1] } },
+};
+
+const fadeIn = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.8, ease: 'easeOut' } },
 };
 
 const stagger = {
   hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { staggerChildren: 0.12 } },
+  visible: { opacity: 1, transition: { staggerChildren: 0.1, delayChildren: 0.1 } },
+};
+
+const scaleIn = {
+  hidden: { opacity: 0, scale: 0.92, filter: 'blur(8px)' },
+  visible: { opacity: 1, scale: 1, filter: 'blur(0px)', transition: { duration: 0.9, ease: [0.25, 0.1, 0.25, 1] } },
+};
+
+const slideInRight = {
+  hidden: { opacity: 0, x: 60, filter: 'blur(6px)' },
+  visible: { opacity: 1, x: 0, filter: 'blur(0px)', transition: { duration: 0.9, delay: 0.3, ease: [0.25, 0.1, 0.25, 1] } },
 };
 
 /* ============================================================
-   Animated Counter (for stats section)
+   Word-by-word blur reveal
+   ============================================================ */
+
+function WordReveal({ text, baseDelay = 0, className = '' }) {
+  const words = text.split(' ');
+  return (
+    <span className={`word-reveal ${className}`}>
+      {words.map((word, i) => (
+        <Motion.span
+          key={i}
+          className="word-reveal__word"
+          initial={{ opacity: 0, filter: 'blur(10px)', y: 12 }}
+          animate={{ opacity: 1, filter: 'blur(0px)', y: 0 }}
+          transition={{ duration: 0.5, delay: baseDelay + i * 0.07, ease: [0.25, 0.1, 0.25, 1] }}
+        >
+          {word}
+        </Motion.span>
+      ))}
+    </span>
+  );
+}
+
+/* ============================================================
+   Animated Counter (stats section)
    ============================================================ */
 
 function AnimatedCounter({ target, suffix = '', duration = 2000 }) {
@@ -486,9 +530,9 @@ function ChatDemo({ userMsg, aiMsg, sourceMsg }) {
   return (
     <div className="chat-demo">
       <div className="chat-demo__header">
-        <div className="chat-demo__dot" />
-        <div className="chat-demo__dot" />
-        <div className="chat-demo__dot" />
+        <div className="chat-demo__dots">
+          <span /><span /><span />
+        </div>
         <img src="/mechora-writing.png" alt="Mechora" className="chat-demo__logo" />
       </div>
       <div className="chat-demo__body">
@@ -522,6 +566,7 @@ function ChatDemo({ userMsg, aiMsg, sourceMsg }) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
           >
+            <IconSparkle />
             {sourceMsg}
           </Motion.div>
         )}
@@ -529,45 +574,6 @@ function ChatDemo({ userMsg, aiMsg, sourceMsg }) {
     </div>
   );
 }
-
-/* ============================================================
-   Feature Card Animations (CSS-only micro-illustrations)
-   ============================================================ */
-
-const FeatureBookAnim = () => (
-  <div className="feat-anim feat-anim--book">
-    <div className="feat-book__page feat-book__page--1" />
-    <div className="feat-book__page feat-book__page--2" />
-    <div className="feat-book__spine" />
-  </div>
-);
-
-const FeatureTypingAnim = () => (
-  <div className="feat-anim feat-anim--typing">
-    <span className="feat-typing__dot" />
-    <span className="feat-typing__dot" />
-    <span className="feat-typing__dot" />
-  </div>
-);
-
-const FeatureCheckAnim = () => (
-  <div className="feat-anim feat-anim--check">
-    <svg viewBox="0 0 32 32" className="feat-check__svg">
-      <circle cx="16" cy="16" r="14" className="feat-check__circle" />
-      <polyline points="10 16 14 20 22 12" className="feat-check__tick" />
-    </svg>
-  </div>
-);
-
-const FeatureLangAnim = () => (
-  <div className="feat-anim feat-anim--lang">
-    <span className="feat-lang__text">FR</span>
-    <span className="feat-lang__text">EN</span>
-    <span className="feat-lang__text">KO</span>
-  </div>
-);
-
-const FEATURE_ANIMS = [FeatureBookAnim, FeatureTypingAnim, FeatureCheckAnim, FeatureLangAnim];
 
 /* ============================================================
    How-step preview illustrations
@@ -585,9 +591,7 @@ const HowPreviewQuestion = () => (
   <div className="how-preview how-preview--question">
     <div className="how-preview__input">
       <span className="how-preview__placeholder">Comment changer...</span>
-      <span className="how-preview__send-icon">
-        <IconSend />
-      </span>
+      <span className="how-preview__send-icon"><IconSend /></span>
     </div>
   </div>
 );
@@ -604,7 +608,7 @@ const HowPreviewAnswer = () => (
 const HOW_PREVIEWS = [HowPreviewBrands, HowPreviewQuestion, HowPreviewAnswer];
 
 /* ============================================================
-   Component
+   Main Component
    ============================================================ */
 
 export default function LandingPage() {
@@ -615,38 +619,33 @@ export default function LandingPage() {
   const [langOpen, setLangOpen] = useState(false);
   const [navScrolled, setNavScrolled] = useState(false);
   const [openFaq, setOpenFaq] = useState(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const langDropdownRef = useRef(null);
 
   const currentLang = LANGUAGES.find((entry) => entry.code === lang) || LANGUAGES[0];
 
-  // Restore scroll on mount
   useEffect(() => {
     document.body.style.overflow = 'auto';
     document.documentElement.style.overflow = 'auto';
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
   }, []);
 
-  // Nav scroll effect
   useEffect(() => {
     const handleScroll = () => setNavScrolled(window.scrollY > 40);
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Close language dropdown on outside click or Escape
   useEffect(() => {
     if (!langOpen) return undefined;
-
     const handleOutsideClick = (event) => {
       if (langDropdownRef.current && !langDropdownRef.current.contains(event.target)) {
         setLangOpen(false);
       }
     };
-
     const handleEscape = (event) => {
       if (event.key === 'Escape') setLangOpen(false);
     };
-
     document.addEventListener('mousedown', handleOutsideClick);
     document.addEventListener('keydown', handleEscape);
     return () => {
@@ -658,6 +657,7 @@ export default function LandingPage() {
   const scrollTo = (id) => {
     const el = document.getElementById(id);
     el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setMobileMenuOpen(false);
   };
 
   const goToGuides = () => navigate('/guides');
@@ -673,24 +673,31 @@ export default function LandingPage() {
     window.location.href = `mailto:lakhdarberache@gmail.com?subject=${subject}&body=${body}`;
   };
 
-  return (
-    <main className="landing-page">
+  const handleCardSpotlight = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    e.currentTarget.style.setProperty('--spot-x', `${e.clientX - rect.left}px`);
+    e.currentTarget.style.setProperty('--spot-y', `${e.clientY - rect.top}px`);
+  };
 
-      {/* ---- NAVIGATION ---- */}
-      <nav className={`landing-nav${navScrolled ? ' nav-scrolled' : ''}`}>
-        <div className="landing-container">
-          <button type="button" className="nav-brand" onClick={() => navigate('/')} aria-label="Home">
-            <img className="nav-brand__mark nav-brand__mark--wide" src="/logo-mechora.png" alt="Mechora" />
+  return (
+    <main className="landing">
+
+      {/* ======== NAVIGATION ======== */}
+      <nav className={`nav${navScrolled ? ' nav--scrolled' : ''}`}>
+        <div className="nav__inner">
+          <button type="button" className="nav__brand" onClick={() => navigate('/')} aria-label="Home">
+            <img className="nav__logo" src="/logo-mechora.png" alt="Mechora" />
           </button>
 
-          <ul className="nav-links">
-            <li><button type="button" className="nav-link" onClick={() => scrollTo('features')}>{t.navFeatures}</button></li>
-            <li><button type="button" className="nav-link" onClick={() => scrollTo('pricing')}>{t.navPricing}</button></li>
-            <li><button type="button" className="nav-link" onClick={() => scrollTo('faq')}>{t.navFaq}</button></li>
-            <li><button type="button" className="nav-link" onClick={() => scrollTo('contact')}>{t.navContact}</button></li>
+          <ul className="nav__links">
+            <li><button type="button" onClick={() => scrollTo('features')}>{t.navFeatures}</button></li>
+            <li><button type="button" onClick={() => scrollTo('pricing')}>{t.navPricing}</button></li>
+            <li><button type="button" onClick={() => scrollTo('faq')}>{t.navFaq}</button></li>
+            <li><button type="button" onClick={() => scrollTo('contact')}>{t.navContact}</button></li>
           </ul>
 
-          <div className="nav-right">
+          <div className="nav__right">
+            {/* Language Dropdown */}
             <div className="lang-dropdown" ref={langDropdownRef}>
               <button
                 type="button"
@@ -699,11 +706,7 @@ export default function LandingPage() {
                 aria-expanded={langOpen}
                 aria-haspopup="menu"
               >
-                <img
-                  className="lang-flag"
-                  src={FLAG_BY_LANG[currentLang?.code] || FLAG_BY_LANG.fr}
-                  alt={`${currentLang?.label || 'FR'} flag`}
-                />
+                <img className="lang-flag" src={FLAG_BY_LANG[currentLang?.code] || FLAG_BY_LANG.fr} alt={`${currentLang?.label || 'FR'} flag`} />
                 <span className="lang-code">{currentLang?.label}</span>
                 <IconChevronDown />
               </button>
@@ -715,13 +718,13 @@ export default function LandingPage() {
                     initial={{ opacity: 0, y: -6, scale: 0.97 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -6, scale: 0.97 }}
-                    transition={{ duration: 0.12 }}
+                    transition={{ duration: 0.15 }}
                   >
                     {LANGUAGES.map((entry) => (
                       <button
                         key={entry.code}
                         type="button"
-                        className={`lang-menu-item${entry.code === lang ? ' active' : ''}`}
+                        className={`lang-menu__item${entry.code === lang ? ' active' : ''}`}
                         onClick={() => { setLang(entry.code); setLangOpen(false); }}
                       >
                         <img className="lang-flag" src={FLAG_BY_LANG[entry.code] || FLAG_BY_LANG.fr} alt={`${entry.label} flag`} />
@@ -732,52 +735,105 @@ export default function LandingPage() {
                 )}
               </AnimatePresence>
             </div>
+
+            {/* Mobile menu toggle */}
+            <button
+              type="button"
+              className="nav__mobile-toggle"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label="Menu"
+            >
+              <span className={`hamburger${mobileMenuOpen ? ' hamburger--open' : ''}`}>
+                <span /><span /><span />
+              </span>
+            </button>
           </div>
         </div>
+
+        {/* Mobile menu */}
+        <AnimatePresence>
+          {mobileMenuOpen && (
+            <Motion.div
+              className="nav__mobile-menu"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.25 }}
+            >
+              <button type="button" onClick={() => scrollTo('features')}>{t.navFeatures}</button>
+              <button type="button" onClick={() => scrollTo('pricing')}>{t.navPricing}</button>
+              <button type="button" onClick={() => scrollTo('faq')}>{t.navFaq}</button>
+              <button type="button" onClick={() => scrollTo('contact')}>{t.navContact}</button>
+            </Motion.div>
+          )}
+        </AnimatePresence>
       </nav>
 
-      {/* ---- HERO ---- */}
-      <section className="landing-section hero-section">
-        {/* Abstract automotive lines */}
-        <div className="hero-lines" aria-hidden="true">
-          <div className="hero-line" />
-          <div className="hero-line" />
-          <div className="hero-line" />
+      {/* ======== HERO ======== */}
+      <section className="hero">
+        {/* Background decorations */}
+        <div className="hero__bg" aria-hidden="true">
+          <div className="hero__orb hero__orb--1" />
+          <div className="hero__orb hero__orb--2" />
+          <div className="hero__orb hero__orb--3" />
+          <div className="hero__grid" />
+          <div className="hero__vignette" />
         </div>
 
-        {/* CSS car silhouette */}
-        <div className="hero-car-art" aria-hidden="true">
-          <div className="hero-car-body">
-            <div className="hero-car-wheel hero-car-wheel--front" />
-            <div className="hero-car-wheel hero-car-wheel--rear" />
-          </div>
+        {/* Speed lines */}
+        <div className="hero__lines" aria-hidden="true">
+          <div className="hero__line" />
+          <div className="hero__line" />
+          <div className="hero__line" />
+          <div className="hero__line" />
+          <div className="hero__line" />
         </div>
 
-        <div className="hero-split">
-          <Motion.div
-            className="hero-content"
-            variants={stagger}
-            initial="hidden"
-            animate="visible"
-          >
-            <Motion.h1 variants={fadeInUp} className="hero-title">
-              <img src="/mechora-writing.png" alt="Mechora" className="hero-title-logo" />
-            </Motion.h1>
+        <div className="hero__content">
+          <div className="hero__text">
+            {/* Logo reveal */}
+            <Motion.div
+              className="hero__title-wrap"
+              initial={{ opacity: 0, scale: 0.9, filter: 'blur(20px)' }}
+              animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+              transition={{ duration: 1.2, ease: [0.25, 0.1, 0.25, 1] }}
+            >
+              <img src="/mechora-writing.png" alt="Mechora" className="hero__title-logo" />
+            </Motion.div>
 
-            <Motion.p variants={fadeInUp} className="hero-subtitle">
-              {t.heroSubtitle}
-            </Motion.p>
+            {/* Subtitle with word reveal */}
+            <div className="hero__subtitle">
+              <WordReveal text={t.heroSubtitle} baseDelay={0.6} />
+            </div>
 
-            <Motion.div variants={fadeInUp} className="hero-stats">
+            {/* Floating stat badges */}
+            <Motion.div
+              className="hero__badges"
+              initial="hidden"
+              animate="visible"
+              variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.1, delayChildren: 1.2 } } }}
+            >
               {t.heroStats.map((stat, idx) => (
-                <React.Fragment key={idx}>
-                  {idx > 0 && <span className="hero-stats-separator" />}
-                  <span>{stat}</span>
-                </React.Fragment>
+                <Motion.span
+                  key={idx}
+                  className="hero__badge"
+                  variants={{
+                    hidden: { opacity: 0, y: 16, filter: 'blur(6px)' },
+                    visible: { opacity: 1, y: 0, filter: 'blur(0px)', transition: { duration: 0.5 } },
+                  }}
+                >
+                  {stat}
+                </Motion.span>
               ))}
             </Motion.div>
 
-            <Motion.div variants={fadeInUp} className="hero-actions">
+            {/* CTAs */}
+            <Motion.div
+              className="hero__actions"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 1.6 }}
+            >
               <button className="btn-gold" onClick={goToGuides}>
                 <span>{t.ctaPrimary}</span>
                 <IconArrowRight />
@@ -786,13 +842,14 @@ export default function LandingPage() {
                 {t.ctaSecondary}
               </button>
             </Motion.div>
-          </Motion.div>
+          </div>
 
+          {/* Chat demo */}
           <Motion.div
-            className="hero-chat-wrapper"
-            initial={{ opacity: 0, x: 40 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.6, duration: 0.8 }}
+            className="hero__demo"
+            variants={slideInRight}
+            initial="hidden"
+            animate="visible"
           >
             <ChatDemo
               userMsg={t.chatDemoUser}
@@ -804,79 +861,91 @@ export default function LandingPage() {
 
         <button
           type="button"
-          className="hero-scroll-hint"
-          onClick={() => scrollTo('features')}
+          className="hero__scroll"
+          onClick={() => scrollTo('stats')}
           aria-label={t.ctaSecondary}
         >
-          <IconChevronDown />
+          <Motion.div
+            animate={{ y: [0, 8, 0] }}
+            transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+          >
+            <IconChevronDown />
+          </Motion.div>
         </button>
       </section>
 
-      {/* ---- STATS BAR ---- */}
-      <section className="landing-section stats-section">
-        <div className="landing-container">
+      {/* ======== STATS BAR ======== */}
+      <section id="stats" className="section stats">
+        <div className="container">
           <Motion.div
-            className="stats-bar"
+            className="stats__bar"
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, amount: 0.5 }}
             variants={stagger}
           >
-            <Motion.div className="stat-item" variants={fadeInUp}>
+            <Motion.div className="stats__item" variants={fadeInUp}>
               <AnimatedCounter target={130} suffix="+" />
-              <span className="stat-label">{t.statsVehicles}</span>
+              <span className="stats__label">{t.statsVehicles}</span>
             </Motion.div>
-            <span className="stats-divider" />
-            <Motion.div className="stat-item" variants={fadeInUp}>
+            <span className="stats__divider" />
+            <Motion.div className="stats__item" variants={fadeInUp}>
               <AnimatedCounter target={30} suffix="+" />
-              <span className="stat-label">{t.statsBrands}</span>
+              <span className="stats__label">{t.statsBrands}</span>
             </Motion.div>
-            <span className="stats-divider" />
-            <Motion.div className="stat-item" variants={fadeInUp}>
+            <span className="stats__divider" />
+            <Motion.div className="stats__item" variants={fadeInUp}>
               <AnimatedCounter target={50000} suffix="+" duration={2500} />
-              <span className="stat-label">{t.statsPages}</span>
+              <span className="stats__label">{t.statsPages}</span>
             </Motion.div>
-            <span className="stats-divider" />
-            <Motion.div className="stat-item" variants={fadeInUp}>
+            <span className="stats__divider" />
+            <Motion.div className="stats__item" variants={fadeInUp}>
               <AnimatedCounter target={3} />
-              <span className="stat-label">{t.statsLangs}</span>
+              <span className="stats__label">{t.statsLangs}</span>
             </Motion.div>
           </Motion.div>
         </div>
       </section>
 
-      {/* ---- FEATURES ---- */}
-      <section id="features" className="landing-section features-section">
-        <div className="landing-container">
+      {/* ======== FEATURES ======== */}
+      <section id="features" className="section features">
+        <div className="container">
           <Motion.div
-            className="features-header"
+            className="section__header"
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, amount: 0.3 }}
             variants={fadeInUp}
           >
-            <span className="section-label">{t.featuresLabel}</span>
-            <h2 className="section-title">{t.featuresTitle}</h2>
+            <span className="section__label">{t.featuresLabel}</span>
+            <div className="section__label-line" />
+            <h2 className="section__title">{t.featuresTitle}</h2>
           </Motion.div>
 
           <Motion.div
-            className="features-grid"
+            className="features__grid"
             variants={stagger}
             initial="hidden"
             whileInView="visible"
-            viewport={{ once: true, amount: 0.2 }}
+            viewport={{ once: true, amount: 0.15 }}
           >
             {t.features.map((feature, idx) => {
               const Icon = FEATURE_ICONS[idx] || IconBook;
-              const Anim = FEATURE_ANIMS[idx] || null;
               return (
-                <Motion.div key={idx} className="glass-card" variants={fadeInUp}>
-                  <div className="feature-icon-wrap">
-                    <Icon />
+                <Motion.div
+                  key={idx}
+                  className={`feature-card feature-card--${idx}`}
+                  variants={fadeInUp}
+                  onMouseMove={handleCardSpotlight}
+                >
+                  <div className="feature-card__glow" />
+                  <div className="feature-card__content">
+                    <div className="feature-card__icon">
+                      <Icon />
+                    </div>
+                    <h3 className="feature-card__title">{feature.title}</h3>
+                    <p className="feature-card__desc">{feature.desc}</p>
                   </div>
-                  {Anim && <Anim />}
-                  <h3 className="feature-title">{feature.title}</h3>
-                  <p className="feature-desc">{feature.desc}</p>
                 </Motion.div>
               );
             })}
@@ -884,36 +953,37 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ---- HOW IT WORKS ---- */}
-      <section id="how" className="landing-section how-section">
-        <div className="landing-container">
+      {/* ======== HOW IT WORKS ======== */}
+      <section id="how" className="section how">
+        <div className="container">
           <Motion.div
-            className="how-header"
+            className="section__header"
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, amount: 0.3 }}
             variants={fadeInUp}
           >
-            <span className="section-label">{t.howLabel}</span>
-            <h2 className="section-title">{t.howTitle}</h2>
+            <span className="section__label">{t.howLabel}</span>
+            <div className="section__label-line" />
+            <h2 className="section__title">{t.howTitle}</h2>
           </Motion.div>
 
           <Motion.div
-            className="how-steps"
+            className="how__steps"
             variants={stagger}
             initial="hidden"
             whileInView="visible"
-            viewport={{ once: true, amount: 0.3 }}
+            viewport={{ once: true, amount: 0.2 }}
           >
             {t.howSteps.map((step, idx) => {
               const Preview = HOW_PREVIEWS[idx] || null;
               return (
-                <Motion.div key={idx} className="how-step" variants={fadeInUp}>
-                  <div className="how-step-number">{idx + 1}</div>
-                  {idx < t.howSteps.length - 1 && <div className="how-step-connector" />}
-                  {Preview && <div className="how-step-preview"><Preview /></div>}
-                  <h3 className="how-step-title">{step.title}</h3>
-                  <p className="how-step-desc">{step.desc}</p>
+                <Motion.div key={idx} className="how__step" variants={fadeInUp}>
+                  <div className="how__step-number">{idx + 1}</div>
+                  {idx < t.howSteps.length - 1 && <div className="how__step-connector" />}
+                  {Preview && <div className="how__step-preview"><Preview /></div>}
+                  <h3 className="how__step-title">{step.title}</h3>
+                  <p className="how__step-desc">{step.desc}</p>
                 </Motion.div>
               );
             })}
@@ -921,70 +991,75 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ---- PRICING ---- */}
-      <section id="pricing" className="landing-section pricing-section">
-        <div className="landing-container">
+      {/* ======== PRICING ======== */}
+      <section id="pricing" className="section pricing">
+        <div className="container">
           <Motion.div
-            className="pricing-header"
+            className="section__header"
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, amount: 0.3 }}
             variants={fadeInUp}
           >
-            <span className="section-label">{t.pricingLabel}</span>
-            <h2 className="section-title">{t.pricingTitle}</h2>
+            <span className="section__label">{t.pricingLabel}</span>
+            <div className="section__label-line" />
+            <h2 className="section__title">{t.pricingTitle}</h2>
           </Motion.div>
 
           <Motion.div
-            className="pricing-grid"
+            className="pricing__grid"
             variants={stagger}
             initial="hidden"
             whileInView="visible"
-            viewport={{ once: true, amount: 0.2 }}
+            viewport={{ once: true, amount: 0.15 }}
           >
-            {/* Free Plan */}
-            <Motion.div className="pricing-card" variants={fadeInUp}>
-              <span className="pricing-badge pricing-badge--free">{t.freePlan.badge}</span>
-              <h3 className="pricing-plan-name">{t.freePlan.name}</h3>
-              <p className="pricing-price">{t.freePlan.price}</p>
-              <ul className="pricing-features">
+            {/* Free */}
+            <Motion.div className="price-card" variants={fadeInUp} onMouseMove={handleCardSpotlight}>
+              <div className="price-card__spotlight" />
+              <span className="price-card__badge price-card__badge--free">{t.freePlan.badge}</span>
+              <h3 className="price-card__name">{t.freePlan.name}</h3>
+              <p className="price-card__price">{t.freePlan.price}</p>
+              <ul className="price-card__features">
                 {t.freePlan.features.map((f, i) => (
                   <li key={i}><IconCheck />{f}</li>
                 ))}
               </ul>
-              <button className="pricing-cta pricing-cta--free" onClick={goToGuides}>
+              <button className="price-card__cta price-card__cta--free" onClick={goToGuides}>
                 {t.freePlan.cta}
               </button>
             </Motion.div>
 
-            {/* Premium Plan */}
-            <Motion.div className="pricing-card pricing-card--premium" variants={fadeInUp}>
-              <span className="pricing-badge pricing-badge--premium">{t.premiumPlan.badge}</span>
-              <h3 className="pricing-plan-name">{t.premiumPlan.name}</h3>
-              <p className="pricing-price">{t.premiumPlan.price}</p>
-              <ul className="pricing-features">
+            {/* Premium */}
+            <Motion.div className="price-card price-card--premium" variants={fadeInUp} onMouseMove={handleCardSpotlight}>
+              <div className="price-card__spotlight" />
+              <div className="price-card__glow-border" />
+              <span className="price-card__badge price-card__badge--premium">{t.premiumPlan.badge}</span>
+              <h3 className="price-card__name">{t.premiumPlan.name}</h3>
+              <p className="price-card__price">{t.premiumPlan.price}</p>
+              <ul className="price-card__features">
                 {t.premiumPlan.features.map((f, i) => (
                   <li key={i}><IconCheck />{f}</li>
                 ))}
               </ul>
-              <button className="pricing-cta pricing-cta--premium" onClick={goToGuides}>
+              <button className="price-card__cta price-card__cta--premium" onClick={goToGuides}>
                 {t.premiumPlan.cta}
               </button>
             </Motion.div>
 
-            {/* Enterprise Plan */}
-            <Motion.div className="pricing-card pricing-card--enterprise" variants={fadeInUp}>
-              <span className="pricing-badge pricing-badge--enterprise">{t.enterprisePlan.badge}</span>
-              <h3 className="pricing-plan-name">{t.enterprisePlan.name}</h3>
-              <p className="pricing-price pricing-price--custom">{t.enterprisePlan.subtitle}</p>
-              <ul className="pricing-features">
+            {/* Enterprise */}
+            <Motion.div className="price-card price-card--enterprise" variants={fadeInUp} onMouseMove={handleCardSpotlight}>
+              <div className="price-card__spotlight" />
+              <span className="price-card__badge price-card__badge--enterprise">{t.enterprisePlan.badge}</span>
+              <h3 className="price-card__name">{t.enterprisePlan.name}</h3>
+              <p className="price-card__price price-card__price--custom">{t.enterprisePlan.subtitle}</p>
+              <ul className="price-card__features">
                 {t.enterprisePlan.features.map((f, i) => (
                   <li key={i}><IconCheck />{f}</li>
                 ))}
               </ul>
               <a
                 href="mailto:lakhdarberache@gmail.com?subject=Mechora%20Enterprise"
-                className="pricing-cta pricing-cta--enterprise"
+                className="price-card__cta price-card__cta--enterprise"
               >
                 {t.enterprisePlan.cta}
               </a>
@@ -993,22 +1068,23 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ---- FAQ ---- */}
-      <section id="faq" className="landing-section faq-section">
-        <div className="landing-container">
+      {/* ======== FAQ ======== */}
+      <section id="faq" className="section faq">
+        <div className="container">
           <Motion.div
-            className="faq-header"
+            className="section__header"
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, amount: 0.3 }}
             variants={fadeInUp}
           >
-            <span className="section-label">{t.faqLabel}</span>
-            <h2 className="section-title">{t.faqTitle}</h2>
+            <span className="section__label">{t.faqLabel}</span>
+            <div className="section__label-line" />
+            <h2 className="section__title">{t.faqTitle}</h2>
           </Motion.div>
 
           <Motion.div
-            className="faq-list"
+            className="faq__list"
             variants={stagger}
             initial="hidden"
             whileInView="visible"
@@ -1017,26 +1093,26 @@ export default function LandingPage() {
             {t.faq.map((item, idx) => (
               <Motion.div
                 key={idx}
-                className={`faq-item${openFaq === idx ? ' faq-item--open' : ''}`}
+                className={`faq__item${openFaq === idx ? ' faq__item--open' : ''}`}
                 variants={fadeInUp}
               >
                 <button
                   type="button"
-                  className="faq-question"
+                  className="faq__question"
                   onClick={() => setOpenFaq(openFaq === idx ? null : idx)}
                   aria-expanded={openFaq === idx}
                 >
                   <span>{item.q}</span>
-                  <IconPlus />
+                  <span className="faq__icon"><IconPlus /></span>
                 </button>
                 <AnimatePresence>
                   {openFaq === idx && (
                     <Motion.div
-                      className="faq-answer"
+                      className="faq__answer"
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: 'auto', opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.25, ease: 'easeInOut' }}
+                      transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
                     >
                       <p>{item.a}</p>
                     </Motion.div>
@@ -1048,55 +1124,50 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ---- CONTACT ---- */}
-      <section id="contact" className="landing-section contact-section">
-        <div className="landing-container">
+      {/* ======== CONTACT ======== */}
+      <section id="contact" className="section contact">
+        <div className="container">
           <Motion.div
-            className="contact-header"
+            className="section__header"
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, amount: 0.3 }}
             variants={fadeInUp}
           >
-            <span className="section-label">{t.contactLabel}</span>
-            <h2 className="section-title">{t.contactTitle}</h2>
-            <p className="section-subtitle">{t.contactSubtitle}</p>
+            <span className="section__label">{t.contactLabel}</span>
+            <div className="section__label-line" />
+            <h2 className="section__title">{t.contactTitle}</h2>
+            <p className="section__subtitle">{t.contactSubtitle}</p>
           </Motion.div>
 
           <Motion.form
-            className="contact-form"
+            className="contact__form"
             onSubmit={handleContactSubmit}
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, amount: 0.2 }}
             variants={fadeInUp}
           >
-            <div className="contact-field">
+            <div className="contact__field">
               <label htmlFor="contact-name">{t.contactName}</label>
               <input id="contact-name" name="name" type="text" required autoComplete="name" placeholder={t.contactName} />
             </div>
-            <div className="contact-field">
+            <div className="contact__field">
               <label htmlFor="contact-email">{t.contactEmail}</label>
               <input id="contact-email" name="email" type="email" required autoComplete="email" placeholder={t.contactEmail} />
             </div>
-            <div className="contact-field">
+            <div className="contact__field">
               <label htmlFor="contact-message">{t.contactMessage}</label>
               <textarea id="contact-message" name="message" required rows={5} placeholder={t.contactMessage} />
             </div>
-            <button type="submit" className="contact-submit">
+            <button type="submit" className="contact__submit">
               <span>{t.contactSend}</span>
               <IconSend />
             </button>
           </Motion.form>
 
-          <div className="contact-socials">
-            <a
-              href="#"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="contact-social-link"
-              aria-label="LinkedIn"
-            >
+          <div className="contact__socials">
+            <a href="#" target="_blank" rel="noopener noreferrer" className="contact__social" aria-label="LinkedIn">
               <svg viewBox="0 0 24 24" fill="currentColor">
                 <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zM6.84 20.452H3.834V9H6.84v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
               </svg>
@@ -1106,55 +1177,47 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ---- FOOTER ---- */}
-      <footer className="landing-footer">
-        <div className="landing-container">
-          <div className="footer-grid">
-            {/* Column 1: Brand */}
-            <div className="footer-col footer-col--brand">
-              <img src="/mechora-writing.png" alt="Mechora" className="footer-brand-logo" />
-              <p className="footer-bio">{t.footerBio}</p>
-              <a href="mailto:lakhdarberache@gmail.com" className="footer-email">lakhdarberache@gmail.com</a>
+      {/* ======== FOOTER ======== */}
+      <footer className="footer">
+        <div className="container">
+          <div className="footer__grid">
+            <div className="footer__col footer__col--brand">
+              <img src="/mechora-writing.png" alt="Mechora" className="footer__logo" />
+              <p className="footer__bio">{t.footerBio}</p>
+              <a href="mailto:lakhdarberache@gmail.com" className="footer__email">lakhdarberache@gmail.com</a>
             </div>
 
-            {/* Column 2: Navigation */}
-            <div className="footer-col">
-              <h4 className="footer-col-title">{t.footerNavTitle}</h4>
-              <ul className="footer-col-links">
-                <li><button type="button" className="footer-link" onClick={() => scrollTo('features')}>{t.footerFeatures}</button></li>
-                <li><button type="button" className="footer-link" onClick={() => scrollTo('pricing')}>{t.footerPricing}</button></li>
-                <li><button type="button" className="footer-link" onClick={() => scrollTo('faq')}>{t.footerFaq}</button></li>
-                <li><button type="button" className="footer-link" onClick={() => scrollTo('contact')}>{t.footerContact}</button></li>
+            <div className="footer__col">
+              <h4 className="footer__col-title">{t.footerNavTitle}</h4>
+              <ul>
+                <li><button type="button" onClick={() => scrollTo('features')}>{t.footerFeatures}</button></li>
+                <li><button type="button" onClick={() => scrollTo('pricing')}>{t.footerPricing}</button></li>
+                <li><button type="button" onClick={() => scrollTo('faq')}>{t.footerFaq}</button></li>
+                <li><button type="button" onClick={() => scrollTo('contact')}>{t.footerContact}</button></li>
               </ul>
             </div>
 
-            {/* Column 3: Ressources */}
-            <div className="footer-col">
-              <h4 className="footer-col-title">{t.footerResTitle}</h4>
-              <ul className="footer-col-links">
-                <li><button type="button" className="footer-link" onClick={goToGuides}>{t.footerGuides}</button></li>
-                <li><button type="button" className="footer-link" onClick={() => scrollTo('contact')}>{t.footerAbout}</button></li>
-                <li><span className="footer-link footer-link--static">{t.footerTerms}</span></li>
-                <li><span className="footer-link footer-link--static">{t.footerPrivacy}</span></li>
+            <div className="footer__col">
+              <h4 className="footer__col-title">{t.footerResTitle}</h4>
+              <ul>
+                <li><button type="button" onClick={goToGuides}>{t.footerGuides}</button></li>
+                <li><button type="button" onClick={() => scrollTo('contact')}>{t.footerAbout}</button></li>
+                <li><span>{t.footerTerms}</span></li>
+                <li><span>{t.footerPrivacy}</span></li>
               </ul>
             </div>
 
-            {/* Column 4: Contact */}
-            <div className="footer-col">
-              <h4 className="footer-col-title">{t.footerContactTitle}</h4>
-              <ul className="footer-col-links">
-                <li>
-                  <a href="#" target="_blank" rel="noopener noreferrer" className="footer-link">LinkedIn</a>
-                </li>
-                <li>
-                  <a href="mailto:lakhdarberache@gmail.com" className="footer-link">lakhdarberache@gmail.com</a>
-                </li>
+            <div className="footer__col">
+              <h4 className="footer__col-title">{t.footerContactTitle}</h4>
+              <ul>
+                <li><a href="#" target="_blank" rel="noopener noreferrer">LinkedIn</a></li>
+                <li><a href="mailto:lakhdarberache@gmail.com">lakhdarberache@gmail.com</a></li>
               </ul>
             </div>
           </div>
 
-          <div className="footer-bottom">
-            <span className="footer-copy">&copy; 2026 Mechora. Tous droits r&eacute;serv&eacute;s.</span>
+          <div className="footer__bottom">
+            <span>&copy; 2026 Mechora. Tous droits r&eacute;serv&eacute;s.</span>
           </div>
         </div>
       </footer>
