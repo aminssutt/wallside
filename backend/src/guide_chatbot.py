@@ -1200,8 +1200,31 @@ REGLES STRICTES:
         p_mode = payload.get("mode", MANUAL_ONLY)
         confidence_level = compute_confidence(p_has_ctx, p_docs, p_mode, False)
 
+        # --- Fallback: if RAG found nothing, do a quick web search to enrich prompt ---
+        if not p_has_ctx and ENABLE_WEB_ENRICHMENT:
+            enrichment_query = f"{self.guide.name} {question}".strip()
+            budget = max(0.5, ENRICHMENT_TIME_BUDGET_SECONDS)
+            try:
+                # Search general web + Oscaro tutorials as priority source
+                fallback_web = web_search_results(
+                    enrichment_query, max_results=WEB_MAX_RESULTS, time_budget_seconds=budget,
+                )
+                oscaro_results = web_search_results(
+                    f"site:oscaro.com {self.guide.name} {question}",
+                    max_results=2, time_budget_seconds=budget,
+                )
+                fallback_web = oscaro_results + fallback_web
+                if fallback_web:
+                    web_context = format_web_context(fallback_web, lang=payload.get("detected_lang", "fr"))
+                    payload["user_content"] = payload.get("user_content", "") + f"\n\n---\n\n<web_enrichment>\n{web_context}\n</web_enrichment>"
+                    payload["sources_structured"] = build_sources_structured([], web_results=fallback_web, slug=self.guide.slug)
+                    confidence_level = "medium"
+                    log.info("Fallback web search for %s: %d results", self.guide.slug, len(fallback_web))
+            except Exception as exc:
+                log.warning("Fallback web search failed: %s", exc)
+
         # --- Detect fix mode (procedural intent + manual context available) ---
-        fix_mode_active = detect_fix_mode(question) and p_has_ctx
+        fix_mode_active = detect_fix_mode(question) and (p_has_ctx or payload.get("sources_structured"))
         if fix_mode_active:
             detected_lang = payload.get("detected_lang", "fr")
             fix_preamble = FIX_MODE_PROMPT.get(detected_lang, FIX_MODE_PROMPT["fr"])
