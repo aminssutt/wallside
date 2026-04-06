@@ -83,10 +83,32 @@ const COPY = {
     statsBrands: 'marques',
     statsPages: 'pages analysées',
     statsLangs: 'langues',
-    footerGuides: 'Guides',
+    enterprisePlan: {
+      badge: 'ENTREPRISE',
+      name: 'Entreprise',
+      subtitle: 'Sur devis',
+      features: [
+        'Accès illimité pour toute l\'équipe',
+        'Intégration API dédiée',
+        'Support prioritaire 24/7',
+        'Manuels personnalisés',
+        'Tableau de bord analytics',
+        'Partenariats constructeurs',
+      ],
+      cta: 'Nous contacter',
+    },
+    footerBio: 'Créé par Lakhdar Berache. Étudiant ingénieur, passionné d\'automobile.',
+    footerNavTitle: 'Navigation',
+    footerResTitle: 'Ressources',
+    footerContactTitle: 'Contact',
+    footerGuides: 'Guides véhicules',
     footerFaq: 'FAQ',
     footerContact: 'Contact',
     footerAbout: 'À propos',
+    footerFeatures: 'Fonctionnalités',
+    footerPricing: 'Tarifs',
+    footerTerms: 'Conditions d\'utilisation',
+    footerPrivacy: 'Politique de confidentialité',
   },
   en: {
     navFeatures: 'Features',
@@ -156,10 +178,32 @@ const COPY = {
     statsBrands: 'brands',
     statsPages: 'pages analyzed',
     statsLangs: 'languages',
-    footerGuides: 'Guides',
+    enterprisePlan: {
+      badge: 'ENTERPRISE',
+      name: 'Enterprise',
+      subtitle: 'Custom pricing',
+      features: [
+        'Unlimited access for the whole team',
+        'Dedicated API integration',
+        '24/7 priority support',
+        'Custom manuals',
+        'Analytics dashboard',
+        'Manufacturer partnerships',
+      ],
+      cta: 'Contact us',
+    },
+    footerBio: 'Created by Lakhdar Berache. Engineering student, passionate about cars.',
+    footerNavTitle: 'Navigation',
+    footerResTitle: 'Resources',
+    footerContactTitle: 'Contact',
+    footerGuides: 'Vehicle guides',
     footerFaq: 'FAQ',
     footerContact: 'Contact',
     footerAbout: 'About',
+    footerFeatures: 'Features',
+    footerPricing: 'Pricing',
+    footerTerms: 'Terms of use',
+    footerPrivacy: 'Privacy policy',
   },
   ko: {
     navFeatures: '기능',
@@ -229,10 +273,32 @@ const COPY = {
     statsBrands: '브랜드',
     statsPages: '분석된 페이지',
     statsLangs: '언어',
-    footerGuides: '가이드',
+    enterprisePlan: {
+      badge: '기업',
+      name: '기업',
+      subtitle: '맞춤 가격',
+      features: [
+        '팀 전체 무제한 접근',
+        '전용 API 통합',
+        '24/7 우선 지원',
+        '맞춤형 매뉴얼',
+        '분석 대시보드',
+        '제조사 파트너십',
+      ],
+      cta: '문의하기',
+    },
+    footerBio: 'Lakhdar Berache가 제작. 공학 학생, 자동차 열정가.',
+    footerNavTitle: '탐색',
+    footerResTitle: '리소스',
+    footerContactTitle: '연락처',
+    footerGuides: '차량 가이드',
     footerFaq: 'FAQ',
     footerContact: '문의',
     footerAbout: '소개',
+    footerFeatures: '기능',
+    footerPricing: '요금',
+    footerTerms: '이용 약관',
+    footerPrivacy: '개인정보 처리방침',
   },
 };
 
@@ -614,7 +680,7 @@ export default function LandingPage() {
       <nav className={`landing-nav${navScrolled ? ' nav-scrolled' : ''}`}>
         <div className="landing-container">
           <button type="button" className="nav-brand" onClick={() => navigate('/')} aria-label="Home">
-            <img className="nav-brand__mark nav-brand__mark--wide" src="/logo mechora.png" alt="Mechora" />
+            <img className="nav-brand__mark nav-brand__mark--wide" src="/mechora writing.png" alt="Mechora" />
           </button>
 
           <ul className="nav-links">
@@ -905,6 +971,24 @@ export default function LandingPage() {
                 {t.premiumPlan.cta}
               </button>
             </Motion.div>
+
+            {/* Enterprise Plan */}
+            <Motion.div className="pricing-card pricing-card--enterprise" variants={fadeInUp}>
+              <span className="pricing-badge pricing-badge--enterprise">{t.enterprisePlan.badge}</span>
+              <h3 className="pricing-plan-name">{t.enterprisePlan.name}</h3>
+              <p className="pricing-price pricing-price--custom">{t.enterprisePlan.subtitle}</p>
+              <ul className="pricing-features">
+                {t.enterprisePlan.features.map((f, i) => (
+                  <li key={i}><IconCheck />{f}</li>
+                ))}
+              </ul>
+              <a
+                href="mailto:lakhdarberache@gmail.com?subject=Mechora%20Enterprise"
+                className="pricing-cta pricing-cta--enterprise"
+              >
+                {t.enterprisePlan.cta}
+              </a>
+            </Motion.div>
           </Motion.div>
         </div>
       </section>
@@ -960,26 +1044,6 @@ export default function LandingPage() {
                 </AnimatePresence>
               </Motion.div>
             ))}
-          </Motion.div>
-        </div>
-      </section>
-
-      {/* ---- ABOUT ---- */}
-      <section id="about" className="landing-section about-section">
-        <div className="landing-container">
-          <Motion.div
-            className="about-content"
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, amount: 0.3 }}
-            variants={fadeInUp}
-          >
-            <div className="about-avatar">LB</div>
-            <div className="about-text">
-              <h3>{t.aboutName}</h3>
-              <span className="about-role">{t.aboutRole}</span>
-              <p>{t.aboutBio}</p>
-            </div>
           </Motion.div>
         </div>
       </section>
@@ -1045,18 +1109,51 @@ export default function LandingPage() {
       {/* ---- FOOTER ---- */}
       <footer className="landing-footer">
         <div className="landing-container">
-          <div className="footer-inner">
-            <div className="footer-brand">
-              <img src="/mechora writing.png" alt="Mechora" className="footer-logo-img" />
+          <div className="footer-grid">
+            {/* Column 1: Brand */}
+            <div className="footer-col footer-col--brand">
+              <img src="/mechora writing.png" alt="Mechora" className="footer-brand-logo" />
+              <p className="footer-bio">{t.footerBio}</p>
+              <a href="mailto:lakhdarberache@gmail.com" className="footer-email">lakhdarberache@gmail.com</a>
             </div>
 
-            <ul className="footer-links">
-              <li><button type="button" className="footer-link" onClick={goToGuides}>{t.footerGuides}</button></li>
-              <li><button type="button" className="footer-link" onClick={() => scrollTo('faq')}>{t.footerFaq}</button></li>
-              <li><button type="button" className="footer-link" onClick={() => scrollTo('contact')}>{t.footerContact}</button></li>
-              <li><button type="button" className="footer-link" onClick={() => scrollTo('about')}>{t.footerAbout}</button></li>
-            </ul>
+            {/* Column 2: Navigation */}
+            <div className="footer-col">
+              <h4 className="footer-col-title">{t.footerNavTitle}</h4>
+              <ul className="footer-col-links">
+                <li><button type="button" className="footer-link" onClick={() => scrollTo('features')}>{t.footerFeatures}</button></li>
+                <li><button type="button" className="footer-link" onClick={() => scrollTo('pricing')}>{t.footerPricing}</button></li>
+                <li><button type="button" className="footer-link" onClick={() => scrollTo('faq')}>{t.footerFaq}</button></li>
+                <li><button type="button" className="footer-link" onClick={() => scrollTo('contact')}>{t.footerContact}</button></li>
+              </ul>
+            </div>
 
+            {/* Column 3: Ressources */}
+            <div className="footer-col">
+              <h4 className="footer-col-title">{t.footerResTitle}</h4>
+              <ul className="footer-col-links">
+                <li><button type="button" className="footer-link" onClick={goToGuides}>{t.footerGuides}</button></li>
+                <li><button type="button" className="footer-link" onClick={() => scrollTo('contact')}>{t.footerAbout}</button></li>
+                <li><span className="footer-link footer-link--static">{t.footerTerms}</span></li>
+                <li><span className="footer-link footer-link--static">{t.footerPrivacy}</span></li>
+              </ul>
+            </div>
+
+            {/* Column 4: Contact */}
+            <div className="footer-col">
+              <h4 className="footer-col-title">{t.footerContactTitle}</h4>
+              <ul className="footer-col-links">
+                <li>
+                  <a href="#" target="_blank" rel="noopener noreferrer" className="footer-link">LinkedIn</a>
+                </li>
+                <li>
+                  <a href="mailto:lakhdarberache@gmail.com" className="footer-link">lakhdarberache@gmail.com</a>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="footer-bottom">
             <span className="footer-copy">&copy; 2026 Mechora. Tous droits r&eacute;serv&eacute;s.</span>
           </div>
         </div>

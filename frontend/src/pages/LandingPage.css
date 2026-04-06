@@ -179,7 +179,7 @@
 }
 
 .nav-brand__mark--wide {
-  height: 40px;
+  height: 32px;
   width: auto;
   filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.4));
 }
@@ -460,7 +460,7 @@
 }
 
 .hero-title-logo {
-  max-width: 400px;
+  max-width: 450px;
   height: auto;
   display: block;
 }
@@ -783,10 +783,11 @@
 
 .pricing-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: 1fr 1.1fr 1.1fr;
   gap: 24px;
-  max-width: 780px;
+  max-width: 1060px;
   margin: 0 auto;
+  align-items: start;
 }
 
 .pricing-card {
@@ -925,6 +926,64 @@
   background: linear-gradient(135deg, var(--accent-light) 0%, var(--accent) 100%);
   transform: translateY(-1px);
   box-shadow: 0 8px 24px rgba(200, 168, 78, 0.25);
+}
+
+/* Enterprise Plan */
+.pricing-card--enterprise {
+  border: 2px solid transparent;
+  background-image: linear-gradient(var(--glass-bg), var(--glass-bg)), linear-gradient(135deg, var(--accent), var(--accent-dark), var(--accent-light), var(--accent));
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  position: relative;
+}
+
+.pricing-card--enterprise::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent-dark), var(--accent-light), var(--accent-dark));
+  border-radius: 20px 20px 0 0;
+}
+
+.pricing-badge--enterprise {
+  background: linear-gradient(135deg, rgba(200, 168, 78, 0.15), rgba(200, 168, 78, 0.08));
+  color: var(--accent-light);
+  border: 1px solid rgba(200, 168, 78, 0.3);
+}
+
+.pricing-price--custom {
+  font-style: italic;
+  font-size: 1rem;
+  color: var(--accent);
+}
+
+.pricing-cta--enterprise {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  width: 100%;
+  text-decoration: none;
+  text-align: center;
+  background: transparent;
+  color: var(--accent-light);
+  border: 1.5px solid var(--accent);
+}
+
+.pricing-cta--enterprise:hover {
+  background: rgba(200, 168, 78, 0.12);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(200, 168, 78, 0.15);
+  color: var(--accent-light);
 }
 
 /* ============================================================
@@ -1156,46 +1215,67 @@
 }
 
 /* ============================================================
-   FOOTER
+   FOOTER (4-column professional)
    ============================================================ */
 
 .landing-footer {
-  background: var(--bg-primary);
+  background: var(--bg-surface);
   border-top: 1px solid var(--border-gold);
-  padding: 40px 0;
+  padding: 56px 0 0;
 }
 
-.footer-inner {
+.footer-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr 1fr;
+  gap: 40px;
+  padding-bottom: 40px;
+}
+
+.footer-col--brand {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 20px;
+  flex-direction: column;
+  gap: 14px;
 }
 
-.footer-brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.footer-logo-img {
-  max-width: 160px;
+.footer-brand-logo {
+  max-width: 150px;
   height: auto;
+  display: block;
 }
 
-.footer-copy {
-  font-size: 0.8rem;
+.footer-bio {
+  font-size: 0.84rem;
   color: var(--text-muted);
-  white-space: nowrap;
+  line-height: 1.6;
+  margin: 0;
 }
 
-.footer-links {
-  display: flex;
-  gap: 24px;
+.footer-email {
+  font-size: 0.82rem;
+  color: var(--accent);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.footer-email:hover {
+  color: var(--accent-light);
+}
+
+.footer-col-title {
+  font-family: var(--font-heading);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--accent);
+  margin: 0 0 16px;
+}
+
+.footer-col-links {
   list-style: none;
   margin: 0;
   padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .footer-link {
@@ -1207,10 +1287,32 @@
   cursor: pointer;
   transition: color 0.2s;
   padding: 0;
+  text-decoration: none;
+  text-align: left;
+}
+
+.footer-link--static {
+  cursor: default;
 }
 
 .footer-link:hover {
   color: var(--accent-light);
+}
+
+.footer-link--static:hover {
+  color: var(--text-muted);
+}
+
+.footer-bottom {
+  border-top: 1px solid var(--border-gold);
+  padding: 20px 0;
+  text-align: center;
+}
+
+.footer-copy {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  white-space: nowrap;
 }
 
 /* Contact social links */
@@ -1718,6 +1820,16 @@
   .stat-item {
     padding: 12px 24px;
   }
+
+  .pricing-grid {
+    grid-template-columns: 1fr;
+    max-width: 420px;
+  }
+
+  .footer-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+  }
 }
 
 @media (max-width: 768px) {
@@ -1761,27 +1873,22 @@
     display: none;
   }
 
-  .pricing-grid {
+  .footer-grid {
     grid-template-columns: 1fr;
-    max-width: 420px;
-  }
-
-  .about-content {
-    flex-direction: column;
+    gap: 28px;
     text-align: center;
-    gap: 24px;
   }
 
-  .footer-inner {
-    flex-direction: column;
+  .footer-col--brand {
     align-items: center;
-    text-align: center;
-    gap: 16px;
   }
 
-  .footer-links {
-    flex-wrap: wrap;
-    justify-content: center;
+  .footer-col-links {
+    align-items: center;
+  }
+
+  .footer-link {
+    text-align: center;
   }
 
   .contact-submit {
