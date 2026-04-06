@@ -533,7 +533,7 @@ function ChatDemo({ userMsg, aiMsg, sourceMsg }) {
         <div className="chat-demo__dots">
           <span /><span /><span />
         </div>
-        <img src="/mechora-writing.png" alt="Mechora" className="chat-demo__logo" />
+        <img src="/mechora-writing-tight.png" alt="Mechora" className="chat-demo__logo" />
       </div>
       <div className="chat-demo__body">
         {showUser && (
@@ -798,7 +798,7 @@ export default function LandingPage() {
               animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
               transition={{ duration: 1.2, ease: [0.25, 0.1, 0.25, 1] }}
             >
-              <img src="/mechora-writing.png" alt="Mechora" className="hero__title-logo" />
+              <img src="/mechora-writing-tight.png" alt="Mechora" className="hero__title-logo" />
             </Motion.div>
 
             {/* Subtitle with word reveal */}

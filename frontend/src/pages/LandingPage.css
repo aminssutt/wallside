@@ -236,7 +236,7 @@
 }
 
 .nav__logo {
-  height: 44px;
+  height: 64px;
   width: auto;
   object-fit: contain;
   filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.4));
@@ -569,7 +569,7 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 14px;
+  gap: 6px;
 }
 
 .hero__title-wrap {
@@ -1571,6 +1571,9 @@
   -webkit-backdrop-filter: blur(24px);
   border: 1px solid rgba(200, 168, 78, 0.15);
   border-radius: var(--radius-lg);
+  height: 390px;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   animation: chatGlow 5s ease-in-out infinite;
 }
@@ -1608,10 +1611,12 @@
 
 .chat-demo__body {
   padding: 18px;
-  min-height: 200px;
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 14px;
+  overflow: hidden;
 }
 
 .chat-demo__msg {
@@ -1681,6 +1686,7 @@
   border-radius: var(--radius-sm);
   border: 1px dashed rgba(200, 168, 78, 0.15);
   align-self: flex-start;
+  margin-top: auto;
 }
 
 .chat-demo__source svg {
@@ -1812,6 +1818,10 @@
    ============================================================ */
 
 @media (max-width: 1024px) {
+  .nav__logo {
+    height: 56px;
+  }
+
   .features__grid {
     gap: 16px;
   }
@@ -1923,8 +1933,11 @@
     padding: 8px 16px;
   }
 
+  .chat-demo {
+    height: 360px;
+  }
+
   .chat-demo__body {
-    min-height: 170px;
     padding: 14px;
   }
 
@@ -1974,7 +1987,7 @@
   }
 
   .nav__logo {
-    height: 32px;
+    height: 46px;
   }
 
   .feature-card__content {
@@ -1989,8 +2002,11 @@
     margin-top: 8px;
   }
 
+  .chat-demo {
+    height: 330px;
+  }
+
   .chat-demo__body {
-    min-height: 140px;
     padding: 10px;
   }
 
