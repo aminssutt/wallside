@@ -747,10 +747,13 @@ function ChatPage() {
   }, [slug])
 
   /* -- detect user scrolling up (don't force scroll during streaming) -- */
+  const isAutoScrollingRef = useRef(false)
   useEffect(() => {
     const el = chatContainerRef.current
     if (!el) return
     const handleScroll = () => {
+      // Ignore scroll events triggered by our own auto-scroll
+      if (isAutoScrollingRef.current) return
       const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
       userScrolledUpRef.current = distanceFromBottom > 120
       setShowScrollBtn(distanceFromBottom > 200)
@@ -764,10 +767,13 @@ function ChatPage() {
     if (userScrolledUpRef.current) return
     const frame = requestAnimationFrame(() => {
       if (chatContainerRef.current) {
+        isAutoScrollingRef.current = true
         chatContainerRef.current.scrollTo({
           top: chatContainerRef.current.scrollHeight,
           behavior: isStreaming ? 'auto' : 'smooth',
         })
+        // Reset flag after the scroll event fires
+        requestAnimationFrame(() => { isAutoScrollingRef.current = false })
       }
     })
     return () => cancelAnimationFrame(frame)
@@ -955,9 +961,11 @@ function ChatPage() {
       }
       return
     }
-    // Drain entire buffer at once for real-time feel
-    const chunk = buf
-    chunkBufferRef.current = ''
+    // Drain in moderate chunks for a smooth streaming animation
+    // Fast enough to feel real-time, slow enough to see text appear progressively
+    const maxChars = Math.max(8, Math.min(buf.length, 30 + Math.floor(buf.length * 0.3)))
+    const chunk = buf.slice(0, maxChars)
+    chunkBufferRef.current = buf.slice(maxChars)
     setMessages((prev) => {
       if (!prev.length) return [{ type: 'bot', content: chunk }]
       const updated = [...prev]
@@ -972,7 +980,7 @@ function ChatPage() {
 
   const startDrain = () => {
     if (drainTimerRef.current) return
-    drainTimerRef.current = window.setInterval(drainTick, 50)
+    drainTimerRef.current = window.setInterval(drainTick, 30)
   }
 
   const appendBotChunk = (chunkText) => {
