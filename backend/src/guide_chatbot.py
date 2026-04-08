@@ -998,8 +998,8 @@ class GuideChatbot:
         top_k_pairs = sorted_pairs[:k]
         self._last_avg_rrf = sum(s for _, s in top_k_pairs) / max(len(top_k_pairs), 1)
 
-        # Apply relevance threshold (RRF score for rank 0 in one list = ~0.016)
-        min_rrf = max(RELEVANCE_THRESHOLD * 0.15, 0.02)
+        # Apply relevance threshold (original proven value: ~0.015)
+        min_rrf = RELEVANCE_THRESHOLD * 0.1
         filtered = [doc_map[key] for key, score in sorted_pairs if score >= min_rrf]
 
         return filtered[:k]
