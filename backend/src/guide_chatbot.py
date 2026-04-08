@@ -1054,8 +1054,11 @@ class GuideChatbot:
             }
 
         is_vehicle, confidence = is_vehicle_related(question)
+        has_history = bool(self._get_session_history(session_id))
 
-        if not is_vehicle and confidence < 0.5:
+        # Off-topic filter — BUT skip it if there's conversation history
+        # (follow-up questions like "comment elle fonctionne ?" are valid in context)
+        if not is_vehicle and confidence < 0.5 and not has_history:
             return {
                 "early_answer": LANG_OFF_TOPIC.get(
                     lang, LANG_OFF_TOPIC["fr"]
@@ -1063,12 +1066,27 @@ class GuideChatbot:
                 "is_conversational": False,
             }
 
+        # --- Contextualize vague follow-up questions using conversation history ---
+        search_query = question
+        history = self._get_session_history(session_id)
+        if history and len(question.split()) <= 10:
+            # Short question — likely a follow-up. Enrich with recent topic.
+            recent_user_msgs = [m["content"] for m in history if m["role"] == "user"]
+            if recent_user_msgs:
+                last_topic = recent_user_msgs[-1][:200]
+                # Only enrich if the current question looks vague (pronouns, short, no vehicle keywords)
+                has_vehicle_kw = any(kw in question.lower() for kw in VEHICLE_KEYWORDS)
+                is_vague = not has_vehicle_kw and len(question.split()) <= 8
+                if is_vague:
+                    search_query = f"{last_topic} {question}"
+                    log.info("Contextualized search query: %s", search_query[:120])
+
         # --- Hybrid retrieval with relevance threshold ---
         docs: List[Document] = []
         context = ""
         has_relevant_context = False
         if self.vector_stores or self.bm25_indices:
-            docs = self._hybrid_search(question, k=TOP_K_RESULTS)
+            docs = self._hybrid_search(search_query, k=TOP_K_RESULTS)
             if docs:
                 has_relevant_context = True
                 context = format_context(docs)
@@ -1157,17 +1175,18 @@ class GuideChatbot:
 
         # --- System instruction (separated from user content for Gemini) ---
         fix_mode_block = FIX_MODE_PROMPT.get(lang, FIX_MODE_PROMPT["fr"]) if fix_mode else ""
-        system_instruction = f"""{fix_mode_block}Tu es un assistant technique specialise pour le vehicule {self.guide.name}.
+        system_instruction = f"""{fix_mode_block}Tu es un assistant technique expert et precis, specialise pour le vehicule {self.guide.name}.
 
 {lang_instruction}
 
 REGLES:
 1) Base-toi UNIQUEMENT sur le contexte fourni (manuel du vehicule et web). Le manuel prime toujours sur le web.
 2) JAMAIS d'invention. Si une information n'est pas dans le contexte, dis-le clairement. Pour toute valeur technique (pression, couple, volume, intervalle), attribue-la au contexte: "Selon le manuel, ..." — si tu ne peux pas l'attribuer, ne la mentionne pas.
-3) Adapte la longueur de ta reponse a la complexite de la question. Question factuelle = reponse courte et directe (2-4 phrases). Explication = 2-4 paragraphes. Procedure = toutes les etapes detaillees sans limite.
+3) Reponds de facon complete et utile. Couvre le sujet en profondeur avec les informations disponibles dans le contexte. Seule exception: pour une question purement factuelle a reponse unique (ex: "quelle est la pression des pneus ?"), une reponse courte suffit. Pour tout le reste (fonctionnement, explication, comparaison, procedure), fournis une reponse detaillee et structuree. Ne tronque jamais une procedure en cours.
 4) Formatage clair: listes numerotees pour les etapes, listes a puces pour les points cles, **gras** pour les termes importants. Pas de blocs de code (```).
 5) Personnalise pour le {self.guide.name}: mentionne le nom du vehicule quand pertinent.
 6) Pas de disclaimers generiques ("consultez un professionnel", "verifiez aupres du constructeur") sauf danger reel et immediat. Sois direct et utile.
+7) Si un historique de conversation est fourni, tiens-en compte pour comprendre le contexte. Si la question de l'utilisateur est vague ou fait reference a un sujet precedent ("elle", "ca", "le meme"), utilise l'historique pour comprendre de quoi il parle et reponds en consequence.
 
 NOTE TECHNIQUE: les sources, liens, URLs et videos sont geres automatiquement par le systeme. N'en inclus aucun dans ta reponse. Pas de section "Sources"."""
 
