@@ -215,8 +215,9 @@ def _is_conversational(question: str) -> bool:
 _INJECTION_PATTERNS = re.compile(
     r"(?i)"
     r"(?:ignore|oublie|forget|disregard|override|bypass)\s+"
-    r"(?:all|tout|les|tes|the|your|previous|precedent|above|ci-dessus)?\s*"
-    r"(?:instructions?|regles?|rules?|prompt|consignes?|system|contexte|context)"
+    r"(?:all\s+|tout(?:es?)?\s+|les\s+|tes\s+|the\s+|your\s+|my\s+)*"
+    r"(?:previous\s+|precedent(?:e)?s?\s+|above\s+|ci-dessus\s+)?"
+    r"(?:instructions?|regles?|rules?|prompts?|consignes?|system|contexte|context)"
     r"|(?:system\s*prompt|system\s*message|instruction\s*systeme)"
     r"|(?:tu\s+es\s+maintenant|you\s+are\s+now|act\s+as|agis\s+comme)"
     r"|(?:repete|repeat|affiche|print|show|display|output|donne)\s+"
