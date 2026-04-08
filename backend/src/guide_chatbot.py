@@ -282,17 +282,16 @@ def compute_confidence(
     mode: str,
     is_conversational: bool,
     avg_rrf_score: float = 0.0,
+    has_web_context: bool = False,
 ) -> str:
     """Return a confidence badge: 'high', 'medium', or 'low'.
 
     Rules:
     - high:   has_relevant_context AND len(docs) >= 2 AND avg_rrf_score >= 0.025
-    - medium: has_relevant_context AND len(docs) >= 1, OR mode is WEB_BLOCKING/WEB_ASYNC
-    - low:    no relevant context OR is_conversational
+    - medium: has_relevant_context AND len(docs) >= 1, OR web context available
+    - low:    no relevant context (manual or web) OR is_conversational
     """
     if is_conversational:
-        return "low"
-    if not has_relevant_context:
         return "low"
     if has_relevant_context and len(docs) >= 2 and avg_rrf_score >= 0.025:
         return "high"
@@ -300,6 +299,11 @@ def compute_confidence(
         return "medium"
     if has_relevant_context and len(docs) >= 1:
         return "medium"
+    # Web-only context (manual found nothing but web had results)
+    if has_web_context:
+        return "medium"
+    if not has_relevant_context:
+        return "low"
     if mode in (WEB_BLOCKING, WEB_ASYNC):
         return "medium"
     return "low"
@@ -1069,12 +1073,15 @@ class GuideChatbot:
                 has_relevant_context = True
                 context = format_context(docs)
 
-        # --- Web enrichment (only for clearly vehicle-related questions) ---
+        # --- Web enrichment ---
+        # Triggered when: (A) query classification says WEB_BLOCKING, OR
+        # (B) manual returned nothing — fallback web search to avoid "no info" dead-ends
         web_results: List[Dict[str, str]] = []
         video: Dict[str, str] = {}
         web_context = ""
+        needs_web = (mode == WEB_BLOCKING) or (not has_relevant_context)
 
-        if ENABLE_WEB_ENRICHMENT and confidence >= 0.5 and mode == WEB_BLOCKING:
+        if ENABLE_WEB_ENRICHMENT and confidence >= 0.5 and needs_web:
             enrichment_query = f"{self.guide.name} {question}".strip()
             budget = max(0.5, ENRICHMENT_TIME_BUDGET_SECONDS)
 
@@ -1088,10 +1095,8 @@ class GuideChatbot:
             web_future = _enrichment_executor.submit(_fetch_web)
 
             video_future = None
-            if mode == WEB_BLOCKING:
+            if _YOUTUBE_ELIGIBLE_PATTERNS.search(question):
                 def _fetch_video():
-                    if not _YOUTUBE_ELIGIBLE_PATTERNS.search(question):
-                        return {}
                     return youtube_video_suggestion(
                         f"{self.guide.name} {question}",
                         time_budget_seconds=budget,
@@ -1110,9 +1115,10 @@ class GuideChatbot:
 
             web_context = format_web_context(web_results, lang=lang)
 
-        # Only include sources when we found relevant context
-        sources_block = format_sources(docs, web_results=web_results) if has_relevant_context else ""
-        sources_structured = build_sources_structured(docs, web_results=web_results, slug=self.guide.slug) if has_relevant_context else []
+        # Build sources — include web sources even when manual context is empty
+        has_any_context = has_relevant_context or bool(web_context)
+        sources_block = format_sources(docs, web_results=web_results) if has_any_context else ""
+        sources_structured = build_sources_structured(docs, web_results=web_results, slug=self.guide.slug) if has_any_context else []
 
         # Attach guide-level pdf_url to manual sources for external PDF viewing
         guide_pdf_url = getattr(self.guide, 'pdf_url', '') or ''
@@ -1124,12 +1130,12 @@ class GuideChatbot:
         video_block = format_video_block(video, lang=lang)
         lang_instruction = LANG_INSTRUCTIONS.get(lang, LANG_INSTRUCTIONS["fr"])
 
-        # --- "Je ne sais pas" fallback: no manual context AND no web context ---
+        # --- "Je ne sais pas" fallback: no manual AND no web context at all ---
         if not has_relevant_context and not web_context:
             no_info = {
-                "fr": f"Je n'ai pas trouve d'information pertinente dans le manuel du **{self.guide.name}** pour cette question. Pourriez-vous reformuler ou preciser votre demande ?",
-                "en": f"I couldn't find relevant information in the **{self.guide.name}** manual for this question. Could you rephrase or be more specific?",
-                "ko": f"**{self.guide.name}** 매뉴얼에서 관련 정보를 찾지 못했습니다. 질문을 다시 표현하거나 더 구체적으로 해주실 수 있나요?",
+                "fr": f"Je n'ai pas trouve d'information pertinente dans le manuel ni sur le web pour le **{self.guide.name}** concernant cette question. Pourriez-vous reformuler ou preciser votre demande ?",
+                "en": f"I couldn't find relevant information in the **{self.guide.name}** manual or on the web for this question. Could you rephrase or be more specific?",
+                "ko": f"**{self.guide.name}** 매뉴얼이나 웹에서 관련 정보를 찾지 못했습니다. 질문을 다시 표현하거나 더 구체적으로 해주실 수 있나요?",
             }
             return {
                 "early_answer": no_info.get(lang, no_info["fr"]),
@@ -1326,23 +1332,19 @@ NOTE TECHNIQUE: les sources, liens, URLs et videos sont geres automatiquement pa
         p_docs = payload.get("docs") or []
         p_mode = payload.get("mode", MANUAL_ONLY)
         p_avg_rrf = payload.get("avg_rrf_score", 0.0)
-        confidence_level = compute_confidence(p_has_ctx, p_docs, p_mode, False, avg_rrf_score=p_avg_rrf)
+        p_has_web = "<web_enrichment>" in (payload.get("user_content") or "")
+        confidence_level = compute_confidence(p_has_ctx, p_docs, p_mode, False, avg_rrf_score=p_avg_rrf, has_web_context=p_has_web)
 
-        # --- Fallback: if RAG found nothing, do a quick web search to enrich prompt ---
-        if not p_has_ctx and ENABLE_WEB_ENRICHMENT:
+        # --- Fallback web search (only if _prepare_chat_payload didn't already do it) ---
+        has_web_in_payload = "<web_enrichment>" in (payload.get("user_content") or "")
+        if not p_has_ctx and not has_web_in_payload and ENABLE_WEB_ENRICHMENT:
             yield {"type": "status", "step": "web_search", "message_id": message_id}
             enrichment_query = f"{self.guide.name} {question}".strip()
             budget = max(0.5, ENRICHMENT_TIME_BUDGET_SECONDS)
             try:
-                # Search general web + Oscaro tutorials as priority source
                 fallback_web = web_search_results(
                     enrichment_query, max_results=WEB_MAX_RESULTS, time_budget_seconds=budget,
                 )
-                oscaro_results = web_search_results(
-                    f"site:oscaro.com {self.guide.name} {question}",
-                    max_results=2, time_budget_seconds=budget,
-                )
-                fallback_web = oscaro_results + fallback_web
                 if fallback_web:
                     web_context = format_web_context(fallback_web, lang=payload.get("detected_lang", "fr"))
                     payload["user_content"] = payload.get("user_content", "") + f"\n\n---\n\n<web_enrichment>\n{web_context}\n</web_enrichment>"
@@ -1351,6 +1353,9 @@ NOTE TECHNIQUE: les sources, liens, URLs et videos sont geres automatiquement pa
                     log.info("Fallback web search for %s: %d results", self.guide.slug, len(fallback_web))
             except Exception as exc:
                 log.warning("Fallback web search failed: %s", exc)
+        elif has_web_in_payload and not p_has_ctx:
+            # Web was already fetched in _prepare_chat_payload — update confidence
+            confidence_level = "medium"
 
         # --- Detect fix mode (procedural intent + manual context available) ---
         fix_mode_active = detect_fix_mode(question) and (p_has_ctx or payload.get("sources_structured"))
