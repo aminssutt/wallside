@@ -2179,5 +2179,21 @@
     "extraction_mode": "ocr",
     "indexed_at": "2026-04-06T05:30:17.846967+00:00",
     "segment": "classique"
+  },
+  {
+    "slug": "kia-niro",
+    "name": "Kia Niro (2022)",
+    "brand": "Kia",
+    "image": null,
+    "source_pdf": null,
+    "source_hash": "94d83737a6e85d07df7c2daaf56bf3e37a216d4cb1cb45d02702d121938d8876",
+    "pdf_url": "https://inspirauto.fr/getPdf.php/?position=inline&file=LzNBdmUrZFNhVk1HVUYxMFFPampXdFZ1KzNleTRzWDRtdWwySE55Sko4QT0=&preview=true",
+    "source_url": "https://www.notice-utilisation-voiture.fr/notices/kia/niro",
+    "source_type": "external_pdf",
+    "page_count": 610,
+    "chunk_count": 1427,
+    "extraction_mode": "pypdf",
+    "indexed_at": "2026-04-06T22:01:03.598388+00:00",
+    "segment": "suv"
   }
 ]

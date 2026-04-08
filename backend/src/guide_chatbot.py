@@ -147,19 +147,58 @@ _ONLY_FILLER_RE = re.compile(
     r"^\s*(?:ok|okay|d'?accord|oui|non|yes|no|yep|nope|cool|nice|super|great|genial|bien|top|parfait|lol|mdr|haha)\s*[?!.]*\s*$",
     re.IGNORECASE,
 )
+# Closure / acknowledgment phrases — user wrapping up, not asking a question
+_CLOSURE_PHRASES = re.compile(
+    r"(?:c'?est (?:bon|tout|ok|parfait|nickel|super|genial|note|compris)"
+    r"|j'?ai (?:compris|fini|termine|note|tout ce qu)"
+    r"|tout (?:est )?(?:bon|clair|ok|compris|note)"
+    r"|(?:tres |super )?bien (?:recu|compris|note|merci)"
+    r"|merci (?:beaucoup|bien|pour tout|a toi|a vous)"
+    r"|(?:all )?(?:good|done|clear|noted|got it|understood)"
+    r"|(?:that'?s |thats )?(?:all|it|perfect|great|enough)"
+    r"|no more questions?|pas d'?autres? questions?"
+    r"|bonne (?:continuation|journee|soiree)"
+    r"|au revoir|a bientot|a plus|bye|see you|a la prochaine)",
+    re.IGNORECASE,
+)
+# Question-intent signals — the user is actually asking something
+_QUESTION_INTENT_RE = re.compile(
+    r"(?:\?"
+    r"|^(?:comment|pourquoi|ou est|ou se|quel(?:le)?s?|est[ -]ce que|combien|quand|que faire)"
+    r"|^(?:how|what|why|where|when|which|can (?:you|i)|do (?:you|i)|is (?:there|it|the))"
+    r"|(?:explain|dis[ -]moi|peux[ -]tu|peut[ -]on|j'?aimerais savoir)"
+    r"|(?:어떻게|무엇|왜|어디|언제))",
+    re.IGNORECASE,
+)
 
 
 def _is_conversational(question: str) -> bool:
-    """Return True if the question is a greeting, small talk, or filler."""
+    """Return True if the question is a greeting, small talk, closure, or filler."""
     text = (question or "").strip()
-    if not text or len(text) > 120:
+    if not text or len(text) > 160:
         return False
     if _ONLY_FILLER_RE.match(text):
         return True
+
     has_greeting = bool(_GREETING_WORDS.search(text))
     has_smalltalk = bool(_SMALLTALK_PHRASES.search(text))
+    has_closure = bool(_CLOSURE_PHRASES.search(text))
     has_vehicle_kw = any(kw in text.lower() for kw in VEHICLE_KEYWORDS)
-    if has_vehicle_kw:
+    has_question = bool(_QUESTION_INTENT_RE.search(text))
+
+    # Closure/acknowledgment wins even if vehicle keywords are present,
+    # as long as the user is NOT asking a question.
+    if has_closure and not has_question:
+        return True
+
+    # Smalltalk + no question intent overrides vehicle keywords
+    if has_smalltalk and not has_question and not has_vehicle_kw:
+        return True
+    if has_smalltalk and not has_question and has_vehicle_kw:
+        # e.g. "ok merci pour l'entretien c'est bon" — smalltalk with vehicle kw but no question
+        return True
+
+    if has_vehicle_kw and not has_closure and not has_smalltalk:
         return False
     if has_smalltalk:
         return True
@@ -964,12 +1003,24 @@ class GuideChatbot:
                 "is_conversational": True,
             }
 
-        # Conversational / greeting — answer directly, no RAG or sources
+        # Conversational / greeting / closure — answer directly, no RAG or sources
         if _is_conversational(question):
+            is_closure = bool(_CLOSURE_PHRASES.search(question))
+            is_thanks = bool(re.search(r"(?:merci|thanks?|thx|thank you)", question, re.IGNORECASE))
+            if is_closure or is_thanks:
+                closures = {
+                    "fr": f"Avec plaisir ! N'hesitez pas si vous avez d'autres questions sur le **{self.guide.name}**.",
+                    "en": f"You're welcome! Feel free to ask if you have any other questions about the **{self.guide.name}**.",
+                    "ko": f"\ucc9c\ub9cc\uc5d0\uc694! **{self.guide.name}**\uc5d0 \ub300\ud574 \ub2e4\ub978 \uad81\uae08\ud55c \uc810\uc774 \uc788\uc73c\uc2dc\uba74 \uc5b8\uc81c\ub4e0 \ubb3c\uc5b4\ubcf4\uc138\uc694.",
+                }
+                return {
+                    "early_answer": closures.get(lang, closures["fr"]),
+                    "is_conversational": True,
+                }
             greetings = {
-                "fr": f"Bonjour ! Je suis votre assistant specialise pour le {self.guide.name}. Posez-moi vos questions techniques sur ce vehicule.",
-                "en": f"Hello! I'm your specialist assistant for the {self.guide.name}. Ask me any technical question about this vehicle.",
-                "ko": f"\uc548\ub155\ud558\uc138\uc694! {self.guide.name} \uc804\uc6a9 \uc5b4\uc2dc\uc2a4\ud134\ud2b8\uc785\ub2c8\ub2e4. \ucc28\ub7c9\uc5d0 \ub300\ud55c \uae30\uc220\uc801 \uc9c8\ubb38\uc744 \ud574\uc8fc\uc138\uc694.",
+                "fr": f"Bonjour ! Je suis votre assistant specialise pour le **{self.guide.name}**. Posez-moi vos questions techniques sur ce vehicule.",
+                "en": f"Hello! I'm your specialist assistant for the **{self.guide.name}**. Ask me any technical question about this vehicle.",
+                "ko": f"\uc548\ub155\ud558\uc138\uc694! **{self.guide.name}** \uc804\uc6a9 \uc5b4\uc2dc\uc2a4\ud134\ud2b8\uc785\ub2c8\ub2e4. \ucc28\ub7c9\uc5d0 \ub300\ud55c \uae30\uc220\uc801 \uc9c8\ubb38\uc744 \ud574\uc8fc\uc138\uc694.",
             }
             return {
                 "early_answer": greetings.get(lang, greetings["fr"]),

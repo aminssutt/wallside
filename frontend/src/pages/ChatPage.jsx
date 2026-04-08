@@ -17,6 +17,144 @@ const FLAG_BY_LANG = {
 }
 
 const QUICK_ICONS = [wrenchIcon, dashboardIcon, navigationIcon]
+
+// ---------------------------------------------------------------------------
+// Vehicle-specific questions based on segment
+// ---------------------------------------------------------------------------
+const SEGMENT_QUESTIONS = {
+  fr: {
+    citadine: [
+      'Quels sont les dimensions et le rayon de braquage de {vehicle} ?',
+      'Comment fonctionne le système Start/Stop de {vehicle} ?',
+      'Quelle est la consommation en ville de {vehicle} ?',
+    ],
+    suv: [
+      'Comment fonctionne le système de traction de {vehicle} ?',
+      'Quelle est la capacité de remorquage de {vehicle} ?',
+      'Quels sont les modes de conduite disponibles sur {vehicle} ?',
+    ],
+    berline: [
+      'Comment utiliser le régulateur de vitesse de {vehicle} ?',
+      'Quels sont les systèmes de sécurité de {vehicle} ?',
+      'Comment fonctionne la climatisation automatique de {vehicle} ?',
+    ],
+    sportive: [
+      'Quels sont les modes de conduite de {vehicle} ?',
+      'Quelles sont les performances moteur de {vehicle} ?',
+      'Comment fonctionne le système de freinage de {vehicle} ?',
+    ],
+    classique: [
+      "Quels sont les intervalles d'entretien de {vehicle} ?",
+      'Comment fonctionne le moteur de {vehicle} ?',
+      'Quelles huiles et fluides utiliser pour {vehicle} ?',
+    ],
+    utilitaire: [
+      'Quelle est la charge utile de {vehicle} ?',
+      "Quelles sont les dimensions de l'espace de chargement de {vehicle} ?",
+      "Quels sont les intervalles d'entretien de {vehicle} ?",
+    ],
+    autre: [
+      "Quels sont les intervalles d'entretien de {vehicle} ?",
+      'Que signifient les voyants du tableau de bord de {vehicle} ?',
+      'Quelles sont les spécifications techniques de {vehicle} ?',
+    ],
+  },
+  en: {
+    citadine: [
+      'What are the dimensions and turning radius of {vehicle}?',
+      'How does the Start/Stop system work on {vehicle}?',
+      'What is the city fuel consumption of {vehicle}?',
+    ],
+    suv: [
+      'How does the traction system work on {vehicle}?',
+      'What is the towing capacity of {vehicle}?',
+      'What driving modes are available on {vehicle}?',
+    ],
+    berline: [
+      'How do I use cruise control on {vehicle}?',
+      'What are the safety systems in {vehicle}?',
+      'How does the automatic climate control work on {vehicle}?',
+    ],
+    sportive: [
+      'What driving modes does {vehicle} offer?',
+      'What are the engine performance specs of {vehicle}?',
+      'How does the braking system work on {vehicle}?',
+    ],
+    classique: [
+      'What are the maintenance intervals for {vehicle}?',
+      'How does the engine work on {vehicle}?',
+      'What oils and fluids should I use for {vehicle}?',
+    ],
+    utilitaire: [
+      'What is the payload capacity of {vehicle}?',
+      'What are the cargo dimensions of {vehicle}?',
+      'What are the maintenance intervals for {vehicle}?',
+    ],
+    autre: [
+      'What are the maintenance intervals for {vehicle}?',
+      'What do the dashboard warning lights mean on {vehicle}?',
+      'What are the technical specifications of {vehicle}?',
+    ],
+  },
+  ko: {
+    citadine: [
+      '{vehicle}의 차량 제원과 회전 반경은 어떻게 되나요?',
+      '{vehicle}의 스타트/스톱 시스템은 어떻게 작동하나요?',
+      '{vehicle}의 도심 연비는 어떻게 되나요?',
+    ],
+    suv: [
+      '{vehicle}의 구동 시스템은 어떻게 작동하나요?',
+      '{vehicle}의 견인 능력은 얼마인가요?',
+      '{vehicle}에서 사용 가능한 주행 모드는 무엇인가요?',
+    ],
+    berline: [
+      '{vehicle}의 크루즈 컨트롤은 어떻게 사용하나요?',
+      '{vehicle}의 안전 시스템은 무엇이 있나요?',
+      '{vehicle}의 자동 에어컨은 어떻게 작동하나요?',
+    ],
+    sportive: [
+      '{vehicle}의 주행 모드는 무엇이 있나요?',
+      '{vehicle}의 엔진 성능은 어떻게 되나요?',
+      '{vehicle}의 브레이크 시스템은 어떻게 작동하나요?',
+    ],
+    classique: [
+      '{vehicle}의 정비 주기는 어떻게 되나요?',
+      '{vehicle}의 엔진은 어떻게 작동하나요?',
+      '{vehicle}에 어떤 오일과 유체를 사용해야 하나요?',
+    ],
+    utilitaire: [
+      '{vehicle}의 적재 용량은 얼마인가요?',
+      '{vehicle}의 화물 공간 크기는 어떻게 되나요?',
+      '{vehicle}의 정비 주기는 어떻게 되나요?',
+    ],
+    autre: [
+      '{vehicle}의 정비 주기는 어떻게 되나요?',
+      '{vehicle}의 계기판 경고등은 무엇을 의미하나요?',
+      '{vehicle}의 기술 사양은 어떻게 되나요?',
+    ],
+  },
+}
+
+const FOLLOWUP_SUGGESTIONS = {
+  fr: [
+    'Que signifient les voyants du tableau de bord ?',
+    'Comment effectuer un entretien de base ?',
+  ],
+  en: [
+    'What do the dashboard warning lights mean?',
+    'How to perform basic maintenance?',
+  ],
+  ko: [
+    '계기판 경고등은 무엇을 의미하나요?',
+    '기본 정비는 어떻게 하나요?',
+  ],
+}
+
+function getVehicleQuestions(vehicleName, segment, lang) {
+  const langQuestions = SEGMENT_QUESTIONS[lang] || SEGMENT_QUESTIONS.fr
+  const questions = langQuestions[segment] || langQuestions.autre
+  return questions.map((q) => q.replace(/\{vehicle\}/g, vehicleName))
+}
 const COMPACT_MENU_BREAKPOINT = 1024
 const CHAT_REQUEST_TIMEOUT_MS = 45000
 const MAX_INPUT_LENGTH = 3000
@@ -554,12 +692,16 @@ function ChatPage() {
   const executeLabel = lang === 'fr' ? 'EXECUTER' : lang === 'ko' ? '\uC2E4\uD589' : 'EXECUTE'
 
   const quickQuestions = useMemo(() => {
-    return (t.chat.quickQuestions || []).map((text, index) => ({
+    if (!guide) return []
+    const questions = getVehicleQuestions(guide.name, guide.segment || 'autre', lang)
+    return questions.map((text, index) => ({
       text,
       icon: QUICK_ICONS[index % QUICK_ICONS.length],
     }))
-  }, [t])
+  }, [guide, lang])
   const isIntroMode = messages.length === 0 && !isLoading
+  const showFollowUp = messages.length > 0 && !isLoading && !isStreaming
+    && messages[messages.length - 1]?.type === 'bot'
 
   useEffect(() => {
     const previousBodyOverflow = document.body.style.overflow
@@ -1354,6 +1496,33 @@ function ChatPage() {
                   </Motion.div>
                 )
               })}
+            </AnimatePresence>
+
+            <AnimatePresence>
+              {showFollowUp && (
+                <Motion.div
+                  className="chat-followup"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.3, delay: 0.4 }}
+                >
+                  <p className="chat-followup-label">
+                    {lang === 'fr' ? 'Une autre question ?' : lang === 'ko' ? '다른 질문이 있으신가요?' : 'Any other questions?'}
+                  </p>
+                  <div className="chat-followup-pills">
+                    {(FOLLOWUP_SUGGESTIONS[lang] || FOLLOWUP_SUGGESTIONS.fr).map((text) => (
+                      <button
+                        key={text}
+                        className="followup-pill"
+                        onClick={() => sendMessage(text)}
+                      >
+                        {text}
+                      </button>
+                    ))}
+                  </div>
+                </Motion.div>
+              )}
             </AnimatePresence>
 
             <AnimatePresence>
