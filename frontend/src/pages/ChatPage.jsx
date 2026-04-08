@@ -202,12 +202,15 @@ const pageVariants = {
 const TOAST_COPY = {
   fr: {
     redirecting: 'Action validée. Redirection en cours...',
+    copied: 'Copié dans le presse-papier',
   },
   en: {
     redirecting: 'Action confirmed. Redirecting...',
+    copied: 'Copied to clipboard',
   },
   ko: {
     redirecting: '확인되었습니다. 이동 중입니다...',
+    copied: '클립보드에 복사됨',
   },
 }
 
@@ -669,6 +672,7 @@ function ChatPage() {
     en: generateAssistantAlias('en'),
     ko: generateAssistantAlias('ko'),
   }))
+  const [showScrollBtn, setShowScrollBtn] = useState(false)
   const chatContainerRef = useRef(null)
   const langDropdownRef = useRef(null)
   const tokenFlushTimerRef = useRef(null)
@@ -677,6 +681,7 @@ function ChatPage() {
   const drainTimerRef = useRef(null)
   const streamDoneRef = useRef(false)
   const userScrolledUpRef = useRef(false)
+  const abortControllerRef = useRef(null)
   const t = UI_TEXT[lang] || UI_TEXT.fr
   const toastCopy = TOAST_COPY[lang] || TOAST_COPY.en
   const coverageLabel = t.chat.coverageLabel || '{coverage}'
@@ -748,6 +753,7 @@ function ChatPage() {
     const handleScroll = () => {
       const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
       userScrolledUpRef.current = distanceFromBottom > 120
+      setShowScrollBtn(distanceFromBottom > 200)
     }
     el.addEventListener('scroll', handleScroll, { passive: true })
     return () => el.removeEventListener('scroll', handleScroll)
@@ -941,7 +947,7 @@ function ChatPage() {
   const drainTick = () => {
     const buf = chunkBufferRef.current
     if (!buf) {
-      if (streamDoneRef.current) {
+      if (streamDoneRef.current && drainTimerRef.current) {
         window.clearInterval(drainTimerRef.current)
         drainTimerRef.current = null
         streamDoneRef.current = false
@@ -949,24 +955,24 @@ function ChatPage() {
       }
       return
     }
-    const step = buf.length > 800 ? 12 : buf.length > 300 ? 6 : buf.length > 80 ? 3 : 2
-    const piece = buf.slice(0, step)
-    chunkBufferRef.current = buf.slice(step)
+    // Drain entire buffer at once for real-time feel
+    const chunk = buf
+    chunkBufferRef.current = ''
     setMessages((prev) => {
-      if (!prev.length) return [{ type: 'bot', content: piece }]
+      if (!prev.length) return [{ type: 'bot', content: chunk }]
       const updated = [...prev]
       const last = updated[updated.length - 1]
       if (!last || last.type !== 'bot') {
-        return [...prev, { type: 'bot', content: piece }]
+        return [...prev, { type: 'bot', content: chunk }]
       }
-      updated[updated.length - 1] = { ...last, content: (last.content || '') + piece }
+      updated[updated.length - 1] = { ...last, content: (last.content || '') + chunk }
       return updated
     })
   }
 
   const startDrain = () => {
     if (drainTimerRef.current) return
-    drainTimerRef.current = window.setInterval(drainTick, 25)
+    drainTimerRef.current = window.setInterval(drainTick, 50)
   }
 
   const appendBotChunk = (chunkText) => {
@@ -1203,6 +1209,7 @@ function ChatPage() {
 
     try {
       const controller = new AbortController()
+      abortControllerRef.current = controller
       timeoutId = window.setTimeout(() => controller.abort(), CHAT_REQUEST_TIMEOUT_MS)
       try {
         await consumeChatStream({ text, signal: controller.signal })
@@ -1242,6 +1249,15 @@ function ChatPage() {
       }
       inputRef.current?.focus()
     }
+  }
+
+  const handleStopGeneration = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+    }
+    setIsStreaming(false)
+    setIsLoading(false)
   }
 
   const handleKeyDown = (event) => {
@@ -1493,6 +1509,23 @@ function ChatPage() {
                         />
                       ) : msg.content}
                     </div>
+
+                    {msg.type === 'bot' && !isLastBotStreaming && (
+                      <button
+                        className="msg-copy-btn"
+                        onClick={() => {
+                          navigator.clipboard.writeText(msg.content || '')
+                          showToast(toastCopy.copied || (lang === 'fr' ? 'Copié' : 'Copied'))
+                        }}
+                        title={lang === 'fr' ? 'Copier' : lang === 'ko' ? '복사' : 'Copy'}
+                        aria-label="Copy message"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <rect x="9" y="9" width="13" height="13" rx="2" />
+                          <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+                        </svg>
+                      </button>
+                    )}
                   </Motion.div>
                 )
               })}
@@ -1552,33 +1585,73 @@ function ChatPage() {
               )}
             </AnimatePresence>
           </div>
+
+          <AnimatePresence>
+            {showScrollBtn && !isIntroMode && (
+              <Motion.button
+                className="scroll-to-bottom-btn"
+                onClick={() => {
+                  chatContainerRef.current?.scrollTo({ top: chatContainerRef.current.scrollHeight, behavior: 'smooth' })
+                  userScrolledUpRef.current = false
+                  setShowScrollBtn(false)
+                }}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </Motion.button>
+            )}
+          </AnimatePresence>
       </main>
 
       <footer className="chat-footer">
         <div className="chat-input-wrap">
           <div className="chat-input-row">
-            <input
+            <textarea
               ref={inputRef}
-              type="text"
               value={input}
-              onChange={(event) => setInput(event.target.value)}
+              onChange={(event) => {
+                setInput(event.target.value)
+                // Auto-resize
+                event.target.style.height = 'auto'
+                event.target.style.height = Math.min(event.target.scrollHeight, 150) + 'px'
+              }}
               onKeyDown={handleKeyDown}
               placeholder={`> ${formatText(t.chat.placeholder, { vehicle: guide.name })}`}
               disabled={isLoading || isStreaming}
               maxLength={MAX_INPUT_LENGTH}
               aria-label={formatText(t.chat.placeholder, { vehicle: guide.name })}
+              rows={1}
             />
-            <Motion.button
-              className="chat-send-btn"
-              onClick={() => sendMessage()}
-              disabled={!input.trim() || isLoading || isStreaming}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.96 }}
-              title={t.chat.send}
-              aria-label={t.chat.send}
-            >
-              {executeLabel}
-            </Motion.button>
+            {(isLoading || isStreaming) ? (
+              <Motion.button
+                className="chat-stop-btn"
+                onClick={handleStopGeneration}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.96 }}
+                title={lang === 'fr' ? 'Arrêter' : lang === 'ko' ? '중지' : 'Stop'}
+                aria-label="Stop generation"
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                  <rect x="3" y="3" width="10" height="10" rx="1.5" />
+                </svg>
+              </Motion.button>
+            ) : (
+              <Motion.button
+                className="chat-send-btn"
+                onClick={() => sendMessage()}
+                disabled={!input.trim()}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.96 }}
+                title={t.chat.send}
+                aria-label={t.chat.send}
+              >
+                {executeLabel}
+              </Motion.button>
+            )}
           </div>
         </div>
       </footer>

@@ -408,13 +408,7 @@ function GuidesPage() {
     if (!slug) return
     setPendingGuide(null)
     setLaunchingSlug(slug)
-    showToast({
-      type: 'info',
-      message: t.guides.loadingAssistant || toastCopy.openingAssistant,
-    })
-    window.setTimeout(() => {
-      navigate(`/chat/${slug}`)
-    }, 520)
+    navigate(`/chat/${slug}`)
   }
 
   const handleBackToBrands = useCallback(() => {
@@ -833,7 +827,7 @@ function GuidesPage() {
                               key={guide.slug}
                               type="button"
                               className="brand-card vehicle-card"
-                              onClick={() => openConfirmPopup(guide)}
+                              onClick={() => launchGuideChat(guide.slug)}
                             >
                               <div className="vehicle-card__logo-wrap">
                                 <img

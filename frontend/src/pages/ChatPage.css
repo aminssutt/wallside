@@ -1354,29 +1354,35 @@ button.bot-source-link {
 .chat-input-row {
   width: 100%;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 0;
 }
 
-.chat-input-wrap input {
+.chat-input-row textarea {
   flex: 1;
   min-width: 0;
-  border-radius: 10px;
-  border: none;
-  padding: 12px 14px;
   background: transparent;
-  font-family: var(--font-body);
+  border: none;
+  outline: none;
   color: var(--text-primary);
-  font-size: 0.95rem;
+  font-family: var(--font-mono);
+  font-size: 0.88rem;
+  padding: 10px 14px;
+  resize: none;
+  line-height: 1.5;
+  max-height: 150px;
+  overflow-y: auto;
+  scrollbar-width: thin;
 }
 
-.chat-input-wrap input:focus {
+.chat-input-row textarea:focus {
   outline: none;
   box-shadow: none;
 }
 
-.chat-input-wrap input::placeholder {
+.chat-input-row textarea::placeholder {
   color: var(--text-muted);
+  opacity: 0.6;
 }
 
 /* Gold send button styled as arrow icon via CSS */
@@ -1416,6 +1422,89 @@ button.bot-source-link {
 .chat-send-btn:disabled {
   opacity: 0.3;
   cursor: not-allowed;
+}
+
+/* --- Stop Generation Button --- */
+
+.chat-stop-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  border: 1px solid rgba(220, 80, 80, 0.3);
+  background: rgba(220, 80, 80, 0.1);
+  color: #dc5050;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.chat-stop-btn:hover {
+  background: rgba(220, 80, 80, 0.2);
+  border-color: rgba(220, 80, 80, 0.5);
+}
+
+/* --- Copy Message Button --- */
+
+.msg.bot {
+  position: relative;
+}
+
+.msg-copy-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.msg.bot:hover .msg-copy-btn {
+  opacity: 1;
+}
+
+.msg-copy-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* --- Scroll to Bottom Button --- */
+
+.scroll-to-bottom-btn {
+  position: absolute;
+  bottom: 90px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.scroll-to-bottom-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--bg-surface);
 }
 
 /* ============================================================
@@ -1686,9 +1775,9 @@ button.bot-source-link {
     padding: 3px 5px 3px 10px;
   }
 
-  .chat-input-wrap input {
+  .chat-input-row textarea {
     padding: 10px 11px;
-    font-size: 0.86rem;
+    font-size: 0.82rem;
   }
 
   .chat-send-btn {

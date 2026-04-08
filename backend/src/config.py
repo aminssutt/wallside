@@ -1,4 +1,4 @@
-﻿"""
+"""
 Configuration du projet Auris Chatbot
 """
 import logging
@@ -65,7 +65,11 @@ CHUNK_OVERLAP = 200
 
 # Configuration du RAG
 TOP_K_RESULTS = int(os.getenv("TOP_K_RESULTS", "5"))
-LLM_TIMEOUT_SECONDS = int(os.getenv("LLM_TIMEOUT_SECONDS", "45"))
+LLM_TIMEOUT_SECONDS = int(os.getenv("LLM_TIMEOUT_SECONDS", "25"))
+
+# LLM output token limits — procedural answers need more room
+MAX_OUTPUT_TOKENS_FIX = 8192
+MAX_OUTPUT_TOKENS_DEFAULT = 4096
 
 
 def _as_bool(raw_value: str, default: bool = True) -> bool:
@@ -88,7 +92,7 @@ WEB_SEARCH_REGION = os.getenv("WEB_SEARCH_REGION", "wt-wt")
 # Rate limiting & validation
 MAX_MESSAGE_LENGTH = int(os.getenv("MAX_MESSAGE_LENGTH", "3000"))
 MAX_CONVERSATION_HISTORY = int(os.getenv("MAX_CONVERSATION_HISTORY", "20"))
-MAX_CACHED_GUIDES = int(os.getenv("MAX_CACHED_GUIDES", "5"))
+MAX_CACHED_GUIDES = int(os.getenv("MAX_CACHED_GUIDES", "20"))
 
 # RAG quality
 RELEVANCE_THRESHOLD = float(os.getenv("RELEVANCE_THRESHOLD", "0.15"))

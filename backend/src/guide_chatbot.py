@@ -35,6 +35,8 @@ from .config import (
     RELEVANCE_THRESHOLD,
     MAX_CONVERSATION_HISTORY,
     MAX_CACHED_GUIDES,
+    MAX_OUTPUT_TOKENS_FIX,
+    MAX_OUTPUT_TOKENS_DEFAULT,
 )
 from .vector_store import get_embeddings
 from .guide_manager import guide_manager, Guide
@@ -279,21 +281,24 @@ def compute_confidence(
     docs: List[Document],
     mode: str,
     is_conversational: bool,
+    avg_rrf_score: float = 0.0,
 ) -> str:
     """Return a confidence badge: 'high', 'medium', or 'low'.
 
     Rules:
-    - high:   has_relevant_context AND len(docs) >= 2
-    - medium: (has_relevant_context AND len(docs) == 1) OR mode is WEB_BLOCKING/WEB_ASYNC
+    - high:   has_relevant_context AND len(docs) >= 2 AND avg_rrf_score >= 0.025
+    - medium: has_relevant_context AND len(docs) >= 1, OR mode is WEB_BLOCKING/WEB_ASYNC
     - low:    no relevant context OR is_conversational
     """
     if is_conversational:
         return "low"
     if not has_relevant_context:
         return "low"
-    if has_relevant_context and len(docs) >= 2:
+    if has_relevant_context and len(docs) >= 2 and avg_rrf_score >= 0.025:
         return "high"
-    if has_relevant_context and len(docs) == 1:
+    if has_relevant_context and len(docs) >= 2:
+        return "medium"
+    if has_relevant_context and len(docs) >= 1:
         return "medium"
     if mode in (WEB_BLOCKING, WEB_ASYNC):
         return "medium"
@@ -303,10 +308,10 @@ def compute_confidence(
 def detect_fix_mode(question: str) -> bool:
     """Return True if the question expresses procedural intent.
 
-    Uses ``_YOUTUBE_ELIGIBLE_PATTERNS`` which already captures
-    procedural keywords (comment, remplacer, installer, demonter, etc.).
+    Uses ``_FIX_MODE_PATTERNS`` — a narrow set of action verbs that indicate
+    the user wants a step-by-step procedure (not general info questions).
     """
-    return bool(_YOUTUBE_ELIGIBLE_PATTERNS.search(question or ""))
+    return bool(_FIX_MODE_PATTERNS.search(question or ""))
 
 
 FIX_MODE_PROMPT = {
@@ -422,6 +427,18 @@ _YOUTUBE_ELIGIBLE_PATTERNS = re.compile(
     r"pression|pressure|niveau|level|capacite|capacity|"
     r"entretien|maintenance|diagnostic|reset|reinitialiser|"
     r"connecter|connect|bluetooth|demarrer|start|ouvrir|open)\b"
+)
+
+_FIX_MODE_PATTERNS = re.compile(
+    r"(?i)\b(?:"
+    r"comment (?:faire|remplacer|changer|installer|reparer|demonter|monter|regler|ajuster|vidanger|purger|nettoyer|configurer|reinitialiser|brancher|debrancher|desactiver|activer)"
+    r"|how (?:to|do i|can i) (?:replace|change|install|repair|remove|mount|adjust|drain|flush|clean|configure|reset|connect|disconnect|enable|disable)"
+    r"|(?:remplacer|changer|installer|reparer|demonter|vidanger|purger|nettoyer|reinitialiser) "
+    r"|(?:replace|change|install|repair|remove|drain|flush|clean|reset) "
+    r"|tutoriel|tutorial|etape par etape|step by step|procedure de|diy"
+    r"|어떻게 (?:교체|설치|수리|청소|재설정)"
+    r")\b",
+    re.IGNORECASE,
 )
 
 YOUTUBE_MIN_RELEVANCE_SCORE = 4
@@ -850,6 +867,7 @@ class GuideChatbot:
         self.bm25_indices = self._load_bm25_indices()
         self.client = genai.Client(api_key=GOOGLE_API_KEY)
         self.model_name = LLM_MODEL.replace("models/", "", 1)
+        self._last_avg_rrf = 0.0  # updated by _hybrid_search for confidence scoring
         # Per-session conversation histories with bounded size
         self._session_histories: OrderedDict[str, List[dict]] = OrderedDict()
         self._max_sessions = 100
@@ -969,11 +987,15 @@ class GuideChatbot:
             doc_map[key] = doc
 
         # Sort by RRF score descending
-        sorted_keys = sorted(rrf_scores, key=rrf_scores.get, reverse=True)
+        sorted_pairs = sorted(rrf_scores.items(), key=lambda x: x[1], reverse=True)
+
+        # Store avg RRF score for top-K results (used for confidence scoring)
+        top_k_pairs = sorted_pairs[:k]
+        self._last_avg_rrf = sum(s for _, s in top_k_pairs) / max(len(top_k_pairs), 1)
 
         # Apply relevance threshold (RRF score for rank 0 in one list = ~0.016)
-        min_rrf = RELEVANCE_THRESHOLD * 0.1  # ~0.015 threshold
-        filtered = [doc_map[k] for k in sorted_keys if rrf_scores[k] >= min_rrf]
+        min_rrf = max(RELEVANCE_THRESHOLD * 0.15, 0.02)
+        filtered = [doc_map[key] for key, score in sorted_pairs if score >= min_rrf]
 
         return filtered[:k]
 
@@ -1102,6 +1124,18 @@ class GuideChatbot:
         video_block = format_video_block(video, lang=lang)
         lang_instruction = LANG_INSTRUCTIONS.get(lang, LANG_INSTRUCTIONS["fr"])
 
+        # --- "Je ne sais pas" fallback: no manual context AND no web context ---
+        if not has_relevant_context and not web_context:
+            no_info = {
+                "fr": f"Je n'ai pas trouve d'information pertinente dans le manuel du **{self.guide.name}** pour cette question. Pourriez-vous reformuler ou preciser votre demande ?",
+                "en": f"I couldn't find relevant information in the **{self.guide.name}** manual for this question. Could you rephrase or be more specific?",
+                "ko": f"**{self.guide.name}** 매뉴얼에서 관련 정보를 찾지 못했습니다. 질문을 다시 표현하거나 더 구체적으로 해주실 수 있나요?",
+            }
+            return {
+                "early_answer": no_info.get(lang, no_info["fr"]),
+                "is_conversational": False,
+            }
+
         # --- Build conversation context from session history ---
         history = self._get_session_history(session_id)
         history_block = ""
@@ -1110,38 +1144,38 @@ class GuideChatbot:
             parts = []
             for msg in recent:
                 role = "Utilisateur" if msg["role"] == "user" else "Assistant"
-                parts.append(f"{role}: {msg['content'][:800]}")
+                content = msg['content']
+                truncated = content[:800] + " [...]" if len(content) > 800 else content
+                parts.append(f"{role}: {truncated}")
             history_block = "\n".join(parts)
 
         # --- System instruction (separated from user content for Gemini) ---
         fix_mode_block = FIX_MODE_PROMPT.get(lang, FIX_MODE_PROMPT["fr"]) if fix_mode else ""
-        system_instruction = f"""{fix_mode_block}Tu es un assistant technique expert et precis, specialise pour le vehicule {self.guide.name}.
+        system_instruction = f"""{fix_mode_block}Tu es un assistant technique specialise pour le vehicule {self.guide.name}.
 
-REGLES STRICTES:
-1) {lang_instruction}
-2) Base-toi UNIQUEMENT sur le contexte fourni (manuel du vehicule et web).
-3) JAMAIS d'invention: si une information (valeur technique, procedure, specification) n'est PAS dans le contexte fourni, dis-le clairement. Exemple: "Cette information n'est pas disponible dans le manuel fourni."
-4) Ne JAMAIS inventer de valeurs chiffrees (couples de serrage, pressions, capacites, intervalles) qui ne sont pas explicitement dans le contexte.
-5) Le contexte web est un complement. En cas de conflit avec le manuel, le manuel prime TOUJOURS.
-6) Reponds de facon complete et detaillee. Pour les procedures en etapes, donne TOUTES les etapes. Ne tronque JAMAIS ta reponse.
-7) Utilise un formatage clair et structure: listes numerotees pour les etapes, listes a puces pour les points cles, **gras** pour les termes importants. Pas de blocs de code (```).
-8) N'ajoute PAS de section "Sources" (elle sera ajoutee automatiquement).
-9) Orthographe, grammaire et ponctuation impeccables. Phrases claires et naturelles.
-10) Personnalise chaque reponse pour le {self.guide.name}: mentionne le nom du vehicule quand c'est pertinent.
-11) Ta reponse doit etre une explication textuelle complete et autonome. Ne mentionne AUCUN lien, URL, ou video dans ta reponse -- ils seront ajoutes automatiquement apres.
-12) Pas de disclaimers generiques du type "consultez un professionnel", "faites appel a un mecanicien", "verifiez aupres du constructeur" sauf si le danger est reel et immediat. Sois direct et utile."""
+{lang_instruction}
 
-        # --- User content ---
+REGLES:
+1) Base-toi UNIQUEMENT sur le contexte fourni (manuel du vehicule et web). Le manuel prime toujours sur le web.
+2) JAMAIS d'invention. Si une information n'est pas dans le contexte, dis-le clairement. Pour toute valeur technique (pression, couple, volume, intervalle), attribue-la au contexte: "Selon le manuel, ..." — si tu ne peux pas l'attribuer, ne la mentionne pas.
+3) Adapte la longueur de ta reponse a la complexite de la question. Question factuelle = reponse courte et directe (2-4 phrases). Explication = 2-4 paragraphes. Procedure = toutes les etapes detaillees sans limite.
+4) Formatage clair: listes numerotees pour les etapes, listes a puces pour les points cles, **gras** pour les termes importants. Pas de blocs de code (```).
+5) Personnalise pour le {self.guide.name}: mentionne le nom du vehicule quand pertinent.
+6) Pas de disclaimers generiques ("consultez un professionnel", "verifiez aupres du constructeur") sauf danger reel et immediat. Sois direct et utile.
+
+NOTE TECHNIQUE: les sources, liens, URLs et videos sont geres automatiquement par le systeme. N'en inclus aucun dans ta reponse. Pas de section "Sources"."""
+
+        # --- User content (order: manual -> web -> history -> question, with XML tags) ---
         user_parts = []
-        if history_block:
-            user_parts.append(f"Historique recent de la conversation:\n{history_block}")
         if context:
-            user_parts.append(f"Contexte du manuel du vehicule:\n{context}")
+            user_parts.append(f"<manual_context>\n{context}\n</manual_context>")
         else:
-            user_parts.append("Aucun passage pertinent trouve dans le manuel du vehicule pour cette question.")
+            user_parts.append("<manual_context>\nAucun passage pertinent trouve dans le manuel du vehicule pour cette question.\n</manual_context>")
         if web_context:
             user_parts.append(f"<web_enrichment>\n{web_context}\n</web_enrichment>")
-        user_parts.append(f"Question de l'utilisateur: {question}")
+        if history_block:
+            user_parts.append(f"<conversation_history>\n{history_block}\n</conversation_history>")
+        user_parts.append(f"<user_question>\n{question}\n</user_question>")
 
         user_content = "\n\n---\n\n".join(user_parts)
         return {
@@ -1158,6 +1192,8 @@ REGLES STRICTES:
             "mode": mode,
             "is_conversational": False,
             "detected_lang": lang,
+            "avg_rrf_score": self._last_avg_rrf,
+            "fix_mode": fix_mode,
         }
 
     def _finalize_answer(
@@ -1207,15 +1243,19 @@ REGLES STRICTES:
         mode = classify_query(question)
         if mode == MANUAL_ONLY:
             mode = WEB_BLOCKING  # fallback path always gets full enrichment
+        fix_mode = detect_fix_mode(question)
         payload = self._prepare_chat_payload(
             question=question,
             lang=lang,
             session_id=session_id,
             mode=mode,
+            fix_mode=fix_mode,
         )
         early_answer = payload.get("early_answer")
         if isinstance(early_answer, str):
             return early_answer
+
+        max_tokens = MAX_OUTPUT_TOKENS_FIX if payload.get("fix_mode") else MAX_OUTPUT_TOKENS_DEFAULT
 
         try:
             response = self.client.models.generate_content(
@@ -1224,7 +1264,7 @@ REGLES STRICTES:
                 config=genai_types.GenerateContentConfig(
                     system_instruction=str(payload.get("system_instruction", "")),
                     temperature=0.15,
-                    max_output_tokens=4096,
+                    max_output_tokens=max_tokens,
                     http_options=genai_types.HttpOptions(timeout=LLM_TIMEOUT_SECONDS * 1000),
                 ),
             )
@@ -1285,7 +1325,8 @@ REGLES STRICTES:
         p_has_ctx = payload.get("has_relevant_context", False)
         p_docs = payload.get("docs") or []
         p_mode = payload.get("mode", MANUAL_ONLY)
-        confidence_level = compute_confidence(p_has_ctx, p_docs, p_mode, False)
+        p_avg_rrf = payload.get("avg_rrf_score", 0.0)
+        confidence_level = compute_confidence(p_has_ctx, p_docs, p_mode, False, avg_rrf_score=p_avg_rrf)
 
         # --- Fallback: if RAG found nothing, do a quick web search to enrich prompt ---
         if not p_has_ctx and ENABLE_WEB_ENRICHMENT:
@@ -1329,6 +1370,8 @@ REGLES STRICTES:
 
         yield {"type": "status", "step": "generating", "message_id": message_id}
 
+        max_tokens = MAX_OUTPUT_TOKENS_FIX if fix_mode_active else MAX_OUTPUT_TOKENS_DEFAULT
+
         try:
             stream = self.client.models.generate_content_stream(
                 model=self.model_name,
@@ -1336,7 +1379,7 @@ REGLES STRICTES:
                 config=genai_types.GenerateContentConfig(
                     system_instruction=str(payload.get("system_instruction", "")),
                     temperature=0.15,
-                    max_output_tokens=4096,
+                    max_output_tokens=max_tokens,
                     http_options=genai_types.HttpOptions(timeout=LLM_TIMEOUT_SECONDS * 1000),
                 ),
             )
