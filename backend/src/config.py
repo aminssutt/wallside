@@ -65,7 +65,7 @@ CHUNK_OVERLAP = 200
 
 # Configuration du RAG
 TOP_K_RESULTS = int(os.getenv("TOP_K_RESULTS", "5"))
-LLM_TIMEOUT_SECONDS = int(os.getenv("LLM_TIMEOUT_SECONDS", "25"))
+LLM_TIMEOUT_SECONDS = int(os.getenv("LLM_TIMEOUT_SECONDS", "45"))
 
 # LLM output token limits — procedural answers need more room
 MAX_OUTPUT_TOKENS_FIX = 8192

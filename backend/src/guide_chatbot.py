@@ -1166,44 +1166,36 @@ class GuideChatbot:
             history_block = "\n".join(parts)
 
         # --- System instruction (separated from user content for Gemini) ---
+        # Restored to the proven original 12-rule format that produces detailed answers
         fix_mode_block = FIX_MODE_PROMPT.get(lang, FIX_MODE_PROMPT["fr"]) if fix_mode else ""
-
-        # Adapt source instruction based on what context is available
-        if has_relevant_context and web_context:
-            source_rule = "Base-toi sur le contexte fourni (manuel du vehicule et web). Le manuel prime toujours sur le web en cas de conflit."
-        elif has_relevant_context:
-            source_rule = "Base-toi UNIQUEMENT sur le contexte du manuel du vehicule fourni ci-dessous."
-        elif web_context:
-            source_rule = "Le manuel du vehicule ne contient pas d'information specifique sur ce sujet. Utilise les informations web fournies pour donner une reponse complete et utile sur le {0}. Developpe tes explications en t'appuyant sur ces sources.".format(self.guide.name)
-        else:
-            source_rule = "Base-toi sur le contexte fourni."
-
         system_instruction = f"""{fix_mode_block}Tu es un assistant technique expert et precis, specialise pour le vehicule {self.guide.name}.
 
-{lang_instruction}
-
 REGLES STRICTES:
-1) {source_rule}
-2) JAMAIS d'invention de valeurs chiffrees (couples de serrage, pressions, capacites, intervalles) qui ne sont pas dans le contexte. Si tu n'as pas une information precise, dis-le.
-3) Reponds de facon complete et detaillee. Pour les procedures en etapes, donne TOUTES les etapes. Ne tronque JAMAIS ta reponse. Couvre le sujet en profondeur avec toutes les informations disponibles.
-4) Utilise un formatage clair et structure: listes numerotees pour les etapes, listes a puces pour les points cles, **gras** pour les termes importants. Pas de blocs de code (```).
-5) Personnalise chaque reponse pour le {self.guide.name}: mentionne le nom du vehicule quand c'est pertinent.
-6) Pas de disclaimers generiques du type "consultez un professionnel" sauf si le danger est reel et immediat. Sois direct et utile.
-7) Si un historique de conversation est fourni, tiens-en compte. Si la question est vague ou fait reference a un sujet precedent ("elle", "ca", "le meme"), utilise l'historique pour comprendre de quoi il parle.
+1) {lang_instruction}
+2) Base-toi UNIQUEMENT sur le contexte fourni (manuel du vehicule et web).
+3) JAMAIS d'invention: si une information (valeur technique, procedure, specification) n'est PAS dans le contexte fourni, dis-le clairement.
+4) Ne JAMAIS inventer de valeurs chiffrees (couples de serrage, pressions, capacites, intervalles) qui ne sont pas explicitement dans le contexte.
+5) Le contexte web est un complement. En cas de conflit avec le manuel, le manuel prime TOUJOURS.
+6) Reponds de facon complete et detaillee. Pour les procedures en etapes, donne TOUTES les etapes. Ne tronque JAMAIS ta reponse.
+7) Utilise un formatage clair et structure: listes numerotees pour les etapes, listes a puces pour les points cles, **gras** pour les termes importants. Pas de blocs de code (```).
+8) N'ajoute PAS de section "Sources" (elle sera ajoutee automatiquement).
+9) Orthographe, grammaire et ponctuation impeccables. Phrases claires et naturelles.
+10) Personnalise chaque reponse pour le {self.guide.name}: mentionne le nom du vehicule quand c'est pertinent.
+11) Ta reponse doit etre une explication textuelle complete et autonome. Ne mentionne AUCUN lien, URL, ou video dans ta reponse -- ils seront ajoutes automatiquement apres.
+12) Pas de disclaimers generiques du type "consultez un professionnel", "faites appel a un mecanicien", "verifiez aupres du constructeur" sauf si le danger est reel et immediat. Sois direct et utile.
+13) Si un historique de conversation est fourni, tiens-en compte pour comprendre le contexte. Si la question de l'utilisateur est vague ou fait reference a un sujet precedent ("elle", "ca", "le meme"), utilise l'historique pour comprendre de quoi il parle et reponds en consequence."""
 
-N'ajoute PAS de section "Sources" (elle sera ajoutee automatiquement). Ne mentionne AUCUN lien, URL ou video — ils seront ajoutes automatiquement."""
-
-        # --- User content (order: manual -> web -> history -> question, with XML tags) ---
+        # --- User content (original proven format) ---
         user_parts = []
-        if context:
-            user_parts.append(f"<manual_context>\n{context}\n</manual_context>")
-        else:
-            user_parts.append("<manual_context>\nAucun passage pertinent trouve dans le manuel du vehicule pour cette question.\n</manual_context>")
-        if web_context:
-            user_parts.append(f"<web_enrichment>\n{web_context}\n</web_enrichment>")
         if history_block:
-            user_parts.append(f"<conversation_history>\n{history_block}\n</conversation_history>")
-        user_parts.append(f"<user_question>\n{question}\n</user_question>")
+            user_parts.append(f"Historique recent de la conversation:\n{history_block}")
+        if context:
+            user_parts.append(f"Contexte du manuel du vehicule:\n{context}")
+        if web_context:
+            user_parts.append(f"Contexte web complementaire:\n{web_context}")
+        elif not context:
+            user_parts.append("Aucun passage pertinent trouve dans le manuel du vehicule pour cette question.")
+        user_parts.append(f"Question de l'utilisateur: {question}")
 
         user_content = "\n\n---\n\n".join(user_parts)
         return {
