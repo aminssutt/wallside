@@ -1099,7 +1099,9 @@ class GuideChatbot:
         web_context = ""
         needs_web = (mode == WEB_BLOCKING) or (not has_relevant_context)
 
-        if ENABLE_WEB_ENRICHMENT and confidence >= 0.5 and needs_web:
+        # Note: when manual found nothing, always try web regardless of confidence
+        # (user is in a vehicle chat, so the question is contextually relevant)
+        if ENABLE_WEB_ENRICHMENT and needs_web:
             enrichment_query = f"{self.guide.name} {question}".strip()
             budget = max(0.5, ENRICHMENT_TIME_BUDGET_SECONDS)
 
@@ -1175,20 +1177,31 @@ class GuideChatbot:
 
         # --- System instruction (separated from user content for Gemini) ---
         fix_mode_block = FIX_MODE_PROMPT.get(lang, FIX_MODE_PROMPT["fr"]) if fix_mode else ""
+
+        # Adapt source instruction based on what context is available
+        if has_relevant_context and web_context:
+            source_rule = "Base-toi sur le contexte fourni (manuel du vehicule et web). Le manuel prime toujours sur le web en cas de conflit."
+        elif has_relevant_context:
+            source_rule = "Base-toi UNIQUEMENT sur le contexte du manuel du vehicule fourni ci-dessous."
+        elif web_context:
+            source_rule = "Le manuel du vehicule ne contient pas d'information specifique sur ce sujet. Utilise les informations web fournies pour donner une reponse complete et utile sur le {0}. Developpe tes explications en t'appuyant sur ces sources.".format(self.guide.name)
+        else:
+            source_rule = "Base-toi sur le contexte fourni."
+
         system_instruction = f"""{fix_mode_block}Tu es un assistant technique expert et precis, specialise pour le vehicule {self.guide.name}.
 
 {lang_instruction}
 
-REGLES:
-1) Base-toi UNIQUEMENT sur le contexte fourni (manuel du vehicule et web). Le manuel prime toujours sur le web.
-2) JAMAIS d'invention. Si une information n'est pas dans le contexte, dis-le clairement. Pour toute valeur technique (pression, couple, volume, intervalle), attribue-la au contexte: "Selon le manuel, ..." — si tu ne peux pas l'attribuer, ne la mentionne pas.
-3) Reponds de facon complete et utile. Couvre le sujet en profondeur avec les informations disponibles dans le contexte. Seule exception: pour une question purement factuelle a reponse unique (ex: "quelle est la pression des pneus ?"), une reponse courte suffit. Pour tout le reste (fonctionnement, explication, comparaison, procedure), fournis une reponse detaillee et structuree. Ne tronque jamais une procedure en cours.
-4) Formatage clair: listes numerotees pour les etapes, listes a puces pour les points cles, **gras** pour les termes importants. Pas de blocs de code (```).
-5) Personnalise pour le {self.guide.name}: mentionne le nom du vehicule quand pertinent.
-6) Pas de disclaimers generiques ("consultez un professionnel", "verifiez aupres du constructeur") sauf danger reel et immediat. Sois direct et utile.
-7) Si un historique de conversation est fourni, tiens-en compte pour comprendre le contexte. Si la question de l'utilisateur est vague ou fait reference a un sujet precedent ("elle", "ca", "le meme"), utilise l'historique pour comprendre de quoi il parle et reponds en consequence.
+REGLES STRICTES:
+1) {source_rule}
+2) JAMAIS d'invention de valeurs chiffrees (couples de serrage, pressions, capacites, intervalles) qui ne sont pas dans le contexte. Si tu n'as pas une information precise, dis-le.
+3) Reponds de facon complete et detaillee. Pour les procedures en etapes, donne TOUTES les etapes. Ne tronque JAMAIS ta reponse. Couvre le sujet en profondeur avec toutes les informations disponibles.
+4) Utilise un formatage clair et structure: listes numerotees pour les etapes, listes a puces pour les points cles, **gras** pour les termes importants. Pas de blocs de code (```).
+5) Personnalise chaque reponse pour le {self.guide.name}: mentionne le nom du vehicule quand c'est pertinent.
+6) Pas de disclaimers generiques du type "consultez un professionnel" sauf si le danger est reel et immediat. Sois direct et utile.
+7) Si un historique de conversation est fourni, tiens-en compte. Si la question est vague ou fait reference a un sujet precedent ("elle", "ca", "le meme"), utilise l'historique pour comprendre de quoi il parle.
 
-NOTE TECHNIQUE: les sources, liens, URLs et videos sont geres automatiquement par le systeme. N'en inclus aucun dans ta reponse. Pas de section "Sources"."""
+N'ajoute PAS de section "Sources" (elle sera ajoutee automatiquement). Ne mentionne AUCUN lien, URL ou video — ils seront ajoutes automatiquement."""
 
         # --- User content (order: manual -> web -> history -> question, with XML tags) ---
         user_parts = []
