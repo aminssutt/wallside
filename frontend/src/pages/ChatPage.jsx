@@ -961,11 +961,21 @@ function ChatPage() {
       }
       return
     }
-    // Drain in moderate chunks for a smooth streaming animation
-    // Fast enough to feel real-time, slow enough to see text appear progressively
-    const maxChars = Math.max(8, Math.min(buf.length, 30 + Math.floor(buf.length * 0.3)))
-    const chunk = buf.slice(0, maxChars)
-    chunkBufferRef.current = buf.slice(maxChars)
+    // Smooth word-boundary drain — mimics ChatGPT/Claude streaming feel.
+    // Take a generous slice, then snap to the last word boundary for natural flow.
+    const target = Math.min(buf.length, 60)
+    let end = target
+    if (end < buf.length) {
+      // Find the last space/newline within the target range to break at word boundary
+      const lastSpace = buf.lastIndexOf(' ', end)
+      const lastNewline = buf.lastIndexOf('\n', end)
+      const breakPoint = Math.max(lastSpace, lastNewline)
+      if (breakPoint > target * 0.4) {
+        end = breakPoint + 1
+      }
+    }
+    const chunk = buf.slice(0, end)
+    chunkBufferRef.current = buf.slice(end)
     setMessages((prev) => {
       if (!prev.length) return [{ type: 'bot', content: chunk }]
       const updated = [...prev]
@@ -980,7 +990,7 @@ function ChatPage() {
 
   const startDrain = () => {
     if (drainTimerRef.current) return
-    drainTimerRef.current = window.setInterval(drainTick, 30)
+    drainTimerRef.current = window.setInterval(drainTick, 40)
   }
 
   const appendBotChunk = (chunkText) => {
@@ -1616,50 +1626,55 @@ function ChatPage() {
       </main>
 
       <footer className="chat-footer">
-        <div className="chat-input-wrap">
-          <div className="chat-input-row">
+        <div className="chat-prompt-bar">
+          <div className="chat-prompt-glow" />
+          <div className="chat-prompt-inner">
             <textarea
               ref={inputRef}
               value={input}
               onChange={(event) => {
                 setInput(event.target.value)
-                // Auto-resize
                 event.target.style.height = 'auto'
-                event.target.style.height = Math.min(event.target.scrollHeight, 150) + 'px'
+                event.target.style.height = Math.min(event.target.scrollHeight, 140) + 'px'
               }}
               onKeyDown={handleKeyDown}
-              placeholder={`> ${formatText(t.chat.placeholder, { vehicle: guide.name })}`}
+              placeholder={formatText(t.chat.placeholder, { vehicle: guide.name })}
               disabled={isLoading || isStreaming}
               maxLength={MAX_INPUT_LENGTH}
               aria-label={formatText(t.chat.placeholder, { vehicle: guide.name })}
               rows={1}
             />
-            {(isLoading || isStreaming) ? (
-              <Motion.button
-                className="chat-stop-btn"
-                onClick={handleStopGeneration}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.96 }}
-                title={lang === 'fr' ? 'Arrêter' : lang === 'ko' ? '중지' : 'Stop'}
-                aria-label="Stop generation"
-              >
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                  <rect x="3" y="3" width="10" height="10" rx="1.5" />
-                </svg>
-              </Motion.button>
-            ) : (
-              <Motion.button
-                className="chat-send-btn"
-                onClick={() => sendMessage()}
-                disabled={!input.trim()}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.96 }}
-                title={t.chat.send}
-                aria-label={t.chat.send}
-              >
-                {executeLabel}
-              </Motion.button>
-            )}
+            <div className="chat-prompt-actions">
+              {(isLoading || isStreaming) ? (
+                <Motion.button
+                  className="chat-action-btn chat-action-btn--stop"
+                  onClick={handleStopGeneration}
+                  whileHover={{ scale: 1.08 }}
+                  whileTap={{ scale: 0.92 }}
+                  title={lang === 'fr' ? 'Arrêter' : lang === 'ko' ? '중지' : 'Stop'}
+                  aria-label="Stop generation"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <rect x="3" y="3" width="10" height="10" rx="2" />
+                  </svg>
+                </Motion.button>
+              ) : (
+                <Motion.button
+                  className="chat-action-btn chat-action-btn--send"
+                  onClick={() => sendMessage()}
+                  disabled={!input.trim()}
+                  whileHover={{ scale: 1.08 }}
+                  whileTap={{ scale: 0.92 }}
+                  title={t.chat.send}
+                  aria-label={t.chat.send}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="12" y1="19" x2="12" y2="5" />
+                    <polyline points="5 12 12 5 19 12" />
+                  </svg>
+                </Motion.button>
+              )}
+            </div>
           </div>
         </div>
       </footer>
