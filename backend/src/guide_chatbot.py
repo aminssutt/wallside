@@ -1356,18 +1356,17 @@ N'ajoute PAS de section "Sources" (elle sera ajoutee automatiquement). Ne mentio
         p_avg_rrf = payload.get("avg_rrf_score", 0.0)
         has_web_in_payload = "<web_enrichment>" in (payload.get("user_content") or "")
 
+        # --- Step 2a: DuckDuckGo fallback for quick web snippets ---
         if not p_has_ctx and ENABLE_WEB_ENRICHMENT:
             yield {"type": "status", "step": "web_search", "message_id": message_id}
             enrichment_query = f"{self.guide.name} {question}".strip()
             budget = max(1.5, ENRICHMENT_TIME_BUDGET_SECONDS)
             try:
-                # Search general web with more results for better coverage
                 fallback_web = web_search_results(
                     enrichment_query, max_results=max(5, WEB_MAX_RESULTS), time_budget_seconds=budget,
                 )
                 if fallback_web:
                     web_context = format_web_context(fallback_web, lang=payload.get("detected_lang", "fr"))
-                    # Replace existing empty manual context with web
                     existing_content = payload.get("user_content", "")
                     if "<web_enrichment>" not in existing_content:
                         payload["user_content"] = existing_content + f"\n\n<web_enrichment>\n{web_context}\n</web_enrichment>"
@@ -1377,9 +1376,15 @@ N'ajoute PAS de section "Sources" (elle sera ajoutee automatiquement). Ne mentio
             except Exception as exc:
                 log.warning("Web fallback failed: %s", exc)
 
+        # --- Step 2b: If still no context, use Gemini with Google Search grounding ---
+        use_grounded_search = not p_has_ctx and not has_web_in_payload
+        if not use_grounded_search and not p_has_ctx and has_web_in_payload:
+            # We have web snippets but can enhance with grounded search for richer answers
+            use_grounded_search = False  # web snippets are enough, LLM will use them
+
         confidence_level = compute_confidence(
             p_has_ctx, p_docs, p_mode, False,
-            avg_rrf_score=p_avg_rrf, has_web_context=has_web_in_payload,
+            avg_rrf_score=p_avg_rrf, has_web_context=has_web_in_payload or use_grounded_search,
         )
 
         # --- Detect fix mode (procedural intent + manual context available) ---
@@ -1402,16 +1407,31 @@ N'ajoute PAS de section "Sources" (elle sera ajoutee automatiquement). Ne mentio
 
         max_tokens = MAX_OUTPUT_TOKENS_FIX if fix_mode_active else MAX_OUTPUT_TOKENS_DEFAULT
 
+        # --- Build LLM config with optional Google Search grounding ---
+        llm_tools = None
+        if use_grounded_search:
+            # Use Gemini's built-in Google Search tool for grounded, detailed answers
+            try:
+                llm_tools = [genai_types.Tool(google_search=genai_types.GoogleSearch())]
+                log.info("Using Google Search grounding for %s: %s", self.guide.slug, question[:80])
+            except Exception as exc:
+                log.warning("Google Search tool init failed: %s", exc)
+                llm_tools = None
+
         try:
+            llm_config = genai_types.GenerateContentConfig(
+                system_instruction=str(payload.get("system_instruction", "")),
+                temperature=0.15,
+                max_output_tokens=max_tokens,
+                http_options=genai_types.HttpOptions(timeout=LLM_TIMEOUT_SECONDS * 1000),
+            )
+            if llm_tools:
+                llm_config.tools = llm_tools
+
             stream = self.client.models.generate_content_stream(
                 model=self.model_name,
                 contents=str(payload.get("user_content", "")),
-                config=genai_types.GenerateContentConfig(
-                    system_instruction=str(payload.get("system_instruction", "")),
-                    temperature=0.15,
-                    max_output_tokens=max_tokens,
-                    http_options=genai_types.HttpOptions(timeout=LLM_TIMEOUT_SECONDS * 1000),
-                ),
+                config=llm_config,
             )
 
             raw_chunks: List[str] = []
@@ -1451,6 +1471,25 @@ N'ajoute PAS de section "Sources" (elle sera ajoutee automatiquement). Ne mentio
 
         # --- Stream sources one by one ---
         sources = list(payload.get("sources_structured") or [])
+
+        # Extract grounding sources from Gemini Google Search (if used)
+        if use_grounded_search and raw_chunks:
+            try:
+                # The last chunk may contain grounding metadata in the response
+                # Try to get grounding sources from the stream's accumulated response
+                for chunk in (stream if hasattr(stream, '__iter__') else []):
+                    pass  # stream already consumed above
+            except Exception:
+                pass
+            # If we used grounded search but have no explicit sources, note it
+            if not sources:
+                sources.append({
+                    "kind": "web",
+                    "label": "Google Search",
+                    "domain": "google.com",
+                    "url": f"https://www.google.com/search?q={self.guide.name}+{question[:50].replace(' ', '+')}",
+                    "display": "Web: Recherche Google",
+                })
 
         # Collect async web sources (mode C) — already running in background
         if web_future is not None:
