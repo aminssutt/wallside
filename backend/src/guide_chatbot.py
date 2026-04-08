@@ -1091,17 +1091,14 @@ class GuideChatbot:
                 has_relevant_context = True
                 context = format_context(docs)
 
-        # --- Web enrichment ---
-        # Triggered when: (A) query classification says WEB_BLOCKING, OR
-        # (B) manual returned nothing — fallback web search to avoid "no info" dead-ends
+        # --- Web enrichment (only for explicit WEB_BLOCKING mode) ---
+        # Fallback web search when manual has no context is handled in chat_stream
+        # where status events ("Recherche sur le web...") can be emitted to the user.
         web_results: List[Dict[str, str]] = []
         video: Dict[str, str] = {}
         web_context = ""
-        needs_web = (mode == WEB_BLOCKING) or (not has_relevant_context)
 
-        # Note: when manual found nothing, always try web regardless of confidence
-        # (user is in a vehicle chat, so the question is contextually relevant)
-        if ENABLE_WEB_ENRICHMENT and needs_web:
+        if ENABLE_WEB_ENRICHMENT and mode == WEB_BLOCKING:
             enrichment_query = f"{self.guide.name} {question}".strip()
             budget = max(0.5, ENRICHMENT_TIME_BUDGET_SECONDS)
 
@@ -1150,17 +1147,9 @@ class GuideChatbot:
         video_block = format_video_block(video, lang=lang)
         lang_instruction = LANG_INSTRUCTIONS.get(lang, LANG_INSTRUCTIONS["fr"])
 
-        # --- "Je ne sais pas" fallback: no manual AND no web context at all ---
-        if not has_relevant_context and not web_context:
-            no_info = {
-                "fr": f"Je n'ai pas trouve d'information pertinente dans le manuel ni sur le web pour le **{self.guide.name}** concernant cette question. Pourriez-vous reformuler ou preciser votre demande ?",
-                "en": f"I couldn't find relevant information in the **{self.guide.name}** manual or on the web for this question. Could you rephrase or be more specific?",
-                "ko": f"**{self.guide.name}** 매뉴얼이나 웹에서 관련 정보를 찾지 못했습니다. 질문을 다시 표현하거나 더 구체적으로 해주실 수 있나요?",
-            }
-            return {
-                "early_answer": no_info.get(lang, no_info["fr"]),
-                "is_conversational": False,
-            }
+        # Note: no early "je ne sais pas" return here.
+        # When manual has no context, chat_stream handles web fallback
+        # with visible status events. The LLM call proceeds regardless.
 
         # --- Build conversation context from session history ---
         history = self._get_session_history(session_id)
@@ -1338,14 +1327,15 @@ N'ajoute PAS de section "Sources" (elle sera ajoutee automatiquement). Ne mentio
         message_id = str(uuid.uuid4())
         mode = classify_query(question)
 
+        # --- Step 1: emit status BEFORE manual search ---
+        yield {"type": "status", "step": "manual_search", "message_id": message_id}
+
         # Mode A (default) or C: no web in prompt → fastest TTFT
         # Mode B: web blocking in prompt (for recall/pricing/regulatory Qs)
         payload_mode = mode if mode == WEB_BLOCKING else MANUAL_ONLY
         payload = self._prepare_chat_payload(
             question=question, lang=lang, session_id=session_id, mode=payload_mode,
         )
-
-        yield {"type": "status", "step": "manual_search", "message_id": message_id}
 
         early_answer = payload.get("early_answer")
         if isinstance(early_answer, str):
@@ -1359,35 +1349,38 @@ N'ajoute PAS de section "Sources" (elle sera ajoutee automatiquement). Ne mentio
             }
             return
 
-        # --- Compute confidence badge ---
+        # --- Step 2: if manual found nothing, do a real web search ---
         p_has_ctx = payload.get("has_relevant_context", False)
         p_docs = payload.get("docs") or []
         p_mode = payload.get("mode", MANUAL_ONLY)
         p_avg_rrf = payload.get("avg_rrf_score", 0.0)
-        p_has_web = "<web_enrichment>" in (payload.get("user_content") or "")
-        confidence_level = compute_confidence(p_has_ctx, p_docs, p_mode, False, avg_rrf_score=p_avg_rrf, has_web_context=p_has_web)
-
-        # --- Fallback web search (only if _prepare_chat_payload didn't already do it) ---
         has_web_in_payload = "<web_enrichment>" in (payload.get("user_content") or "")
-        if not p_has_ctx and not has_web_in_payload and ENABLE_WEB_ENRICHMENT:
+
+        if not p_has_ctx and ENABLE_WEB_ENRICHMENT:
             yield {"type": "status", "step": "web_search", "message_id": message_id}
             enrichment_query = f"{self.guide.name} {question}".strip()
-            budget = max(0.5, ENRICHMENT_TIME_BUDGET_SECONDS)
+            budget = max(1.5, ENRICHMENT_TIME_BUDGET_SECONDS)
             try:
+                # Search general web with more results for better coverage
                 fallback_web = web_search_results(
-                    enrichment_query, max_results=WEB_MAX_RESULTS, time_budget_seconds=budget,
+                    enrichment_query, max_results=max(5, WEB_MAX_RESULTS), time_budget_seconds=budget,
                 )
                 if fallback_web:
                     web_context = format_web_context(fallback_web, lang=payload.get("detected_lang", "fr"))
-                    payload["user_content"] = payload.get("user_content", "") + f"\n\n---\n\n<web_enrichment>\n{web_context}\n</web_enrichment>"
+                    # Replace existing empty manual context with web
+                    existing_content = payload.get("user_content", "")
+                    if "<web_enrichment>" not in existing_content:
+                        payload["user_content"] = existing_content + f"\n\n<web_enrichment>\n{web_context}\n</web_enrichment>"
                     payload["sources_structured"] = build_sources_structured([], web_results=fallback_web, slug=self.guide.slug)
-                    confidence_level = "medium"
-                    log.info("Fallback web search for %s: %d results", self.guide.slug, len(fallback_web))
+                    has_web_in_payload = True
+                    log.info("Web fallback for %s: %d results", self.guide.slug, len(fallback_web))
             except Exception as exc:
-                log.warning("Fallback web search failed: %s", exc)
-        elif has_web_in_payload and not p_has_ctx:
-            # Web was already fetched in _prepare_chat_payload — update confidence
-            confidence_level = "medium"
+                log.warning("Web fallback failed: %s", exc)
+
+        confidence_level = compute_confidence(
+            p_has_ctx, p_docs, p_mode, False,
+            avg_rrf_score=p_avg_rrf, has_web_context=has_web_in_payload,
+        )
 
         # --- Detect fix mode (procedural intent + manual context available) ---
         fix_mode_active = detect_fix_mode(question) and (p_has_ctx or payload.get("sources_structured"))
