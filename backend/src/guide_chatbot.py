@@ -1175,8 +1175,8 @@ REGLES STRICTES:
 2) Base-toi UNIQUEMENT sur le contexte fourni (manuel du vehicule et web).
 3) JAMAIS d'invention: si une information (valeur technique, procedure, specification) n'est PAS dans le contexte fourni, dis-le clairement.
 4) Ne JAMAIS inventer de valeurs chiffrees (couples de serrage, pressions, capacites, intervalles) qui ne sont pas explicitement dans le contexte.
-5) Le contexte web est un complement. En cas de conflit avec le manuel, le manuel prime TOUJOURS.
-6) Reponds de facon complete et detaillee. Pour les procedures en etapes, donne TOUTES les etapes. Ne tronque JAMAIS ta reponse.
+5) Le contexte web est un complement precieux. Utilise-le pour enrichir, clarifier et completer les informations du manuel (par ex: identifier les dimensions A/B/C, preciser des valeurs manquantes). En cas de conflit, le manuel prime TOUJOURS.
+6) Reponds de facon complete et detaillee. Croise les informations du manuel ET du web pour donner la reponse la plus precise et utile possible. Pour les procedures en etapes, donne TOUTES les etapes. Ne tronque JAMAIS ta reponse.
 7) Utilise un formatage clair et structure: listes numerotees pour les etapes, listes a puces pour les points cles, **gras** pour les termes importants. Pas de blocs de code (```).
 8) N'ajoute PAS de section "Sources" (elle sera ajoutee automatiquement).
 9) Orthographe, grammaire et ponctuation impeccables. Phrases claires et naturelles.
@@ -1361,38 +1361,39 @@ REGLES STRICTES:
             }
             return
 
-        # --- Step 2: if manual found nothing, do a real web search ---
+        # --- Step 2: ALWAYS enrich with web search to complement manual ---
         p_has_ctx = payload.get("has_relevant_context", False)
         p_docs = payload.get("docs") or []
         p_mode = payload.get("mode", MANUAL_ONLY)
         p_avg_rrf = payload.get("avg_rrf_score", 0.0)
         has_web_in_payload = "<web_enrichment>" in (payload.get("user_content") or "")
 
-        # --- Step 2a: DuckDuckGo fallback for quick web snippets ---
-        if not p_has_ctx and ENABLE_WEB_ENRICHMENT:
+        # Always do web search — even when the manual has context.
+        # Web enrichment adds real-world context (specs, common values, interpretations)
+        # that the manual alone may not provide clearly.
+        if ENABLE_WEB_ENRICHMENT and not has_web_in_payload:
             yield {"type": "status", "step": "web_search", "message_id": message_id}
             enrichment_query = f"{self.guide.name} {question}".strip()
             budget = max(1.5, ENRICHMENT_TIME_BUDGET_SECONDS)
             try:
-                fallback_web = web_search_results(
+                web_results_list = web_search_results(
                     enrichment_query, max_results=max(5, WEB_MAX_RESULTS), time_budget_seconds=budget,
                 )
-                if fallback_web:
-                    web_context = format_web_context(fallback_web, lang=payload.get("detected_lang", "fr"))
+                if web_results_list:
+                    web_context = format_web_context(web_results_list, lang=payload.get("detected_lang", "fr"))
                     existing_content = payload.get("user_content", "")
-                    if "<web_enrichment>" not in existing_content:
-                        payload["user_content"] = existing_content + f"\n\n<web_enrichment>\n{web_context}\n</web_enrichment>"
-                    payload["sources_structured"] = build_sources_structured([], web_results=fallback_web, slug=self.guide.slug)
+                    payload["user_content"] = existing_content + f"\n\n---\n\nContexte web complementaire:\n{web_context}"
+                    # Merge web sources with manual sources
+                    existing_sources = payload.get("sources_structured") or []
+                    web_sources = build_sources_structured([], web_results=web_results_list, slug=self.guide.slug)
+                    payload["sources_structured"] = existing_sources + web_sources
                     has_web_in_payload = True
-                    log.info("Web fallback for %s: %d results", self.guide.slug, len(fallback_web))
+                    log.info("Web enrichment for %s: %d results", self.guide.slug, len(web_results_list))
             except Exception as exc:
-                log.warning("Web fallback failed: %s", exc)
+                log.warning("Web enrichment failed: %s", exc)
 
-        # --- Step 2b: If still no context, use Gemini with Google Search grounding ---
+        # --- Step 2b: If no manual AND no web, use Gemini with Google Search grounding ---
         use_grounded_search = not p_has_ctx and not has_web_in_payload
-        if not use_grounded_search and not p_has_ctx and has_web_in_payload:
-            # We have web snippets but can enhance with grounded search for richer answers
-            use_grounded_search = False  # web snippets are enough, LLM will use them
 
         confidence_level = compute_confidence(
             p_has_ctx, p_docs, p_mode, False,
