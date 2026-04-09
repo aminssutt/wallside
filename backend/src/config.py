@@ -67,10 +67,6 @@ CHUNK_OVERLAP = 200
 TOP_K_RESULTS = int(os.getenv("TOP_K_RESULTS", "5"))
 LLM_TIMEOUT_SECONDS = int(os.getenv("LLM_TIMEOUT_SECONDS", "45"))
 
-# LLM output token limits — procedural answers need more room
-MAX_OUTPUT_TOKENS_FIX = 8192
-MAX_OUTPUT_TOKENS_DEFAULT = 4096
-
 
 def _as_bool(raw_value: str, default: bool = True) -> bool:
     if raw_value is None:
@@ -116,7 +112,6 @@ _DEFAULT_ORIGINS = [
 _raw_allowed_origins = os.getenv("ALLOWED_ORIGINS", ",".join(_DEFAULT_ORIGINS))
 if _raw_allowed_origins.strip() == "*":
     ALLOWED_ORIGINS = "*"
-    log.warning("CORS ALLOWED_ORIGINS='*' — insecure in production!")
 else:
     ALLOWED_ORIGINS = []
     for origin in _raw_allowed_origins.split(","):

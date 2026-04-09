@@ -35,8 +35,6 @@ from .config import (
     RELEVANCE_THRESHOLD,
     MAX_CONVERSATION_HISTORY,
     MAX_CACHED_GUIDES,
-    MAX_OUTPUT_TOKENS_FIX,
-    MAX_OUTPUT_TOKENS_DEFAULT,
 )
 from .vector_store import get_embeddings
 from .guide_manager import guide_manager, Guide
@@ -149,7 +147,6 @@ _ONLY_FILLER_RE = re.compile(
     r"^\s*(?:ok|okay|d'?accord|oui|non|yes|no|yep|nope|cool|nice|super|great|genial|bien|top|parfait|lol|mdr|haha)\s*[?!.]*\s*$",
     re.IGNORECASE,
 )
-# Closure / acknowledgment phrases — user wrapping up, not asking a question
 _CLOSURE_PHRASES = re.compile(
     r"(?:c'?est (?:bon|tout|ok|parfait|nickel|super|genial|note|compris)"
     r"|j'?ai (?:compris|fini|termine|note|tout ce qu)"
@@ -163,13 +160,11 @@ _CLOSURE_PHRASES = re.compile(
     r"|au revoir|a bientot|a plus|bye|see you|a la prochaine)",
     re.IGNORECASE,
 )
-# Question-intent signals — the user is actually asking something
 _QUESTION_INTENT_RE = re.compile(
     r"(?:\?"
     r"|^(?:comment|pourquoi|ou est|ou se|quel(?:le)?s?|est[ -]ce que|combien|quand|que faire)"
     r"|^(?:how|what|why|where|when|which|can (?:you|i)|do (?:you|i)|is (?:there|it|the))"
-    r"|(?:explain|dis[ -]moi|peux[ -]tu|peut[ -]on|j'?aimerais savoir)"
-    r"|(?:어떻게|무엇|왜|어디|언제))",
+    r"|(?:explain|dis[ -]moi|peux[ -]tu|peut[ -]on|j'?aimerais savoir))",
     re.IGNORECASE,
 )
 
@@ -181,29 +176,18 @@ def _is_conversational(question: str) -> bool:
         return False
     if _ONLY_FILLER_RE.match(text):
         return True
-
     has_greeting = bool(_GREETING_WORDS.search(text))
     has_smalltalk = bool(_SMALLTALK_PHRASES.search(text))
     has_closure = bool(_CLOSURE_PHRASES.search(text))
     has_vehicle_kw = any(kw in text.lower() for kw in VEHICLE_KEYWORDS)
     has_question = bool(_QUESTION_INTENT_RE.search(text))
-
-    # Closure/acknowledgment wins even if vehicle keywords are present,
-    # as long as the user is NOT asking a question.
+    # Closure/acknowledgment wins even if vehicle keywords present
     if has_closure and not has_question:
         return True
-
-    # Smalltalk + no question intent overrides vehicle keywords
-    if has_smalltalk and not has_question and not has_vehicle_kw:
+    if has_smalltalk and not has_question:
         return True
-    if has_smalltalk and not has_question and has_vehicle_kw:
-        # e.g. "ok merci pour l'entretien c'est bon" — smalltalk with vehicle kw but no question
-        return True
-
     if has_vehicle_kw and not has_closure and not has_smalltalk:
         return False
-    if has_smalltalk:
-        return True
     if has_greeting and len(text.split()) <= 6:
         return True
     return False
@@ -215,9 +199,8 @@ def _is_conversational(question: str) -> bool:
 _INJECTION_PATTERNS = re.compile(
     r"(?i)"
     r"(?:ignore|oublie|forget|disregard|override|bypass)\s+"
-    r"(?:all\s+|tout(?:es?)?\s+|les\s+|tes\s+|the\s+|your\s+|my\s+)*"
-    r"(?:previous\s+|precedent(?:e)?s?\s+|above\s+|ci-dessus\s+)?"
-    r"(?:instructions?|regles?|rules?|prompts?|consignes?|system|contexte|context)"
+    r"(?:all|tout|les|tes|the|your|previous|precedent|above|ci-dessus)?\s*"
+    r"(?:instructions?|regles?|rules?|prompt|consignes?|system|contexte|context)"
     r"|(?:system\s*prompt|system\s*message|instruction\s*systeme)"
     r"|(?:tu\s+es\s+maintenant|you\s+are\s+now|act\s+as|agis\s+comme)"
     r"|(?:repete|repeat|affiche|print|show|display|output|donne)\s+"
@@ -282,29 +265,22 @@ def compute_confidence(
     docs: List[Document],
     mode: str,
     is_conversational: bool,
-    avg_rrf_score: float = 0.0,
-    has_web_context: bool = False,
 ) -> str:
     """Return a confidence badge: 'high', 'medium', or 'low'.
 
     Rules:
-    - high:   has_relevant_context AND len(docs) >= 2 AND avg_rrf_score >= 0.025
-    - medium: has_relevant_context AND len(docs) >= 1, OR web context available
-    - low:    no relevant context (manual or web) OR is_conversational
+    - high:   has_relevant_context AND len(docs) >= 2
+    - medium: (has_relevant_context AND len(docs) == 1) OR mode is WEB_BLOCKING/WEB_ASYNC
+    - low:    no relevant context OR is_conversational
     """
     if is_conversational:
         return "low"
-    if has_relevant_context and len(docs) >= 2 and avg_rrf_score >= 0.025:
-        return "high"
-    if has_relevant_context and len(docs) >= 2:
-        return "medium"
-    if has_relevant_context and len(docs) >= 1:
-        return "medium"
-    # Web-only context (manual found nothing but web had results)
-    if has_web_context:
-        return "medium"
     if not has_relevant_context:
         return "low"
+    if has_relevant_context and len(docs) >= 2:
+        return "high"
+    if has_relevant_context and len(docs) == 1:
+        return "medium"
     if mode in (WEB_BLOCKING, WEB_ASYNC):
         return "medium"
     return "low"
@@ -313,10 +289,10 @@ def compute_confidence(
 def detect_fix_mode(question: str) -> bool:
     """Return True if the question expresses procedural intent.
 
-    Uses ``_FIX_MODE_PATTERNS`` — a narrow set of action verbs that indicate
-    the user wants a step-by-step procedure (not general info questions).
+    Uses ``_YOUTUBE_ELIGIBLE_PATTERNS`` which already captures
+    procedural keywords (comment, remplacer, installer, demonter, etc.).
     """
-    return bool(_FIX_MODE_PATTERNS.search(question or ""))
+    return bool(_YOUTUBE_ELIGIBLE_PATTERNS.search(question or ""))
 
 
 FIX_MODE_PROMPT = {
@@ -432,18 +408,6 @@ _YOUTUBE_ELIGIBLE_PATTERNS = re.compile(
     r"pression|pressure|niveau|level|capacite|capacity|"
     r"entretien|maintenance|diagnostic|reset|reinitialiser|"
     r"connecter|connect|bluetooth|demarrer|start|ouvrir|open)\b"
-)
-
-_FIX_MODE_PATTERNS = re.compile(
-    r"(?i)\b(?:"
-    r"comment (?:faire|remplacer|changer|installer|reparer|demonter|monter|regler|ajuster|vidanger|purger|nettoyer|configurer|reinitialiser|brancher|debrancher|desactiver|activer)"
-    r"|how (?:to|do i|can i) (?:replace|change|install|repair|remove|mount|adjust|drain|flush|clean|configure|reset|connect|disconnect|enable|disable)"
-    r"|(?:remplacer|changer|installer|reparer|demonter|vidanger|purger|nettoyer|reinitialiser) "
-    r"|(?:replace|change|install|repair|remove|drain|flush|clean|reset) "
-    r"|tutoriel|tutorial|etape par etape|step by step|procedure de|diy"
-    r"|어떻게 (?:교체|설치|수리|청소|재설정)"
-    r")\b",
-    re.IGNORECASE,
 )
 
 YOUTUBE_MIN_RELEVANCE_SCORE = 4
@@ -941,7 +905,7 @@ class GuideChatbot:
             if len(history) > MAX_CONVERSATION_HISTORY:
                 self._session_histories[session_id] = history[-MAX_CONVERSATION_HISTORY:]
 
-    def _hybrid_search(self, question: str, k: int = TOP_K_RESULTS) -> Tuple[List[Document], float]:
+    def _hybrid_search(self, question: str, k: int = TOP_K_RESULTS) -> List[Document]:
         """Combine FAISS + BM25 with Reciprocal Rank Fusion (RRF)."""
         RRF_K = 60  # standard RRF constant
 
@@ -991,17 +955,13 @@ class GuideChatbot:
             doc_map[key] = doc
 
         # Sort by RRF score descending
-        sorted_pairs = sorted(rrf_scores.items(), key=lambda x: x[1], reverse=True)
+        sorted_keys = sorted(rrf_scores, key=rrf_scores.get, reverse=True)
 
-        # Store avg RRF score for top-K results (used for confidence scoring)
-        top_k_pairs = sorted_pairs[:k]
-        avg_rrf = sum(s for _, s in top_k_pairs) / max(len(top_k_pairs), 1)
+        # Apply relevance threshold (RRF score for rank 0 in one list = ~0.016)
+        min_rrf = RELEVANCE_THRESHOLD * 0.1  # ~0.015 threshold
+        filtered = [doc_map[k] for k in sorted_keys if rrf_scores[k] >= min_rrf]
 
-        # Apply relevance threshold (original proven value: ~0.015)
-        min_rrf = RELEVANCE_THRESHOLD * 0.1
-        filtered = [doc_map[key] for key, score in sorted_pairs if score >= min_rrf]
-
-        return filtered[:k], avg_rrf
+        return filtered[:k]
 
     def _prepare_chat_payload(
         self,
@@ -1029,7 +989,7 @@ class GuideChatbot:
                 "is_conversational": True,
             }
 
-        # Conversational / greeting / closure — answer directly, no RAG or sources
+        # Conversational / greeting / closure — answer directly, no RAG
         if _is_conversational(question):
             is_closure = bool(_CLOSURE_PHRASES.search(question))
             is_thanks = bool(re.search(r"(?:merci|thanks?|thx|thank you)", question, re.IGNORECASE))
@@ -1054,11 +1014,8 @@ class GuideChatbot:
             }
 
         is_vehicle, confidence = is_vehicle_related(question)
-        has_history = bool(self._get_session_history(session_id))
 
-        # Off-topic filter — BUT skip it if there's conversation history
-        # (follow-up questions like "comment elle fonctionne ?" are valid in context)
-        if not is_vehicle and confidence < 0.5 and not has_history:
+        if not is_vehicle and confidence < 0.5:
             return {
                 "early_answer": LANG_OFF_TOPIC.get(
                     lang, LANG_OFF_TOPIC["fr"]
@@ -1066,40 +1023,22 @@ class GuideChatbot:
                 "is_conversational": False,
             }
 
-        # --- Contextualize vague follow-up questions using conversation history ---
-        search_query = question
-        history = self._get_session_history(session_id)
-        if history and len(question.split()) <= 15:
-            # Short question — likely a follow-up. Enrich with recent topic.
-            recent_user_msgs = [m["content"] for m in history if m["role"] == "user"]
-            if recent_user_msgs:
-                last_topic = recent_user_msgs[-1][:200]
-                # Only enrich if the current question looks vague (pronouns, short, no vehicle keywords)
-                has_vehicle_kw = any(kw in question.lower() for kw in VEHICLE_KEYWORDS)
-                is_vague = not has_vehicle_kw and len(question.split()) <= 12
-                if is_vague:
-                    search_query = f"{last_topic} {question}"
-                    log.info("Contextualized search query: %s", search_query[:120])
-
         # --- Hybrid retrieval with relevance threshold ---
         docs: List[Document] = []
         context = ""
         has_relevant_context = False
-        avg_rrf_score = 0.0
         if self.vector_stores or self.bm25_indices:
-            docs, avg_rrf_score = self._hybrid_search(search_query, k=TOP_K_RESULTS)
+            docs = self._hybrid_search(question, k=TOP_K_RESULTS)
             if docs:
                 has_relevant_context = True
                 context = format_context(docs)
 
-        # --- Web enrichment (only for explicit WEB_BLOCKING mode) ---
-        # Fallback web search when manual has no context is handled in chat_stream
-        # where status events ("Recherche sur le web...") can be emitted to the user.
+        # --- Web enrichment (only for clearly vehicle-related questions) ---
         web_results: List[Dict[str, str]] = []
         video: Dict[str, str] = {}
         web_context = ""
 
-        if ENABLE_WEB_ENRICHMENT and mode == WEB_BLOCKING:
+        if ENABLE_WEB_ENRICHMENT and confidence >= 0.5 and mode == WEB_BLOCKING:
             enrichment_query = f"{self.guide.name} {question}".strip()
             budget = max(0.5, ENRICHMENT_TIME_BUDGET_SECONDS)
 
@@ -1113,8 +1052,10 @@ class GuideChatbot:
             web_future = _enrichment_executor.submit(_fetch_web)
 
             video_future = None
-            if _YOUTUBE_ELIGIBLE_PATTERNS.search(question):
+            if mode == WEB_BLOCKING:
                 def _fetch_video():
+                    if not _YOUTUBE_ELIGIBLE_PATTERNS.search(question):
+                        return {}
                     return youtube_video_suggestion(
                         f"{self.guide.name} {question}",
                         time_budget_seconds=budget,
@@ -1133,10 +1074,9 @@ class GuideChatbot:
 
             web_context = format_web_context(web_results, lang=lang)
 
-        # Build sources — include web sources even when manual context is empty
-        has_any_context = has_relevant_context or bool(web_context)
-        sources_block = format_sources(docs, web_results=web_results) if has_any_context else ""
-        sources_structured = build_sources_structured(docs, web_results=web_results, slug=self.guide.slug) if has_any_context else []
+        # Only include sources when we found relevant context
+        sources_block = format_sources(docs, web_results=web_results) if has_relevant_context else ""
+        sources_structured = build_sources_structured(docs, web_results=web_results, slug=self.guide.slug) if has_relevant_context else []
 
         # Attach guide-level pdf_url to manual sources for external PDF viewing
         guide_pdf_url = getattr(self.guide, 'pdf_url', '') or ''
@@ -1148,10 +1088,6 @@ class GuideChatbot:
         video_block = format_video_block(video, lang=lang)
         lang_instruction = LANG_INSTRUCTIONS.get(lang, LANG_INSTRUCTIONS["fr"])
 
-        # Note: no early "je ne sais pas" return here.
-        # When manual has no context, chat_stream handles web fallback
-        # with visible status events. The LLM call proceeds regardless.
-
         # --- Build conversation context from session history ---
         history = self._get_session_history(session_id)
         history_block = ""
@@ -1160,37 +1096,37 @@ class GuideChatbot:
             parts = []
             for msg in recent:
                 role = "Utilisateur" if msg["role"] == "user" else "Assistant"
-                content = msg['content']
-                truncated = content[:800] + " [...]" if len(content) > 800 else content
-                parts.append(f"{role}: {truncated}")
+                parts.append(f"{role}: {msg['content'][:800]}")
             history_block = "\n".join(parts)
 
         # --- System instruction (separated from user content for Gemini) ---
-        # Restored to the proven original 12-rule format that produces detailed answers
         fix_mode_block = FIX_MODE_PROMPT.get(lang, FIX_MODE_PROMPT["fr"]) if fix_mode else ""
-        system_instruction = f"""{fix_mode_block}Tu es un assistant technique automobile de niveau expert, specialise pour le vehicule {self.guide.name}. Tu dois etre MEILLEUR qu'un garage automobile: reponses completes, precises, professionnelles.
+        system_instruction = f"""{fix_mode_block}Tu es un assistant technique expert et precis, specialise pour le vehicule {self.guide.name}.
 
-REGLES:
+REGLES STRICTES:
 1) {lang_instruction}
-2) Tu disposes de deux sources: le manuel officiel du vehicule ET des informations web complementaires. Utilise LES DEUX pour construire la reponse la plus complete et utile possible. Le manuel fait autorite pour les valeurs officielles; le web enrichit avec le contexte reel (explications, interpretations, conseils pratiques).
-3) Pour les valeurs techniques chiffrees (couples de serrage, pressions, capacites), privilegies celles du manuel. Si le manuel donne des codes ou valeurs sans explication (ex: dimensions A/B/C), utilise le web pour les interpreter et les presenter clairement.
-4) Reponds de facon complete et precise. Va a l'essentiel tout en couvrant le sujet correctement. Evite les repetitions et les formulations inutilement longues. Pour les procedures, donne TOUTES les etapes. Ne tronque JAMAIS une procedure en cours.
-5) Utilise un formatage clair et structure: listes numerotees pour les etapes, listes a puces pour les points cles, **gras** pour les termes importants, titres de section si la reponse est longue. Pas de blocs de code (```).
-6) Personnalise chaque reponse pour le {self.guide.name}: mentionne le nom du vehicule, ses specificites, ses particularites.
-7) Sois direct et utile. Pas de disclaimers generiques ("consultez un professionnel") sauf danger reel et immediat.
-8) N'ajoute PAS de section "Sources" (ajoutee automatiquement). Ne mentionne AUCUN lien, URL, ou video (ajoutes automatiquement).
-9) Si un historique de conversation est fourni, tiens-en compte. Si la question est vague ou fait reference a un sujet precedent ("elle", "ca", "le meme"), utilise l'historique pour comprendre le sujet."""
+2) Base-toi UNIQUEMENT sur le contexte fourni (manuel du vehicule et web).
+3) JAMAIS d'invention: si une information (valeur technique, procedure, specification) n'est PAS dans le contexte fourni, dis-le clairement. Exemple: "Cette information n'est pas disponible dans le manuel fourni."
+4) Ne JAMAIS inventer de valeurs chiffrees (couples de serrage, pressions, capacites, intervalles) qui ne sont pas explicitement dans le contexte.
+5) Le contexte web est un complement. En cas de conflit avec le manuel, le manuel prime TOUJOURS.
+6) Reponds de facon complete et detaillee. Pour les procedures en etapes, donne TOUTES les etapes. Ne tronque JAMAIS ta reponse.
+7) Utilise un formatage clair et structure: listes numerotees pour les etapes, listes a puces pour les points cles, **gras** pour les termes importants. Pas de blocs de code (```).
+8) N'ajoute PAS de section "Sources" (elle sera ajoutee automatiquement).
+9) Orthographe, grammaire et ponctuation impeccables. Phrases claires et naturelles.
+10) Personnalise chaque reponse pour le {self.guide.name}: mentionne le nom du vehicule quand c'est pertinent.
+11) Ta reponse doit etre une explication textuelle complete et autonome. Ne mentionne AUCUN lien, URL, ou video dans ta reponse -- ils seront ajoutes automatiquement apres.
+12) Pas de disclaimers generiques du type "consultez un professionnel", "faites appel a un mecanicien", "verifiez aupres du constructeur" sauf si le danger est reel et immediat. Sois direct et utile."""
 
-        # --- User content (original proven format) ---
+        # --- User content ---
         user_parts = []
         if history_block:
             user_parts.append(f"Historique recent de la conversation:\n{history_block}")
         if context:
             user_parts.append(f"Contexte du manuel du vehicule:\n{context}")
+        else:
+            user_parts.append("Aucun passage pertinent trouve dans le manuel du vehicule pour cette question.")
         if web_context:
-            user_parts.append(f"Contexte web complementaire:\n{web_context}")
-        if not context and not web_context:
-            user_parts.append("Note: aucun passage specifique n'a ete trouve dans le manuel. Reponds au mieux avec tes connaissances sur ce vehicule.")
+            user_parts.append(f"<web_enrichment>\n{web_context}\n</web_enrichment>")
         user_parts.append(f"Question de l'utilisateur: {question}")
 
         user_content = "\n\n---\n\n".join(user_parts)
@@ -1208,8 +1144,6 @@ REGLES:
             "mode": mode,
             "is_conversational": False,
             "detected_lang": lang,
-            "avg_rrf_score": avg_rrf_score,
-            "fix_mode": fix_mode,
         }
 
     def _finalize_answer(
@@ -1259,47 +1193,27 @@ REGLES:
         mode = classify_query(question)
         if mode == MANUAL_ONLY:
             mode = WEB_BLOCKING  # fallback path always gets full enrichment
-        fix_mode = detect_fix_mode(question)
         payload = self._prepare_chat_payload(
             question=question,
             lang=lang,
             session_id=session_id,
             mode=mode,
-            fix_mode=fix_mode,
         )
         early_answer = payload.get("early_answer")
         if isinstance(early_answer, str):
             return early_answer
 
-        max_tokens = MAX_OUTPUT_TOKENS_FIX if payload.get("fix_mode") else MAX_OUTPUT_TOKENS_DEFAULT
-
         try:
-            max_retries = 2
-            last_exc = None
-            for attempt in range(max_retries + 1):
-                try:
-                    response = self.client.models.generate_content(
-                        model=self.model_name,
-                        contents=str(payload.get("user_content", "")),
-                        config=genai_types.GenerateContentConfig(
-                            system_instruction=str(payload.get("system_instruction", "")),
-                            temperature=0.15,
-                            max_output_tokens=max_tokens,
-                            http_options=genai_types.HttpOptions(timeout=LLM_TIMEOUT_SECONDS * 1000),
-                        ),
-                    )
-                    break  # success
-                except Exception as exc:
-                    last_exc = exc
-                    exc_str = str(exc).lower()
-                    is_transient = any(kw in exc_str for kw in ("429", "503", "rate", "unavailable", "timeout", "deadline"))
-                    if is_transient and attempt < max_retries:
-                        import time as _time
-                        wait = (attempt + 1) * 2  # 2s, 4s
-                        log.warning("Gemini transient error (attempt %d/%d), retrying in %ds: %s", attempt + 1, max_retries + 1, wait, exc)
-                        _time.sleep(wait)
-                        continue
-                    raise
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=str(payload.get("user_content", "")),
+                config=genai_types.GenerateContentConfig(
+                    system_instruction=str(payload.get("system_instruction", "")),
+                    temperature=0.15,
+                    max_output_tokens=4096,
+                    http_options=genai_types.HttpOptions(timeout=LLM_TIMEOUT_SECONDS * 1000),
+                ),
+            )
 
             raw_answer = (getattr(response, "text", "") or "").strip()
             answer, final_answer = self._finalize_answer(
@@ -1332,15 +1246,14 @@ REGLES:
         message_id = str(uuid.uuid4())
         mode = classify_query(question)
 
-        # --- Step 1: emit status BEFORE manual search ---
-        yield {"type": "status", "step": "manual_search", "message_id": message_id}
-
         # Mode A (default) or C: no web in prompt → fastest TTFT
         # Mode B: web blocking in prompt (for recall/pricing/regulatory Qs)
         payload_mode = mode if mode == WEB_BLOCKING else MANUAL_ONLY
         payload = self._prepare_chat_payload(
             question=question, lang=lang, session_id=session_id, mode=payload_mode,
         )
+
+        yield {"type": "status", "step": "manual_search", "message_id": message_id}
 
         early_answer = payload.get("early_answer")
         if isinstance(early_answer, str):
@@ -1354,102 +1267,66 @@ REGLES:
             }
             return
 
-        # --- Step 2: Launch web search in BACKGROUND, don't block LLM ---
+        # --- Compute confidence badge ---
         p_has_ctx = payload.get("has_relevant_context", False)
         p_docs = payload.get("docs") or []
         p_mode = payload.get("mode", MANUAL_ONLY)
-        p_avg_rrf = payload.get("avg_rrf_score", 0.0)
-        _uc = payload.get("user_content") or ""
-        has_web_in_payload = "web complementaire" in _uc or "web_enrichment" in _uc
+        confidence_level = compute_confidence(p_has_ctx, p_docs, p_mode, False)
 
-        # Launch web search in background — DON'T block before LLM
-        web_future = None
-        if ENABLE_WEB_ENRICHMENT and not has_web_in_payload:
-            enrichment_query = f"{self.guide.name} {question}".strip()
-            web_future = _enrichment_executor.submit(
-                web_search_results, enrichment_query, max(5, WEB_MAX_RESULTS),
-                max(1.5, ENRICHMENT_TIME_BUDGET_SECONDS),
-            )
+        # --- Fallback: if RAG found nothing, do a quick web search to enrich prompt ---
+        if not p_has_ctx and ENABLE_WEB_ENRICHMENT:
             yield {"type": "status", "step": "web_search", "message_id": message_id}
+            enrichment_query = f"{self.guide.name} {question}".strip()
+            budget = max(0.5, ENRICHMENT_TIME_BUDGET_SECONDS)
+            try:
+                # Search general web + Oscaro tutorials as priority source
+                fallback_web = web_search_results(
+                    enrichment_query, max_results=WEB_MAX_RESULTS, time_budget_seconds=budget,
+                )
+                oscaro_results = web_search_results(
+                    f"site:oscaro.com {self.guide.name} {question}",
+                    max_results=2, time_budget_seconds=budget,
+                )
+                fallback_web = oscaro_results + fallback_web
+                if fallback_web:
+                    web_context = format_web_context(fallback_web, lang=payload.get("detected_lang", "fr"))
+                    payload["user_content"] = payload.get("user_content", "") + f"\n\n---\n\n<web_enrichment>\n{web_context}\n</web_enrichment>"
+                    payload["sources_structured"] = build_sources_structured([], web_results=fallback_web, slug=self.guide.slug)
+                    confidence_level = "medium"
+                    log.info("Fallback web search for %s: %d results", self.guide.slug, len(fallback_web))
+            except Exception as exc:
+                log.warning("Fallback web search failed: %s", exc)
 
-        # Google Search grounding only when we have absolutely nothing
-        use_grounded_search = not p_has_ctx and not has_web_in_payload and web_future is None
-
-        # --- Detect fix mode ---
-        fix_mode_active = detect_fix_mode(question) and p_has_ctx
+        # --- Detect fix mode (procedural intent + manual context available) ---
+        fix_mode_active = detect_fix_mode(question) and (p_has_ctx or payload.get("sources_structured"))
         if fix_mode_active:
             detected_lang = payload.get("detected_lang", "fr")
             fix_preamble = FIX_MODE_PROMPT.get(detected_lang, FIX_MODE_PROMPT["fr"])
             payload["system_instruction"] = fix_preamble + payload.get("system_instruction", "")
 
-        confidence_level = compute_confidence(
-            p_has_ctx, p_docs, p_mode, False,
-            avg_rrf_score=p_avg_rrf, has_web_context=has_web_in_payload or (web_future is not None),
-        )
-
-        # If web finished fast (< 1s), inject before LLM call
-        if web_future is not None:
-            try:
-                web_results_list = web_future.result(timeout=1.0)
-                if web_results_list:
-                    web_ctx = format_web_context(web_results_list, lang=payload.get("detected_lang", "fr"))
-                    payload["user_content"] = payload.get("user_content", "") + f"\n\n---\n\nContexte web complementaire:\n{web_ctx}"
-                    existing_sources = payload.get("sources_structured") or []
-                    payload["sources_structured"] = existing_sources + build_sources_structured([], web_results=web_results_list, slug=self.guide.slug)
-                    has_web_in_payload = True
-                    web_future = None  # consumed
-                    log.info("Web ready before LLM: %d results", len(web_results_list))
-            except Exception:
-                pass  # still running, will collect after LLM
+        # Mode C: launch web search in background while LLM streams
+        web_future = None
+        if mode == WEB_ASYNC and ENABLE_WEB_ENRICHMENT:
+            enrichment_query = f"{self.guide.name} {question}".strip()
+            budget = max(0.5, ENRICHMENT_TIME_BUDGET_SECONDS)
+            web_future = _enrichment_executor.submit(
+                web_search_results, enrichment_query, WEB_MAX_RESULTS, budget,
+            )
 
         yield {"type": "status", "step": "generating", "message_id": message_id}
 
-        max_tokens = MAX_OUTPUT_TOKENS_FIX if fix_mode_active else MAX_OUTPUT_TOKENS_DEFAULT
-
-        # --- Build LLM config ---
-        llm_tools = None
-        if use_grounded_search:
-            try:
-                llm_tools = [genai_types.Tool(google_search=genai_types.GoogleSearch())]
-            except Exception:
-                llm_tools = None
-
-        llm_config = genai_types.GenerateContentConfig(
-            system_instruction=str(payload.get("system_instruction", "")),
-            temperature=0.15,
-            max_output_tokens=max_tokens,
-            http_options=genai_types.HttpOptions(timeout=LLM_TIMEOUT_SECONDS * 1000),
-        )
-        if llm_tools:
-            llm_config.tools = llm_tools
-
-        max_retries = 2
-        stream = None
-        for attempt in range(max_retries + 1):
-            try:
-                stream = self.client.models.generate_content_stream(
-                    model=self.model_name,
-                    contents=str(payload.get("user_content", "")),
-                    config=llm_config,
-                )
-                break
-            except Exception as exc:
-                exc_str = str(exc).lower()
-                is_transient = any(kw in exc_str for kw in ("429", "503", "rate", "unavailable", "timeout", "deadline"))
-                if is_transient and attempt < max_retries:
-                    import time as _time
-                    wait = (attempt + 1) * 2
-                    log.warning("Gemini retry %d/%d in %ds: %s", attempt + 1, max_retries + 1, wait, exc)
-                    _time.sleep(wait)
-                    continue
-                raise  # non-transient or final attempt
-
-        if stream is None:
-            yield {"type": "chunk", "text": "Service temporairement indisponible. Veuillez reessayer.", "message_id": message_id}
-            yield {"type": "end", "response": "Service temporairement indisponible.", "message_id": message_id, "confidence": "low", "fix_mode": False}
-            return
-
         try:
+            stream = self.client.models.generate_content_stream(
+                model=self.model_name,
+                contents=str(payload.get("user_content", "")),
+                config=genai_types.GenerateContentConfig(
+                    system_instruction=str(payload.get("system_instruction", "")),
+                    temperature=0.15,
+                    max_output_tokens=4096,
+                    http_options=genai_types.HttpOptions(timeout=LLM_TIMEOUT_SECONDS * 1000),
+                ),
+            )
+
             raw_chunks: List[str] = []
             for chunk in stream:
                 chunk_text = self._extract_stream_chunk_text(chunk)
@@ -1487,25 +1364,6 @@ REGLES:
 
         # --- Stream sources one by one ---
         sources = list(payload.get("sources_structured") or [])
-
-        # Extract grounding sources from Gemini Google Search (if used)
-        if use_grounded_search and raw_chunks:
-            try:
-                # The last chunk may contain grounding metadata in the response
-                # Try to get grounding sources from the stream's accumulated response
-                for chunk in (stream if hasattr(stream, '__iter__') else []):
-                    pass  # stream already consumed above
-            except Exception:
-                pass
-            # If we used grounded search but have no explicit sources, note it
-            if not sources:
-                sources.append({
-                    "kind": "web",
-                    "label": "Google Search",
-                    "domain": "google.com",
-                    "url": f"https://www.google.com/search?q={self.guide.name}+{question[:50].replace(' ', '+')}",
-                    "display": "Web: Recherche Google",
-                })
 
         # Collect async web sources (mode C) — already running in background
         if web_future is not None:
