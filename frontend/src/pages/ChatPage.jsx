@@ -1270,7 +1270,7 @@ function ChatPage() {
       }
     } catch (error) {
       if (error?.name === 'AbortError') {
-        await streamBotMessage(t.chat.serverUnavailable)
+        // User clicked stop or timeout — don't show error message
         return
       }
       await streamBotMessage(t.chat.serverUnavailable)
@@ -1291,6 +1291,25 @@ function ChatPage() {
       abortControllerRef.current.abort()
       abortControllerRef.current = null
     }
+    // Flush any remaining buffer so partial text shows
+    if (drainTimerRef.current) {
+      window.clearInterval(drainTimerRef.current)
+      drainTimerRef.current = null
+    }
+    const remaining = chunkBufferRef.current
+    if (remaining) {
+      chunkBufferRef.current = ''
+      setMessages((prev) => {
+        if (!prev.length) return prev
+        const updated = [...prev]
+        const last = updated[updated.length - 1]
+        if (last?.type === 'bot') {
+          updated[updated.length - 1] = { ...last, content: (last.content || '') + remaining }
+        }
+        return updated
+      })
+    }
+    streamDoneRef.current = false
     setIsStreaming(false)
     setIsLoading(false)
   }

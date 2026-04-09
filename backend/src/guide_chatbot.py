@@ -1424,7 +1424,6 @@ REGLES:
             llm_config.tools = llm_tools
 
         max_retries = 2
-        last_exc = None
         stream = None
         for attempt in range(max_retries + 1):
             try:
@@ -1435,19 +1434,22 @@ REGLES:
                 )
                 break
             except Exception as exc:
-                last_exc = exc
                 exc_str = str(exc).lower()
                 is_transient = any(kw in exc_str for kw in ("429", "503", "rate", "unavailable", "timeout", "deadline"))
                 if is_transient and attempt < max_retries:
                     import time as _time
                     wait = (attempt + 1) * 2
-                    log.warning("Gemini transient error (attempt %d/%d), retrying in %ds: %s", attempt + 1, max_retries + 1, wait, exc)
+                    log.warning("Gemini retry %d/%d in %ds: %s", attempt + 1, max_retries + 1, wait, exc)
                     _time.sleep(wait)
                     continue
-                raise
+                raise  # non-transient or final attempt
+
+        if stream is None:
+            yield {"type": "chunk", "text": "Service temporairement indisponible. Veuillez reessayer.", "message_id": message_id}
+            yield {"type": "end", "response": "Service temporairement indisponible.", "message_id": message_id, "confidence": "low", "fix_mode": False}
+            return
 
         try:
-
             raw_chunks: List[str] = []
             for chunk in stream:
                 chunk_text = self._extract_stream_chunk_text(chunk)
