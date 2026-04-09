@@ -53,9 +53,9 @@ class ErrorBoundary extends Component {
     if (this.state.hasError) {
       const lang = (typeof window !== 'undefined' && window.localStorage.getItem('cc_lang')) || 'fr'
       const messages = {
-        fr: { title: 'Une erreur est survenue', reload: 'Recharger' },
-        en: { title: 'Something went wrong', reload: 'Reload' },
-        ko: { title: '\uC624\uB958\uAC00 \uBC1C\uC0DD\uD588\uC2B5\uB2C8\uB2E4', reload: '\uC0C8\uB85C\uACE0\uCE68' },
+        fr: { title: 'Une erreur est survenue', desc: 'Veuillez recharger la page pour continuer.', reload: 'Recharger' },
+        en: { title: 'Something went wrong', desc: 'Please reload the page to continue.', reload: 'Reload' },
+        ko: { title: '\uC624\uB958\uAC00 \uBC1C\uC0DD\uD588\uC2B5\uB2C8\uB2E4', desc: '\uD398\uC774\uC9C0\uB97C \uC0C8\uB85C\uACE0\uCE68\uD574\uC8FC\uC138\uC694.', reload: '\uC0C8\uB85C\uACE0\uCE68' },
       }
       const t = messages[lang] || messages.fr
 
@@ -76,7 +76,7 @@ class ErrorBoundary extends Component {
         >
           <h1 style={{ fontSize: 24, marginBottom: 12 }}>{t.title}</h1>
           <p style={{ color: 'rgba(255,255,255,0.6)', marginBottom: 24 }}>
-            {t.title}
+            {t.desc}
           </p>
           <button
             type="button"

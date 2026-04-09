@@ -694,6 +694,9 @@ function GuidesPage() {
                                   className="brand-card-logo"
                                   src={brandLogoSrc(slug)}
                                   alt={brand}
+                                  loading="lazy"
+                                  width="80"
+                                  height="80"
                                   onError={(e) => {
                                     e.currentTarget.style.display = 'none'
                                     if (e.currentTarget.nextElementSibling) {
@@ -834,6 +837,9 @@ function GuidesPage() {
                                   className="vehicle-card__logo"
                                   src={brandLogoSrc(slug)}
                                   alt={selectedBrand}
+                                  loading="lazy"
+                                  width="40"
+                                  height="40"
                                   onError={(e) => { e.currentTarget.style.display = 'none' }}
                                 />
                               </div>
