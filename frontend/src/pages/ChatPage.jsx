@@ -427,29 +427,49 @@ function SourcesList({ sources, lang }) {
               )}
               <button type="button" className="proof-close" onClick={() => setProofIndex(null)}>&times;</button>
             </div>
-            {pdfError ? (
-              <div className="proof-unavailable">
-                <p>{i.unavailable}</p>
-                {proofSrc.excerpt && <p className="proof-excerpt">{proofSrc.excerpt}</p>}
-              </div>
-            ) : (
-              <iframe
-                className="proof-iframe"
-                src={proofSrc.pdf_url
-                  ? `${proofSrc.pdf_url}#page=${String(proofSrc.page).split('-')[0]}`
-                  : `${API_URL}/guides/${proofSrc.slug}/pdf#page=${String(proofSrc.page).split('-')[0]}`}
-                title={`${proofSrc.label} - page ${proofSrc.page}`}
-                onError={() => setPdfError(true)}
-                onLoad={(e) => {
-                  try {
-                    const doc = e.target.contentDocument
-                    if (doc && doc.body && doc.body.textContent.includes('PDF not found')) {
-                      setPdfError(true)
-                    }
-                  } catch { /* cross-origin, PDF loaded fine */ }
-                }}
-              />
-            )}
+            {(() => {
+              const pdfSrc = proofSrc.pdf_url
+                ? `${proofSrc.pdf_url}#page=${String(proofSrc.page).split('-')[0]}`
+                : `${API_URL}/guides/${proofSrc.slug}/pdf#page=${String(proofSrc.page).split('-')[0]}`
+              const isMobileOrIOS = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+
+              if (pdfError) {
+                return (
+                  <div className="proof-unavailable">
+                    <p>{i.unavailable}</p>
+                    {proofSrc.excerpt && <p className="proof-excerpt">{proofSrc.excerpt}</p>}
+                  </div>
+                )
+              }
+
+              if (isMobileOrIOS) {
+                return (
+                  <div className="proof-mobile-fallback">
+                    <p>{i.externalPdf || 'Ce PDF est hébergé sur un site externe.'}</p>
+                    <a href={pdfSrc} target="_blank" rel="noopener noreferrer" className="proof-mobile-link">
+                      {i.openPdf || 'Ouvrir le PDF'}
+                    </a>
+                  </div>
+                )
+              }
+
+              return (
+                <iframe
+                  className="proof-iframe"
+                  src={pdfSrc}
+                  title={`${proofSrc.label} - page ${proofSrc.page}`}
+                  onError={() => setPdfError(true)}
+                  onLoad={(e) => {
+                    try {
+                      const doc = e.target.contentDocument
+                      if (doc && doc.body && doc.body.textContent.includes('PDF not found')) {
+                        setPdfError(true)
+                      }
+                    } catch { /* cross-origin, PDF loaded fine */ }
+                  }}
+                />
+              )
+            })()}
           </div>
         </div>,
         document.body

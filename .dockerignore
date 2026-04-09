@@ -18,6 +18,13 @@ backend/venv
 
 frontend/node_modules
 frontend/dist
+node_modules
+
+.claude*
+.swarm
+.pytest_cache
+.mcp.json
+*.tgz
 
 start-dev.cmd
 start-dev.ps1

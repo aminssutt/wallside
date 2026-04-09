@@ -1815,3 +1815,54 @@ button.bot-source-link {
     font-size: 0.82rem;
   }
 }
+
+/* ============================================================
+   PDF proof – mobile/iOS fallback (Safari can't render PDF iframes)
+   ============================================================ */
+
+.proof-mobile-fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  height: 100%;
+  padding: 32px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.proof-mobile-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: var(--bg-primary);
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.2s ease;
+}
+
+.proof-mobile-link:hover {
+  background: var(--accent-light);
+}
+
+/* ============================================================
+   Reduced-motion preferences
+   ============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  .msg-typing span {
+    animation: none;
+  }
+  .loader-ring {
+    animation: none;
+  }
+  .chat-prompt-bar,
+  .suggestion-pill,
+  .followup-pill {
+    transition: none;
+  }
+}

@@ -7,6 +7,7 @@ import './App.css'
 const LandingPage = lazy(() => import('./pages/LandingPage'))
 const GuidesPage = lazy(() => import('./pages/GuidesPage'))
 const ChatPage = lazy(() => import('./pages/ChatPage'))
+const LegalPage = lazy(() => import('./pages/LegalPage'))
 
 function LoadingSpinner() {
   return (
@@ -110,6 +111,7 @@ function AnimatedRoutes() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/guides" element={<GuidesPage />} />
           <Route path="/chat/:slug" element={<ChatPage />} />
+          <Route path="/legal" element={<LegalPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>

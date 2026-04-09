@@ -1207,8 +1207,8 @@ export default function LandingPage() {
               <ul>
                 <li><button type="button" onClick={goToGuides}>{t.footerGuides}</button></li>
                 <li><button type="button" onClick={() => scrollTo('contact')}>{t.footerAbout}</button></li>
-                <li><span>{t.footerTerms}</span></li>
-                <li><span>{t.footerPrivacy}</span></li>
+                <li><a href="/legal">{t.footerTerms}</a></li>
+                <li><a href="/legal">{t.footerPrivacy}</a></li>
               </ul>
             </div>
 
@@ -1223,6 +1223,7 @@ export default function LandingPage() {
 
           <div className="footer__bottom">
             <span>&copy; 2026 Mechora. Tous droits r&eacute;serv&eacute;s.</span>
+            <a href="/legal" className="footer__legal-link">Mentions l&eacute;gales</a>
           </div>
         </div>
       </footer>
