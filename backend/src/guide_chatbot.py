@@ -1354,7 +1354,7 @@ REGLES:
             }
             return
 
-        # --- Step 2: ALWAYS enrich with web search to complement manual ---
+        # --- Step 2: Launch web search in BACKGROUND, don't block LLM ---
         p_has_ctx = payload.get("has_relevant_context", False)
         p_docs = payload.get("docs") or []
         p_mode = payload.get("mode", MANUAL_ONLY)
@@ -1362,100 +1362,91 @@ REGLES:
         _uc = payload.get("user_content") or ""
         has_web_in_payload = "web complementaire" in _uc or "web_enrichment" in _uc
 
-        # Always do web search — even when the manual has context.
-        # Web enrichment adds real-world context (specs, common values, interpretations)
-        # that the manual alone may not provide clearly.
+        # Launch web search in background — DON'T block before LLM
+        web_future = None
         if ENABLE_WEB_ENRICHMENT and not has_web_in_payload:
-            yield {"type": "status", "step": "web_search", "message_id": message_id}
             enrichment_query = f"{self.guide.name} {question}".strip()
-            budget = max(1.5, ENRICHMENT_TIME_BUDGET_SECONDS)
-            try:
-                web_results_list = web_search_results(
-                    enrichment_query, max_results=max(5, WEB_MAX_RESULTS), time_budget_seconds=budget,
-                )
-                if web_results_list:
-                    web_context = format_web_context(web_results_list, lang=payload.get("detected_lang", "fr"))
-                    existing_content = payload.get("user_content", "")
-                    payload["user_content"] = existing_content + f"\n\n---\n\nContexte web complementaire:\n{web_context}"
-                    # Merge web sources with manual sources
-                    existing_sources = payload.get("sources_structured") or []
-                    web_sources = build_sources_structured([], web_results=web_results_list, slug=self.guide.slug)
-                    payload["sources_structured"] = existing_sources + web_sources
-                    has_web_in_payload = True
-                    log.info("Web enrichment for %s: %d results", self.guide.slug, len(web_results_list))
-            except Exception as exc:
-                log.warning("Web enrichment failed: %s", exc)
+            web_future = _enrichment_executor.submit(
+                web_search_results, enrichment_query, max(5, WEB_MAX_RESULTS),
+                max(1.5, ENRICHMENT_TIME_BUDGET_SECONDS),
+            )
+            yield {"type": "status", "step": "web_search", "message_id": message_id}
 
-        # --- Step 2b: If no manual AND no web, use Gemini with Google Search grounding ---
-        use_grounded_search = not p_has_ctx and not has_web_in_payload
+        # Google Search grounding only when we have absolutely nothing
+        use_grounded_search = not p_has_ctx and not has_web_in_payload and web_future is None
 
-        confidence_level = compute_confidence(
-            p_has_ctx, p_docs, p_mode, False,
-            avg_rrf_score=p_avg_rrf, has_web_context=has_web_in_payload or use_grounded_search,
-        )
-
-        # --- Detect fix mode (procedural intent + manual context available) ---
-        fix_mode_active = detect_fix_mode(question) and (p_has_ctx or payload.get("sources_structured"))
+        # --- Detect fix mode ---
+        fix_mode_active = detect_fix_mode(question) and p_has_ctx
         if fix_mode_active:
             detected_lang = payload.get("detected_lang", "fr")
             fix_preamble = FIX_MODE_PROMPT.get(detected_lang, FIX_MODE_PROMPT["fr"])
             payload["system_instruction"] = fix_preamble + payload.get("system_instruction", "")
 
-        # Mode C: launch web search in background while LLM streams
-        web_future = None
-        if mode == WEB_ASYNC and ENABLE_WEB_ENRICHMENT:
-            enrichment_query = f"{self.guide.name} {question}".strip()
-            budget = max(0.5, ENRICHMENT_TIME_BUDGET_SECONDS)
-            web_future = _enrichment_executor.submit(
-                web_search_results, enrichment_query, WEB_MAX_RESULTS, budget,
-            )
+        confidence_level = compute_confidence(
+            p_has_ctx, p_docs, p_mode, False,
+            avg_rrf_score=p_avg_rrf, has_web_context=has_web_in_payload or (web_future is not None),
+        )
+
+        # If web finished fast (< 1s), inject before LLM call
+        if web_future is not None:
+            try:
+                web_results_list = web_future.result(timeout=1.0)
+                if web_results_list:
+                    web_ctx = format_web_context(web_results_list, lang=payload.get("detected_lang", "fr"))
+                    payload["user_content"] = payload.get("user_content", "") + f"\n\n---\n\nContexte web complementaire:\n{web_ctx}"
+                    existing_sources = payload.get("sources_structured") or []
+                    payload["sources_structured"] = existing_sources + build_sources_structured([], web_results=web_results_list, slug=self.guide.slug)
+                    has_web_in_payload = True
+                    web_future = None  # consumed
+                    log.info("Web ready before LLM: %d results", len(web_results_list))
+            except Exception:
+                pass  # still running, will collect after LLM
 
         yield {"type": "status", "step": "generating", "message_id": message_id}
 
         max_tokens = MAX_OUTPUT_TOKENS_FIX if fix_mode_active else MAX_OUTPUT_TOKENS_DEFAULT
 
-        # --- Build LLM config with optional Google Search grounding ---
+        # --- Build LLM config ---
         llm_tools = None
         if use_grounded_search:
-            # Use Gemini's built-in Google Search tool for grounded, detailed answers
             try:
                 llm_tools = [genai_types.Tool(google_search=genai_types.GoogleSearch())]
-                log.info("Using Google Search grounding for %s: %s", self.guide.slug, question[:80])
-            except Exception as exc:
-                log.warning("Google Search tool init failed: %s", exc)
+            except Exception:
                 llm_tools = None
 
-        try:
-            llm_config = genai_types.GenerateContentConfig(
-                system_instruction=str(payload.get("system_instruction", "")),
-                temperature=0.15,
-                max_output_tokens=max_tokens,
-                http_options=genai_types.HttpOptions(timeout=LLM_TIMEOUT_SECONDS * 1000),
-            )
-            if llm_tools:
-                llm_config.tools = llm_tools
+        llm_config = genai_types.GenerateContentConfig(
+            system_instruction=str(payload.get("system_instruction", "")),
+            temperature=0.15,
+            max_output_tokens=max_tokens,
+            http_options=genai_types.HttpOptions(timeout=LLM_TIMEOUT_SECONDS * 1000),
+        )
+        if llm_tools:
+            llm_config.tools = llm_tools
 
-            max_retries = 2
-            last_exc = None
-            for attempt in range(max_retries + 1):
-                try:
-                    stream = self.client.models.generate_content_stream(
-                        model=self.model_name,
-                        contents=str(payload.get("user_content", "")),
-                        config=llm_config,
-                    )
-                    break  # success
-                except Exception as exc:
-                    last_exc = exc
-                    exc_str = str(exc).lower()
-                    is_transient = any(kw in exc_str for kw in ("429", "503", "rate", "unavailable", "timeout", "deadline"))
-                    if is_transient and attempt < max_retries:
-                        import time as _time
-                        wait = (attempt + 1) * 2  # 2s, 4s
-                        log.warning("Gemini transient error (attempt %d/%d), retrying in %ds: %s", attempt + 1, max_retries + 1, wait, exc)
-                        _time.sleep(wait)
-                        continue
-                    raise
+        max_retries = 2
+        last_exc = None
+        stream = None
+        for attempt in range(max_retries + 1):
+            try:
+                stream = self.client.models.generate_content_stream(
+                    model=self.model_name,
+                    contents=str(payload.get("user_content", "")),
+                    config=llm_config,
+                )
+                break
+            except Exception as exc:
+                last_exc = exc
+                exc_str = str(exc).lower()
+                is_transient = any(kw in exc_str for kw in ("429", "503", "rate", "unavailable", "timeout", "deadline"))
+                if is_transient and attempt < max_retries:
+                    import time as _time
+                    wait = (attempt + 1) * 2
+                    log.warning("Gemini transient error (attempt %d/%d), retrying in %ds: %s", attempt + 1, max_retries + 1, wait, exc)
+                    _time.sleep(wait)
+                    continue
+                raise
+
+        try:
 
             raw_chunks: List[str] = []
             for chunk in stream:
