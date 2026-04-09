@@ -981,16 +981,14 @@ function ChatPage() {
       }
       return
     }
-    // Natural word-by-word drain — mimics ChatGPT streaming feel.
-    // Small chunks at steady pace for smooth, readable text appearance.
-    const target = Math.min(buf.length, 18)
+    // Smooth word-by-word drain — readable pace, not too fast.
+    const target = Math.min(buf.length, 10)
     let end = target
     if (end < buf.length) {
-      const lastSpace = buf.lastIndexOf(' ', end + 8)
-      const lastNewline = buf.lastIndexOf('\n', end + 8)
-      const breakPoint = Math.max(lastSpace, lastNewline)
-      if (breakPoint > 3 && breakPoint <= end + 10) {
-        end = breakPoint + 1
+      // Snap to next word boundary for natural reading
+      const nextSpace = buf.indexOf(' ', end)
+      if (nextSpace > 0 && nextSpace <= end + 8) {
+        end = nextSpace + 1
       }
     }
     const chunk = buf.slice(0, end)
@@ -1009,7 +1007,7 @@ function ChatPage() {
 
   const startDrain = () => {
     if (drainTimerRef.current) return
-    drainTimerRef.current = window.setInterval(drainTick, 35)
+    drainTimerRef.current = window.setInterval(drainTick, 45)
   }
 
   const appendBotChunk = (chunkText) => {
