@@ -1168,25 +1168,18 @@ class GuideChatbot:
         # --- System instruction (separated from user content for Gemini) ---
         # Restored to the proven original 12-rule format that produces detailed answers
         fix_mode_block = FIX_MODE_PROMPT.get(lang, FIX_MODE_PROMPT["fr"]) if fix_mode else ""
-        system_instruction = f"""{fix_mode_block}Tu es un assistant technique expert et precis, specialise pour le vehicule {self.guide.name}.
+        system_instruction = f"""{fix_mode_block}Tu es un assistant technique automobile de niveau expert, specialise pour le vehicule {self.guide.name}. Tu dois etre MEILLEUR qu'un garage automobile: reponses completes, precises, professionnelles.
 
-REGLES STRICTES:
+REGLES:
 1) {lang_instruction}
-2) Base-toi UNIQUEMENT sur le contexte fourni (manuel du vehicule et web).
-3) JAMAIS d'invention: si une information (valeur technique, procedure, specification) n'est PAS dans le contexte fourni, dis-le clairement.
-4) Ne JAMAIS inventer de valeurs chiffrees (couples de serrage, pressions, capacites, intervalles) qui ne sont pas explicitement dans le contexte.
-5) Le contexte web est un complement precieux. Utilise-le pour enrichir, clarifier et completer les informations du manuel (par ex: identifier les dimensions A/B/C, preciser des valeurs manquantes). En cas de conflit, le manuel prime TOUJOURS.
-6) Reponds de facon complete et detaillee. Croise les informations du manuel ET du web pour donner la reponse la plus precise et utile possible. Pour les procedures en etapes, donne TOUTES les etapes. Ne tronque JAMAIS ta reponse.
-7) Utilise un formatage clair et structure: listes numerotees pour les etapes, listes a puces pour les points cles, **gras** pour les termes importants. Pas de blocs de code (```).
-8) N'ajoute PAS de section "Sources" (elle sera ajoutee automatiquement).
-9) Orthographe, grammaire et ponctuation impeccables. Phrases claires et naturelles.
-10) Personnalise chaque reponse pour le {self.guide.name}: mentionne le nom du vehicule quand c'est pertinent.
-11) Ta reponse doit etre une explication textuelle complete et autonome. Ne mentionne AUCUN lien, URL, ou video dans ta reponse -- ils seront ajoutes automatiquement apres.
-12) Pas de disclaimers generiques du type "consultez un professionnel", "faites appel a un mecanicien", "verifiez aupres du constructeur" sauf si le danger est reel et immediat. Sois direct et utile.
-13) Si un historique de conversation est fourni, tiens-en compte pour comprendre le contexte. Si la question de l'utilisateur est vague ou fait reference a un sujet precedent ("elle", "ca", "le meme"), utilise l'historique pour comprendre de quoi il parle et reponds en consequence."""
-
-        if not has_relevant_context and web_context:
-            system_instruction += "\n\nNote: le manuel du vehicule n'a pas de passage specifique pour cette question. Utilise le contexte web complementaire ci-dessous pour fournir une reponse complete et detaillee."
+2) Tu disposes de deux sources: le manuel officiel du vehicule ET des informations web complementaires. Utilise LES DEUX pour construire la reponse la plus complete et utile possible. Le manuel fait autorite pour les valeurs officielles; le web enrichit avec le contexte reel (explications, interpretations, conseils pratiques).
+3) Pour les valeurs techniques chiffrees (couples de serrage, pressions, capacites), privilegies celles du manuel. Si le manuel donne des codes ou valeurs sans explication (ex: dimensions A/B/C), utilise le web pour les interpreter et les presenter clairement.
+4) Reponds de facon COMPLETE et DETAILLEE. Couvre le sujet en profondeur comme un expert qui veut que son client comprenne parfaitement. Pour les procedures, donne TOUTES les etapes. Ne tronque JAMAIS ta reponse.
+5) Utilise un formatage clair et structure: listes numerotees pour les etapes, listes a puces pour les points cles, **gras** pour les termes importants, titres de section si la reponse est longue. Pas de blocs de code (```).
+6) Personnalise chaque reponse pour le {self.guide.name}: mentionne le nom du vehicule, ses specificites, ses particularites.
+7) Sois direct et utile. Pas de disclaimers generiques ("consultez un professionnel") sauf danger reel et immediat.
+8) N'ajoute PAS de section "Sources" (ajoutee automatiquement). Ne mentionne AUCUN lien, URL, ou video (ajoutes automatiquement).
+9) Si un historique de conversation est fourni, tiens-en compte. Si la question est vague ou fait reference a un sujet precedent ("elle", "ca", "le meme"), utilise l'historique pour comprendre le sujet."""
 
         # --- User content (original proven format) ---
         user_parts = []
@@ -1366,7 +1359,8 @@ REGLES STRICTES:
         p_docs = payload.get("docs") or []
         p_mode = payload.get("mode", MANUAL_ONLY)
         p_avg_rrf = payload.get("avg_rrf_score", 0.0)
-        has_web_in_payload = "<web_enrichment>" in (payload.get("user_content") or "")
+        _uc = payload.get("user_content") or ""
+        has_web_in_payload = "web complementaire" in _uc or "web_enrichment" in _uc
 
         # Always do web search — even when the manual has context.
         # Web enrichment adds real-world context (specs, common values, interpretations)
