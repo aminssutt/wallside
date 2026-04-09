@@ -2,7 +2,7 @@
    Mechora Landing Page — Premium Automotive Design System
    ============================================================ */
 
-:root {
+.landing {
   --bg-primary: #07070C;
   --bg-surface: #0E0E18;
   --bg-elevated: #16162A;
@@ -915,10 +915,12 @@
   opacity: 1;
 }
 
-.feature-card:hover {
-  border-color: rgba(200, 168, 78, 0.2);
-  transform: translateY(-8px) scale(1.02);
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.4), 0 0 40px rgba(200, 168, 78, 0.06);
+@media (hover: hover) {
+  .feature-card:hover {
+    border-color: rgba(200, 168, 78, 0.2);
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.4), 0 0 40px rgba(200, 168, 78, 0.06);
+  }
 }
 
 /* Top shine line */
@@ -1190,9 +1192,11 @@
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
-.price-card:hover {
-  transform: translateY(-8px) scale(1.02);
-  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.4), 0 0 40px rgba(200, 168, 78, 0.06);
+@media (hover: hover) {
+  .price-card:hover {
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: 0 28px 80px rgba(0, 0, 0, 0.4), 0 0 40px rgba(200, 168, 78, 0.06);
+  }
 }
 
 /* Mouse spotlight */

@@ -92,7 +92,7 @@ WEB_SEARCH_REGION = os.getenv("WEB_SEARCH_REGION", "wt-wt")
 # Rate limiting & validation
 MAX_MESSAGE_LENGTH = int(os.getenv("MAX_MESSAGE_LENGTH", "3000"))
 MAX_CONVERSATION_HISTORY = int(os.getenv("MAX_CONVERSATION_HISTORY", "20"))
-MAX_CACHED_GUIDES = int(os.getenv("MAX_CACHED_GUIDES", "20"))
+MAX_CACHED_GUIDES = int(os.getenv("MAX_CACHED_GUIDES", "8"))
 
 # RAG quality
 RELEVANCE_THRESHOLD = float(os.getenv("RELEVANCE_THRESHOLD", "0.15"))
@@ -116,6 +116,7 @@ _DEFAULT_ORIGINS = [
 _raw_allowed_origins = os.getenv("ALLOWED_ORIGINS", ",".join(_DEFAULT_ORIGINS))
 if _raw_allowed_origins.strip() == "*":
     ALLOWED_ORIGINS = "*"
+    log.warning("CORS ALLOWED_ORIGINS='*' — insecure in production!")
 else:
     ALLOWED_ORIGINS = []
     for origin in _raw_allowed_origins.split(","):

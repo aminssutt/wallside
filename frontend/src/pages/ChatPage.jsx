@@ -1607,6 +1607,7 @@ function ChatPage() {
             {showScrollBtn && !isIntroMode && (
               <Motion.button
                 className="scroll-to-bottom-btn"
+                aria-label="Scroll to bottom"
                 onClick={() => {
                   chatContainerRef.current?.scrollTo({ top: chatContainerRef.current.scrollHeight, behavior: 'smooth' })
                   userScrolledUpRef.current = false

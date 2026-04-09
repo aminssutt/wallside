@@ -1,5 +1,5 @@
 import { Component, lazy, Suspense } from 'react'
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
 import { ToastProvider } from './toast'
 import './App.css'
@@ -50,6 +50,14 @@ class ErrorBoundary extends Component {
 
   render() {
     if (this.state.hasError) {
+      const lang = (typeof window !== 'undefined' && window.localStorage.getItem('cc_lang')) || 'fr'
+      const messages = {
+        fr: { title: 'Une erreur est survenue', reload: 'Recharger' },
+        en: { title: 'Something went wrong', reload: 'Reload' },
+        ko: { title: '\uC624\uB958\uAC00 \uBC1C\uC0DD\uD588\uC2B5\uB2C8\uB2E4', reload: '\uC0C8\uB85C\uACE0\uCE68' },
+      }
+      const t = messages[lang] || messages.fr
+
       return (
         <div
           style={{
@@ -65,9 +73,9 @@ class ErrorBoundary extends Component {
             padding: 24,
           }}
         >
-          <h1 style={{ fontSize: 24, marginBottom: 12 }}>Something went wrong</h1>
+          <h1 style={{ fontSize: 24, marginBottom: 12 }}>{t.title}</h1>
           <p style={{ color: 'rgba(255,255,255,0.6)', marginBottom: 24 }}>
-            An unexpected error occurred. Please try reloading the page.
+            {t.title}
           </p>
           <button
             type="button"
@@ -82,7 +90,7 @@ class ErrorBoundary extends Component {
               cursor: 'pointer',
             }}
           >
-            Reload
+            {t.reload}
           </button>
         </div>
       )
@@ -102,6 +110,7 @@ function AnimatedRoutes() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/guides" element={<GuidesPage />} />
           <Route path="/chat/:slug" element={<ChatPage />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
     </AnimatePresence>

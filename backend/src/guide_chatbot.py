@@ -872,7 +872,6 @@ class GuideChatbot:
         self.bm25_indices = self._load_bm25_indices()
         self.client = genai.Client(api_key=GOOGLE_API_KEY)
         self.model_name = LLM_MODEL.replace("models/", "", 1)
-        self._last_avg_rrf = 0.0  # updated by _hybrid_search for confidence scoring
         # Per-session conversation histories with bounded size
         self._session_histories: OrderedDict[str, List[dict]] = OrderedDict()
         self._max_sessions = 100
@@ -942,7 +941,7 @@ class GuideChatbot:
             if len(history) > MAX_CONVERSATION_HISTORY:
                 self._session_histories[session_id] = history[-MAX_CONVERSATION_HISTORY:]
 
-    def _hybrid_search(self, question: str, k: int = TOP_K_RESULTS) -> List[Document]:
+    def _hybrid_search(self, question: str, k: int = TOP_K_RESULTS) -> Tuple[List[Document], float]:
         """Combine FAISS + BM25 with Reciprocal Rank Fusion (RRF)."""
         RRF_K = 60  # standard RRF constant
 
@@ -996,13 +995,13 @@ class GuideChatbot:
 
         # Store avg RRF score for top-K results (used for confidence scoring)
         top_k_pairs = sorted_pairs[:k]
-        self._last_avg_rrf = sum(s for _, s in top_k_pairs) / max(len(top_k_pairs), 1)
+        avg_rrf = sum(s for _, s in top_k_pairs) / max(len(top_k_pairs), 1)
 
         # Apply relevance threshold (original proven value: ~0.015)
         min_rrf = RELEVANCE_THRESHOLD * 0.1
         filtered = [doc_map[key] for key, score in sorted_pairs if score >= min_rrf]
 
-        return filtered[:k]
+        return filtered[:k], avg_rrf
 
     def _prepare_chat_payload(
         self,
@@ -1070,14 +1069,14 @@ class GuideChatbot:
         # --- Contextualize vague follow-up questions using conversation history ---
         search_query = question
         history = self._get_session_history(session_id)
-        if history and len(question.split()) <= 10:
+        if history and len(question.split()) <= 15:
             # Short question — likely a follow-up. Enrich with recent topic.
             recent_user_msgs = [m["content"] for m in history if m["role"] == "user"]
             if recent_user_msgs:
                 last_topic = recent_user_msgs[-1][:200]
                 # Only enrich if the current question looks vague (pronouns, short, no vehicle keywords)
                 has_vehicle_kw = any(kw in question.lower() for kw in VEHICLE_KEYWORDS)
-                is_vague = not has_vehicle_kw and len(question.split()) <= 8
+                is_vague = not has_vehicle_kw and len(question.split()) <= 12
                 if is_vague:
                     search_query = f"{last_topic} {question}"
                     log.info("Contextualized search query: %s", search_query[:120])
@@ -1086,8 +1085,9 @@ class GuideChatbot:
         docs: List[Document] = []
         context = ""
         has_relevant_context = False
+        avg_rrf_score = 0.0
         if self.vector_stores or self.bm25_indices:
-            docs = self._hybrid_search(search_query, k=TOP_K_RESULTS)
+            docs, avg_rrf_score = self._hybrid_search(search_query, k=TOP_K_RESULTS)
             if docs:
                 has_relevant_context = True
                 context = format_context(docs)
@@ -1185,6 +1185,9 @@ REGLES STRICTES:
 12) Pas de disclaimers generiques du type "consultez un professionnel", "faites appel a un mecanicien", "verifiez aupres du constructeur" sauf si le danger est reel et immediat. Sois direct et utile.
 13) Si un historique de conversation est fourni, tiens-en compte pour comprendre le contexte. Si la question de l'utilisateur est vague ou fait reference a un sujet precedent ("elle", "ca", "le meme"), utilise l'historique pour comprendre de quoi il parle et reponds en consequence."""
 
+        if not has_relevant_context and web_context:
+            system_instruction += "\n\nNote: le manuel du vehicule n'a pas de passage specifique pour cette question. Utilise le contexte web complementaire ci-dessous pour fournir une reponse complete et detaillee."
+
         # --- User content (original proven format) ---
         user_parts = []
         if history_block:
@@ -1193,8 +1196,8 @@ REGLES STRICTES:
             user_parts.append(f"Contexte du manuel du vehicule:\n{context}")
         if web_context:
             user_parts.append(f"Contexte web complementaire:\n{web_context}")
-        elif not context:
-            user_parts.append("Aucun passage pertinent trouve dans le manuel du vehicule pour cette question.")
+        if not context and not web_context:
+            user_parts.append("Note: aucun passage specifique n'a ete trouve dans le manuel. Reponds au mieux avec tes connaissances sur ce vehicule.")
         user_parts.append(f"Question de l'utilisateur: {question}")
 
         user_content = "\n\n---\n\n".join(user_parts)
@@ -1212,7 +1215,7 @@ REGLES STRICTES:
             "mode": mode,
             "is_conversational": False,
             "detected_lang": lang,
-            "avg_rrf_score": self._last_avg_rrf,
+            "avg_rrf_score": avg_rrf_score,
             "fix_mode": fix_mode,
         }
 
@@ -1278,16 +1281,32 @@ REGLES STRICTES:
         max_tokens = MAX_OUTPUT_TOKENS_FIX if payload.get("fix_mode") else MAX_OUTPUT_TOKENS_DEFAULT
 
         try:
-            response = self.client.models.generate_content(
-                model=self.model_name,
-                contents=str(payload.get("user_content", "")),
-                config=genai_types.GenerateContentConfig(
-                    system_instruction=str(payload.get("system_instruction", "")),
-                    temperature=0.15,
-                    max_output_tokens=max_tokens,
-                    http_options=genai_types.HttpOptions(timeout=LLM_TIMEOUT_SECONDS * 1000),
-                ),
-            )
+            max_retries = 2
+            last_exc = None
+            for attempt in range(max_retries + 1):
+                try:
+                    response = self.client.models.generate_content(
+                        model=self.model_name,
+                        contents=str(payload.get("user_content", "")),
+                        config=genai_types.GenerateContentConfig(
+                            system_instruction=str(payload.get("system_instruction", "")),
+                            temperature=0.15,
+                            max_output_tokens=max_tokens,
+                            http_options=genai_types.HttpOptions(timeout=LLM_TIMEOUT_SECONDS * 1000),
+                        ),
+                    )
+                    break  # success
+                except Exception as exc:
+                    last_exc = exc
+                    exc_str = str(exc).lower()
+                    is_transient = any(kw in exc_str for kw in ("429", "503", "rate", "unavailable", "timeout", "deadline"))
+                    if is_transient and attempt < max_retries:
+                        import time as _time
+                        wait = (attempt + 1) * 2  # 2s, 4s
+                        log.warning("Gemini transient error (attempt %d/%d), retrying in %ds: %s", attempt + 1, max_retries + 1, wait, exc)
+                        _time.sleep(wait)
+                        continue
+                    raise
 
             raw_answer = (getattr(response, "text", "") or "").strip()
             answer, final_answer = self._finalize_answer(
@@ -1421,11 +1440,27 @@ REGLES STRICTES:
             if llm_tools:
                 llm_config.tools = llm_tools
 
-            stream = self.client.models.generate_content_stream(
-                model=self.model_name,
-                contents=str(payload.get("user_content", "")),
-                config=llm_config,
-            )
+            max_retries = 2
+            last_exc = None
+            for attempt in range(max_retries + 1):
+                try:
+                    stream = self.client.models.generate_content_stream(
+                        model=self.model_name,
+                        contents=str(payload.get("user_content", "")),
+                        config=llm_config,
+                    )
+                    break  # success
+                except Exception as exc:
+                    last_exc = exc
+                    exc_str = str(exc).lower()
+                    is_transient = any(kw in exc_str for kw in ("429", "503", "rate", "unavailable", "timeout", "deadline"))
+                    if is_transient and attempt < max_retries:
+                        import time as _time
+                        wait = (attempt + 1) * 2  # 2s, 4s
+                        log.warning("Gemini transient error (attempt %d/%d), retrying in %ds: %s", attempt + 1, max_retries + 1, wait, exc)
+                        _time.sleep(wait)
+                        continue
+                    raise
 
             raw_chunks: List[str] = []
             for chunk in stream:
