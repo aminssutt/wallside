@@ -2,7 +2,7 @@ import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion as Motion, AnimatePresence } from 'framer-motion'
-import { formatText, LANGUAGES, UI_TEXT, useAppLanguage } from '../i18n'
+import { formatText, FLAG_BY_LANG, LANGUAGES, UI_TEXT, useAppLanguage } from '../i18n'
 import { API_URL } from '../api'
 import { useToast } from '../toast'
 import './ChatPage.css'
@@ -10,11 +10,6 @@ import wrenchIcon from '../assets/icons/wrench.svg'
 import dashboardIcon from '../assets/icons/dashboard.svg'
 import navigationIcon from '../assets/icons/navigation.svg'
 
-const FLAG_BY_LANG = {
-  fr: '/flags/fr.svg',
-  en: '/flags/en.svg',
-  ko: '/flags/ko.svg',
-}
 
 const QUICK_ICONS = [wrenchIcon, dashboardIcon, navigationIcon]
 

@@ -8,6 +8,12 @@ export const LANGUAGES = [
   { code: 'ko', label: 'KO', flag: '\uD83C\uDDF0\uD83C\uDDF7' },
 ]
 
+export const FLAG_BY_LANG = {
+  fr: '/flags/fr.svg',
+  en: '/flags/en.svg',
+  ko: '/flags/ko.svg',
+}
+
 export const UI_TEXT = {
   fr: {
     landing: {

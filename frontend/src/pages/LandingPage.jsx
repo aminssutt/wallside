@@ -1,18 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion as Motion, AnimatePresence, useInView } from 'framer-motion';
-import { LANGUAGES, useAppLanguage } from '../i18n';
+import { FLAG_BY_LANG, LANGUAGES, useAppLanguage } from '../i18n';
 import './LandingPage.css';
 
 /* ============================================================
    Translations
    ============================================================ */
-
-const FLAG_BY_LANG = {
-  fr: '/flags/fr.svg',
-  en: '/flags/en.svg',
-  ko: '/flags/ko.svg',
-};
 
 const COPY = {
   fr: {

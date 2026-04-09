@@ -1,18 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion as Motion, AnimatePresence } from 'framer-motion'
-import { formatText, LANGUAGES, UI_TEXT, useAppLanguage } from '../i18n'
+import { formatText, FLAG_BY_LANG, LANGUAGES, UI_TEXT, useAppLanguage } from '../i18n'
 import { API_URL } from '../api'
 import { useToast } from '../toast'
 import './GuidesPage.css'
 
 /* -- constants --------------------------------------------------------- */
 
-const FLAG_BY_LANG = {
-  fr: '/flags/fr.svg',
-  en: '/flags/en.svg',
-  ko: '/flags/ko.svg',
-}
 
 const pageVariants = {
   initial: { opacity: 0 },
