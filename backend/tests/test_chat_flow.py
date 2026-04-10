@@ -175,6 +175,10 @@ for q in fix_mode_yes:
 
 fix_mode_no = [
     "quel est le poids du vehicule ?",
+    "comment fonctionne le xDrive ?",
+    "que signifie le voyant moteur ?",
+    "quelle est la pression recommandee des pneus ?",
+    "comment ouvrir le coffre sans cle ?",
 ]
 
 for q in fix_mode_no:
@@ -311,6 +315,38 @@ check(
 check(
     "1 doc = medium",
     compute_confidence(True, [FakeDoc()], MANUAL_ONLY, False) == "medium",
+)
+
+check(
+    "quality stats weak overlap = low",
+    compute_confidence(
+        True,
+        [FakeDoc(), FakeDoc()],
+        MANUAL_ONLY,
+        False,
+        quality_stats={
+            "query_token_count": 3,
+            "reliable_doc_count": 0,
+            "best_overlap_count": 0,
+            "top_rrf_score": 0.04,
+        },
+    ) == "low",
+)
+
+check(
+    "quality stats reliable docs = high",
+    compute_confidence(
+        True,
+        [FakeDoc(), FakeDoc()],
+        MANUAL_ONLY,
+        False,
+        quality_stats={
+            "query_token_count": 4,
+            "reliable_doc_count": 2,
+            "best_overlap_count": 2,
+            "top_rrf_score": 0.04,
+        },
+    ) == "high",
 )
 
 

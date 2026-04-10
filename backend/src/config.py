@@ -66,6 +66,7 @@ CHUNK_OVERLAP = 200
 # Configuration du RAG
 TOP_K_RESULTS = int(os.getenv("TOP_K_RESULTS", "5"))
 LLM_TIMEOUT_SECONDS = int(os.getenv("LLM_TIMEOUT_SECONDS", "45"))
+LLM_MAX_OUTPUT_TOKENS = int(os.getenv("LLM_MAX_OUTPUT_TOKENS", "8192"))
 
 
 def _as_bool(raw_value: str, default: bool = True) -> bool:
@@ -89,9 +90,19 @@ WEB_SEARCH_REGION = os.getenv("WEB_SEARCH_REGION", "wt-wt")
 MAX_MESSAGE_LENGTH = int(os.getenv("MAX_MESSAGE_LENGTH", "3000"))
 MAX_CONVERSATION_HISTORY = int(os.getenv("MAX_CONVERSATION_HISTORY", "20"))
 MAX_CACHED_GUIDES = int(os.getenv("MAX_CACHED_GUIDES", "8"))
+STREAM_HEARTBEAT_SECONDS = float(os.getenv("STREAM_HEARTBEAT_SECONDS", "10"))
 
 # RAG quality
 RELEVANCE_THRESHOLD = float(os.getenv("RELEVANCE_THRESHOLD", "0.15"))
+RETRIEVAL_MIN_OVERLAP = int(os.getenv("RETRIEVAL_MIN_OVERLAP", "1"))
+RETRIEVAL_MIN_OVERLAP_RATIO = float(os.getenv("RETRIEVAL_MIN_OVERLAP_RATIO", "0.12"))
+RETRIEVAL_HIGH_CONFIDENCE_RRF = float(os.getenv("RETRIEVAL_HIGH_CONFIDENCE_RRF", "0.03"))
+
+PREWARM_GUIDES = [
+    slug.strip()
+    for slug in os.getenv("PREWARM_GUIDES", "").split(",")
+    if slug.strip()
+]
 
 # CORS
 _DEFAULT_ORIGINS = [
@@ -118,4 +129,3 @@ else:
         clean = origin.strip()
         if clean and clean not in ALLOWED_ORIGINS:
             ALLOWED_ORIGINS.append(clean)
-

@@ -6,6 +6,7 @@ Supports multilingual responses (French, English, Korean).
 from typing import Optional, List, Tuple, Dict, Iterator, Any
 from collections import OrderedDict
 import logging
+import json
 import pickle
 import re
 import importlib.util
@@ -13,7 +14,7 @@ import time
 import hashlib
 import threading
 import uuid
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, Future
 from urllib.parse import quote_plus, urlparse
 from urllib.request import Request, urlopen
 
@@ -26,6 +27,7 @@ from .config import (
     GOOGLE_API_KEY,
     LLM_MODEL,
     LLM_TIMEOUT_SECONDS,
+    LLM_MAX_OUTPUT_TOKENS,
     TOP_K_RESULTS,
     ENABLE_WEB_ENRICHMENT,
     ENABLE_DEEP_WEB_ENRICHMENT,
@@ -33,8 +35,12 @@ from .config import (
     WEB_MAX_RESULTS,
     WEB_SEARCH_REGION,
     RELEVANCE_THRESHOLD,
+    RETRIEVAL_MIN_OVERLAP,
+    RETRIEVAL_MIN_OVERLAP_RATIO,
+    RETRIEVAL_HIGH_CONFIDENCE_RRF,
     MAX_CONVERSATION_HISTORY,
     MAX_CACHED_GUIDES,
+    PREWARM_GUIDES,
 )
 from .vector_store import get_embeddings
 from .guide_manager import guide_manager, Guide
@@ -265,6 +271,7 @@ def compute_confidence(
     docs: List[Document],
     mode: str,
     is_conversational: bool,
+    quality_stats: Optional[Dict[str, Any]] = None,
 ) -> str:
     """Return a confidence badge: 'high', 'medium', or 'low'.
 
@@ -277,6 +284,21 @@ def compute_confidence(
         return "low"
     if not has_relevant_context:
         return "low"
+    if quality_stats:
+        reliable_doc_count = int(quality_stats.get("reliable_doc_count", 0) or 0)
+        best_overlap_count = int(quality_stats.get("best_overlap_count", 0) or 0)
+        query_token_count = int(quality_stats.get("query_token_count", 0) or 0)
+        top_rrf_score = float(quality_stats.get("top_rrf_score", 0.0) or 0.0)
+        if query_token_count >= 2 and best_overlap_count <= 0:
+            return "low"
+        if (
+            reliable_doc_count >= 2
+            and best_overlap_count >= 2
+            and top_rrf_score >= RETRIEVAL_HIGH_CONFIDENCE_RRF
+        ):
+            return "high"
+        if reliable_doc_count >= 1:
+            return "medium"
     if has_relevant_context and len(docs) >= 2:
         return "high"
     if has_relevant_context and len(docs) == 1:
@@ -289,10 +311,10 @@ def compute_confidence(
 def detect_fix_mode(question: str) -> bool:
     """Return True if the question expresses procedural intent.
 
-    Uses ``_YOUTUBE_ELIGIBLE_PATTERNS`` which already captures
-    procedural keywords (comment, remplacer, installer, demonter, etc.).
+    Uses a dedicated strict pattern to avoid forcing procedure format
+    on explanatory questions (e.g., "comment fonctionne ... ?").
     """
-    return bool(_YOUTUBE_ELIGIBLE_PATTERNS.search(question or ""))
+    return bool(_FIX_MODE_PATTERNS.search(question or ""))
 
 
 FIX_MODE_PROMPT = {
@@ -408,6 +430,16 @@ _YOUTUBE_ELIGIBLE_PATTERNS = re.compile(
     r"pression|pressure|niveau|level|capacite|capacity|"
     r"entretien|maintenance|diagnostic|reset|reinitialiser|"
     r"connecter|connect|bluetooth|demarrer|start|ouvrir|open)\b"
+)
+
+# Strict procedural detector for Fix Mode only.
+_FIX_MODE_PATTERNS = re.compile(
+    r"(?i)\b(?:"
+    r"comment (?:faire|remplacer|changer|installer|reparer|demonter|monter|regler|ajuster|vidanger|purger|nettoyer|configurer|reinitialiser|brancher|debrancher)"
+    r"|how (?:to|do i|can i) (?:replace|change|install|repair|remove|mount|adjust|drain|flush|clean|configure|reset|connect|disconnect)"
+    r"|tutoriel|tutorial|etape par etape|step by step|procedure de|diy"
+    r"|(?:remplacer|changer|installer|demonter|vidanger|purger|nettoyer|reinitialiser) (?:le|la|les|un|une|des|du|l')"
+    r")\b"
 )
 
 YOUTUBE_MIN_RELEVANCE_SCORE = 4
@@ -545,6 +577,14 @@ def _safe_domain(url: str) -> str:
 
 def _tokens(text: str) -> List[str]:
     raw = re.findall(r"[a-z0-9]{3,}", (text or "").lower())
+    return [t for t in raw if t not in WEB_STOPWORDS]
+
+
+def _search_tokens(text: str) -> List[str]:
+    raw = re.findall(
+        r"[a-z\u00e0-\u00ff0-9\u3130-\u318f\uac00-\ud7af]{2,}",
+        (text or "").lower(),
+    )
     return [t for t in raw if t not in WEB_STOPWORDS]
 
 
@@ -810,6 +850,41 @@ def is_vehicle_related(question: str) -> Tuple[bool, float]:
     return False, 0.0
 
 
+def _doc_quality_key(doc: Document) -> str:
+    source_file = str(doc.metadata.get("source_file", ""))
+    page = str(doc.metadata.get("page", ""))
+    raw = f"{source_file}|{page}|{doc.page_content}"
+    return hashlib.sha256(raw.encode("utf-8", "ignore")).hexdigest()
+
+
+def _copy_doc_with_quality(doc: Document, quality: Dict[str, Any]) -> Document:
+    metadata = dict(doc.metadata)
+    metadata.update(quality)
+    return Document(page_content=doc.page_content, metadata=metadata)
+
+
+def _extract_usage_metrics(obj: Any) -> Dict[str, int]:
+    usage = getattr(obj, "usage_metadata", None) or getattr(obj, "usage", None)
+    if usage is None:
+        return {}
+
+    metrics: Dict[str, int] = {}
+    for field in (
+        "prompt_token_count",
+        "candidates_token_count",
+        "total_token_count",
+        "cached_content_token_count",
+    ):
+        value = getattr(usage, field, None)
+        if isinstance(value, int):
+            metrics[field] = value
+    return metrics
+
+
+def _safe_metrics_json(metrics: Dict[str, Any]) -> str:
+    return json.dumps(metrics, ensure_ascii=True, sort_keys=True, separators=(",", ":"))
+
+
 def format_context(documents: List[Document]) -> str:
     """Format retrieved docs for prompt context."""
     if not documents:
@@ -905,9 +980,12 @@ class GuideChatbot:
             if len(history) > MAX_CONVERSATION_HISTORY:
                 self._session_histories[session_id] = history[-MAX_CONVERSATION_HISTORY:]
 
-    def _hybrid_search(self, question: str, k: int = TOP_K_RESULTS) -> List[Document]:
+    def _hybrid_search(self, question: str, k: int = TOP_K_RESULTS) -> Tuple[List[Document], Dict[str, Any]]:
         """Combine FAISS + BM25 with Reciprocal Rank Fusion (RRF)."""
         RRF_K = 60  # standard RRF constant
+        query_tokens = _search_tokens(question)
+        query_token_count = len(query_tokens)
+        query_token_set = set(query_tokens)
 
         # --- FAISS retrieval ---
         faiss_ranked: List[Document] = []
@@ -921,11 +999,10 @@ class GuideChatbot:
 
         # --- BM25 retrieval ---
         bm25_ranked: List[Document] = []
-        tokens = re.findall(r"[a-z\u00e0-\u00ff0-9\u3130-\u318f\uac00-\ud7af]{2,}", question.lower())
-        if tokens:
+        if query_tokens:
             for bm25_index, bm25_chunks in self.bm25_indices:
                 try:
-                    scores = bm25_index.get_scores(tokens)
+                    scores = bm25_index.get_scores(query_tokens)
                 except Exception as exc:
                     log.warning("BM25 scoring failed: %s", exc)
                     continue
@@ -945,12 +1022,12 @@ class GuideChatbot:
         doc_map: Dict[str, Document] = {}
 
         for rank, doc in enumerate(faiss_ranked):
-            key = hashlib.sha256(doc.page_content.encode()).hexdigest()
+            key = _doc_quality_key(doc)
             rrf_scores[key] = rrf_scores.get(key, 0.0) + 1.0 / (RRF_K + rank + 1)
             doc_map[key] = doc
 
         for rank, doc in enumerate(bm25_ranked):
-            key = hashlib.sha256(doc.page_content.encode()).hexdigest()
+            key = _doc_quality_key(doc)
             rrf_scores[key] = rrf_scores.get(key, 0.0) + 1.0 / (RRF_K + rank + 1)
             doc_map[key] = doc
 
@@ -959,9 +1036,60 @@ class GuideChatbot:
 
         # Apply relevance threshold (RRF score for rank 0 in one list = ~0.016)
         min_rrf = RELEVANCE_THRESHOLD * 0.1  # ~0.015 threshold
-        filtered = [doc_map[k] for k in sorted_keys if rrf_scores[k] >= min_rrf]
+        filtered_docs: List[Document] = []
+        best_overlap_count = 0
+        top_rrf_score = 0.0
+        reliable_doc_count = 0
+        kept_rrf_scores: List[float] = []
 
-        return filtered[:k]
+        for key in sorted_keys:
+            rrf_score = float(rrf_scores.get(key, 0.0))
+            if rrf_score < min_rrf:
+                continue
+
+            doc = doc_map[key]
+            doc_token_set = set(_search_tokens(doc.page_content))
+            overlap_count = len(query_token_set & doc_token_set)
+            overlap_ratio = (overlap_count / query_token_count) if query_token_count else 0.0
+
+            is_reliable = True
+            if query_token_count >= 2:
+                is_reliable = (
+                    overlap_count >= RETRIEVAL_MIN_OVERLAP
+                    or overlap_ratio >= RETRIEVAL_MIN_OVERLAP_RATIO
+                )
+
+            quality = {
+                "retrieval_rrf_score": round(rrf_score, 6),
+                "retrieval_overlap_count": overlap_count,
+                "retrieval_overlap_ratio": round(overlap_ratio, 6),
+                "retrieval_query_token_count": query_token_count,
+                "retrieval_reliable": is_reliable,
+            }
+
+            if not is_reliable:
+                continue
+
+            filtered_docs.append(_copy_doc_with_quality(doc, quality))
+            best_overlap_count = max(best_overlap_count, overlap_count)
+            top_rrf_score = max(top_rrf_score, rrf_score)
+            reliable_doc_count += 1
+            kept_rrf_scores.append(rrf_score)
+
+            if len(filtered_docs) >= k:
+                break
+
+        quality_stats = {
+            "query_token_count": query_token_count,
+            "retrieved_doc_count": len(rrf_scores),
+            "reliable_doc_count": reliable_doc_count,
+            "best_overlap_count": best_overlap_count,
+            "top_rrf_score": round(top_rrf_score, 6),
+            "avg_rrf_score": round(sum(kept_rrf_scores) / len(kept_rrf_scores), 6) if kept_rrf_scores else 0.0,
+            "min_rrf_threshold": round(min_rrf, 6),
+        }
+
+        return filtered_docs, quality_stats
 
     def _prepare_chat_payload(
         self,
@@ -1027,8 +1155,9 @@ class GuideChatbot:
         docs: List[Document] = []
         context = ""
         has_relevant_context = False
+        quality_stats: Dict[str, Any] = {}
         if self.vector_stores or self.bm25_indices:
-            docs = self._hybrid_search(question, k=TOP_K_RESULTS)
+            docs, quality_stats = self._hybrid_search(question, k=TOP_K_RESULTS)
             if docs:
                 has_relevant_context = True
                 context = format_context(docs)
@@ -1074,9 +1203,14 @@ class GuideChatbot:
 
             web_context = format_web_context(web_results, lang=lang)
 
-        # Only include sources when we found relevant context
-        sources_block = format_sources(docs, web_results=web_results) if has_relevant_context else ""
-        sources_structured = build_sources_structured(docs, web_results=web_results, slug=self.guide.slug) if has_relevant_context else []
+        # Include web sources even when no reliable manual context was found.
+        include_sources = has_relevant_context or bool(web_results)
+        sources_block = format_sources(docs, web_results=web_results) if include_sources else ""
+        sources_structured = build_sources_structured(
+            docs,
+            web_results=web_results,
+            slug=self.guide.slug,
+        ) if include_sources else []
 
         # Attach guide-level pdf_url to manual sources for external PDF viewing
         guide_pdf_url = getattr(self.guide, 'pdf_url', '') or ''
@@ -1141,10 +1275,47 @@ REGLES STRICTES:
             # Metadata for confidence / fix_mode computation
             "has_relevant_context": has_relevant_context,
             "docs": docs,
+            "quality_stats": quality_stats,
             "mode": mode,
             "is_conversational": False,
             "detected_lang": lang,
         }
+
+    def _build_metrics(
+        self,
+        *,
+        question: str,
+        payload: Dict[str, Any],
+        answer: str,
+        total_latency_ms: float,
+        ttft_ms: Optional[float] = None,
+        usage_metrics: Optional[Dict[str, int]] = None,
+    ) -> Dict[str, Any]:
+        metrics: Dict[str, Any] = {
+            "guide_slug": self.guide.slug,
+            "question_chars": len(question or ""),
+            "input_chars": len(str(payload.get("user_content", ""))),
+            "output_chars": len(answer or ""),
+            "latency_ms": round(total_latency_ms, 1),
+            "docs": len(payload.get("docs") or []),
+            "has_context": bool(payload.get("has_relevant_context", False)),
+        }
+        quality_stats = payload.get("quality_stats") or {}
+        if quality_stats:
+            metrics["quality"] = {
+                "query_token_count": int(quality_stats.get("query_token_count", 0) or 0),
+                "reliable_doc_count": int(quality_stats.get("reliable_doc_count", 0) or 0),
+                "best_overlap_count": int(quality_stats.get("best_overlap_count", 0) or 0),
+                "top_rrf_score": float(quality_stats.get("top_rrf_score", 0.0) or 0.0),
+            }
+        if ttft_ms is not None:
+            metrics["ttft_ms"] = round(ttft_ms, 1)
+        if usage_metrics:
+            metrics["usage"] = usage_metrics
+        return metrics
+
+    def _log_metrics(self, event_name: str, metrics: Dict[str, Any]):
+        log.info("%s %s", event_name, _safe_metrics_json(metrics))
 
     def _finalize_answer(
         self,
@@ -1189,7 +1360,8 @@ REGLES STRICTES:
         return "".join(pieces)
 
     def chat(self, question: str, lang: str = None, session_id: str = "default") -> str:
-        """Generate a response (sync fallback — uses web enrichment)."""
+        """Generate a response (sync fallback - uses web enrichment)."""
+        started_at = time.perf_counter()
         mode = classify_query(question)
         if mode == MANUAL_ONLY:
             mode = WEB_BLOCKING  # fallback path always gets full enrichment
@@ -1210,7 +1382,7 @@ REGLES STRICTES:
                 config=genai_types.GenerateContentConfig(
                     system_instruction=str(payload.get("system_instruction", "")),
                     temperature=0.15,
-                    max_output_tokens=4096,
+                    max_output_tokens=LLM_MAX_OUTPUT_TOKENS,
                     http_options=genai_types.HttpOptions(timeout=LLM_TIMEOUT_SECONDS * 1000),
                 ),
             )
@@ -1221,6 +1393,16 @@ REGLES STRICTES:
                 sources_block=str(payload.get("sources_block", "")),
                 video_block=str(payload.get("video_block", "")),
                 video_score=payload.get("video_score", 0),
+            )
+            self._log_metrics(
+                "chat_metrics",
+                self._build_metrics(
+                    question=question,
+                    payload=payload,
+                    answer=answer,
+                    total_latency_ms=(time.perf_counter() - started_at) * 1000.0,
+                    usage_metrics=_extract_usage_metrics(response),
+                ),
             )
 
             # Save to session history
@@ -1271,7 +1453,13 @@ REGLES STRICTES:
         p_has_ctx = payload.get("has_relevant_context", False)
         p_docs = payload.get("docs") or []
         p_mode = payload.get("mode", MANUAL_ONLY)
-        confidence_level = compute_confidence(p_has_ctx, p_docs, p_mode, False)
+        confidence_level = compute_confidence(
+            p_has_ctx,
+            p_docs,
+            p_mode,
+            False,
+            quality_stats=payload.get("quality_stats") or {},
+        )
 
         # --- Fallback: if RAG found nothing, do a quick web search to enrich prompt ---
         if not p_has_ctx and ENABLE_WEB_ENRICHMENT:
@@ -1316,22 +1504,30 @@ REGLES STRICTES:
         yield {"type": "status", "step": "generating", "message_id": message_id}
 
         try:
+            started_at = time.perf_counter()
+            first_chunk_at: Optional[float] = None
+            usage_metrics: Dict[str, int] = {}
             stream = self.client.models.generate_content_stream(
                 model=self.model_name,
                 contents=str(payload.get("user_content", "")),
                 config=genai_types.GenerateContentConfig(
                     system_instruction=str(payload.get("system_instruction", "")),
                     temperature=0.15,
-                    max_output_tokens=4096,
+                    max_output_tokens=LLM_MAX_OUTPUT_TOKENS,
                     http_options=genai_types.HttpOptions(timeout=LLM_TIMEOUT_SECONDS * 1000),
                 ),
             )
 
             raw_chunks: List[str] = []
             for chunk in stream:
+                chunk_usage = _extract_usage_metrics(chunk)
+                if chunk_usage:
+                    usage_metrics = chunk_usage
                 chunk_text = self._extract_stream_chunk_text(chunk)
                 if not chunk_text:
                     continue
+                if first_chunk_at is None:
+                    first_chunk_at = time.perf_counter()
                 raw_chunks.append(chunk_text)
                 yield {"type": "chunk", "text": chunk_text, "message_id": message_id}
 
@@ -1356,7 +1552,26 @@ REGLES STRICTES:
                 "message_id": message_id,
                 "confidence": confidence_level,
                 "fix_mode": fix_mode_active,
+                "metrics": self._build_metrics(
+                    question=question,
+                    payload=payload,
+                    answer=answer,
+                    total_latency_ms=(time.perf_counter() - started_at) * 1000.0,
+                    ttft_ms=((first_chunk_at - started_at) * 1000.0) if first_chunk_at else None,
+                    usage_metrics=usage_metrics,
+                ),
             }
+            self._log_metrics(
+                "chat_stream_metrics",
+                self._build_metrics(
+                    question=question,
+                    payload=payload,
+                    answer=answer,
+                    total_latency_ms=(time.perf_counter() - started_at) * 1000.0,
+                    ttft_ms=((first_chunk_at - started_at) * 1000.0) if first_chunk_at else None,
+                    usage_metrics=usage_metrics,
+                ),
+            )
 
         except Exception as exc:
             log.error("LLM streaming failed for %s: %s", self.guide.slug, exc)
@@ -1416,16 +1631,12 @@ REGLES STRICTES:
 
 # LRU cache for chatbot instances (bounded by MAX_CACHED_GUIDES)
 _guide_chatbot_cache: OrderedDict[str, GuideChatbot] = OrderedDict()
+_guide_chatbot_futures: Dict[str, Future] = {}
 _cache_lock = threading.Lock()
 
 
 def get_guide_chatbot(slug: str) -> GuideChatbot:
     """Get or create a chatbot for a vehicle slug with LRU eviction (thread-safe)."""
-    with _cache_lock:
-        if slug in _guide_chatbot_cache:
-            _guide_chatbot_cache.move_to_end(slug)
-            return _guide_chatbot_cache[slug]
-
     guide = guide_manager.get_guide(slug)
     if not guide:
         raise ValueError(f"Guide '{slug}' not found")
@@ -1433,21 +1644,66 @@ def get_guide_chatbot(slug: str) -> GuideChatbot:
         raise ValueError(f"Guide '{slug}' is not indexed yet")
 
     cache_key = guide.slug
+    builder = False
+    with _cache_lock:
+        if cache_key in _guide_chatbot_cache:
+            _guide_chatbot_cache.move_to_end(cache_key)
+            return _guide_chatbot_cache[cache_key]
+        future = _guide_chatbot_futures.get(cache_key)
+        if future is None:
+            future = Future()
+            _guide_chatbot_futures[cache_key] = future
+            builder = True
 
-    chatbot = GuideChatbot(guide)
+    if not builder:
+        return future.result()
+
+    try:
+        chatbot = GuideChatbot(guide)
+    except Exception as exc:
+        with _cache_lock:
+            pending = _guide_chatbot_futures.pop(cache_key, None)
+        if pending and not pending.done():
+            pending.set_exception(exc)
+        raise
 
     with _cache_lock:
         # Check again in case another thread created it
         if cache_key in _guide_chatbot_cache:
             _guide_chatbot_cache.move_to_end(cache_key)
-            return _guide_chatbot_cache[cache_key]
+            cached = _guide_chatbot_cache[cache_key]
+            pending = _guide_chatbot_futures.pop(cache_key, None)
+            if pending and not pending.done():
+                pending.set_result(cached)
+            return cached
 
         while len(_guide_chatbot_cache) >= MAX_CACHED_GUIDES:
             evicted_slug, _ = _guide_chatbot_cache.popitem(last=False)
             log.info("Evicted chatbot cache for guide: %s", evicted_slug)
 
         _guide_chatbot_cache[cache_key] = chatbot
+        pending = _guide_chatbot_futures.pop(cache_key, None)
+        if pending and not pending.done():
+            pending.set_result(chatbot)
         return chatbot
+
+
+def prewarm_guide_chatbots(slugs: Optional[List[str]] = None) -> Dict[str, str]:
+    requested = list(slugs or PREWARM_GUIDES)
+    if not requested:
+        return {}
+
+    if requested == ["*"]:
+        requested = [guide["slug"] for guide in guide_manager.list_guides()[:MAX_CACHED_GUIDES]]
+
+    results: Dict[str, str] = {}
+    for slug in requested:
+        try:
+            get_guide_chatbot(slug)
+            results[slug] = "ok"
+        except Exception as exc:
+            results[slug] = f"error: {exc}"
+    return results
 
 
 def clear_guide_chatbot_cache(slug: str = None):
@@ -1456,6 +1712,7 @@ def clear_guide_chatbot_cache(slug: str = None):
             guide = guide_manager.get_guide(slug)
             cache_key = guide.slug if guide else slug
             _guide_chatbot_cache.pop(cache_key, None)
+            _guide_chatbot_futures.pop(cache_key, None)
         else:
             _guide_chatbot_cache.clear()
-
+            _guide_chatbot_futures.clear()

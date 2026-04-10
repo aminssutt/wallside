@@ -5,11 +5,12 @@ import csv
 import json
 import logging
 import os
+import queue
 import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from threading import Lock
+from threading import Lock, Thread
 
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -19,8 +20,14 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
 from src.guide_manager import guide_manager
-from src.guide_chatbot import get_guide_chatbot
-from src.config import DATA_DIR, ALLOWED_ORIGINS, MAX_MESSAGE_LENGTH
+from src.guide_chatbot import get_guide_chatbot, prewarm_guide_chatbots
+from src.config import (
+    DATA_DIR,
+    ALLOWED_ORIGINS,
+    MAX_MESSAGE_LENGTH,
+    PREWARM_GUIDES,
+    STREAM_HEARTBEAT_SECONDS,
+)
 
 
 def _csv_safe(value: str) -> str:
@@ -100,6 +107,39 @@ _SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 
 def _sse_event(event_name: str, payload: dict) -> str:
     return f"event: {event_name}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+
+def _sse_comment(comment: str) -> str:
+    return f": {comment}\n\n"
+
+
+_PREWARM_STARTED = False
+_PREWARM_LOCK = Lock()
+
+
+def _maybe_start_prewarm():
+    global _PREWARM_STARTED
+    if not PREWARM_GUIDES:
+        return
+    with _PREWARM_LOCK:
+        if _PREWARM_STARTED:
+            return
+        _PREWARM_STARTED = True
+
+    def _run():
+        started_at = datetime.now(timezone.utc)
+        log.info("Starting chatbot prewarm for %s", PREWARM_GUIDES)
+        results = prewarm_guide_chatbots()
+        log.info(
+            "Chatbot prewarm finished at %s: %s",
+            started_at.isoformat(),
+            json.dumps(results, ensure_ascii=True, sort_keys=True),
+        )
+
+    Thread(target=_run, name="chatbot-prewarm", daemon=True).start()
+
+
+_maybe_start_prewarm()
 
 
 @app.route('/api/guides', methods=['GET'])
@@ -322,9 +362,33 @@ def chat_stream(slug):
             "success": True,
             "vehicle_name": guide.name,
         })
+        event_queue: "queue.Queue[tuple[str, object]]" = queue.Queue()
+
+        def _produce():
+            try:
+                for item in chatbot.chat_stream(question, lang=lang, session_id=session_id):
+                    event_queue.put(("event", item))
+            except Exception as exc:
+                event_queue.put(("error", exc))
+            finally:
+                event_queue.put(("done", None))
+
+        Thread(target=_produce, name=f"chat-stream-{slug}", daemon=True).start()
         try:
             ended = False
-            for event in chatbot.chat_stream(question, lang=lang, session_id=session_id):
+            while True:
+                try:
+                    kind, payload = event_queue.get(timeout=max(1.0, STREAM_HEARTBEAT_SECONDS))
+                except queue.Empty:
+                    yield _sse_comment("ping")
+                    continue
+
+                if kind == "done":
+                    break
+                if kind == "error":
+                    raise payload
+
+                event = payload
                 event_type = str(event.get("type", "")).strip().lower()
                 mid = event.get("message_id", "")
                 if event_type == "chunk":
@@ -344,6 +408,8 @@ def chat_stream(slug):
                         end_payload["confidence"] = event["confidence"]
                     if "fix_mode" in event:
                         end_payload["fix_mode"] = event["fix_mode"]
+                    if "metrics" in event and isinstance(event["metrics"], dict):
+                        end_payload["metrics"] = event["metrics"]
                     yield _sse_event("end", end_payload)
                     ended = True
                 elif event_type == "status":
@@ -580,6 +646,7 @@ def serve_frontend(path):
 
 
 if __name__ == '__main__':
+    _maybe_start_prewarm()
     api_key = os.getenv("GOOGLE_API_KEY", "")
     if not api_key or api_key == "your_google_api_key_here":
         print("\n WARNING: GOOGLE_API_KEY is not set or invalid!")

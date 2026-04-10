@@ -151,7 +151,8 @@ function getVehicleQuestions(vehicleName, segment, lang) {
   return questions.map((q) => q.replace(/\{vehicle\}/g, vehicleName))
 }
 const COMPACT_MENU_BREAKPOINT = 1024
-const CHAT_REQUEST_TIMEOUT_MS = 45000
+const CHAT_TTFB_TIMEOUT_MS = 12000
+const CHAT_TOTAL_TIMEOUT_MS = 90000
 const MAX_INPUT_LENGTH = 3000
 const KNOWN_STREAM_EVENTS = new Set([
   'start', 'chunk', 'end', 'error',
@@ -206,6 +207,27 @@ const TOAST_COPY = {
   ko: {
     redirecting: '확인되었습니다. 이동 중입니다...',
     copied: '클립보드에 복사됨',
+  },
+}
+
+const STREAM_RUNTIME_COPY = {
+  fr: {
+    partial: "Le flux s'est interrompu avant la fin. Voici la partie recue pour le moment.",
+    timeoutInitial: 'La reponse prend trop de temps. Nouvelle tentative en cours...',
+    timeoutPartial: "La generation a pris trop de temps. Voici la partie recue jusqu'ici.",
+    timeoutFinal: 'La reponse a pris trop de temps. Reessayez dans un instant.',
+  },
+  en: {
+    partial: 'The stream stopped before the answer finished. Here is the partial response received so far.',
+    timeoutInitial: 'The response is taking too long. Retrying now...',
+    timeoutPartial: 'The generation took too long. Here is the partial response received so far.',
+    timeoutFinal: 'The response took too long. Please try again in a moment.',
+  },
+  ko: {
+    partial: '응답 스트림이 끝나기 전에 중단되었습니다. 지금까지 받은 내용만 먼저 표시합니다.',
+    timeoutInitial: '응답이 오래 걸리고 있습니다. 다시 시도합니다...',
+    timeoutPartial: '생성이 너무 오래 걸렸습니다. 지금까지 받은 내용만 먼저 표시합니다.',
+    timeoutFinal: '응답 시간이 너무 오래 걸렸습니다. 잠시 후 다시 시도해 주세요.',
   },
 }
 
@@ -693,12 +715,14 @@ function ChatPage() {
   const tokenFlushTimerRef = useRef(null)
   const inputRef = useRef(null)
   const chunkBufferRef = useRef('')
-  const drainTimerRef = useRef(null)
+  const drainFrameRef = useRef(null)
   const streamDoneRef = useRef(false)
   const userScrolledUpRef = useRef(false)
   const abortControllerRef = useRef(null)
+  const abortReasonRef = useRef('')
   const t = UI_TEXT[lang] || UI_TEXT.fr
   const toastCopy = TOAST_COPY[lang] || TOAST_COPY.en
+  const streamRuntimeCopy = STREAM_RUNTIME_COPY[lang] || STREAM_RUNTIME_COPY.en
   const coverageLabel = t.chat.coverageLabel || '{coverage}'
   const exitConfirmTitle = t.chat.exitConfirmTitle || 'End this chat?'
   const exitConfirmText = t.chat.exitConfirmText || 'Are you sure you want to leave this conversation?'
@@ -709,7 +733,6 @@ function ChatPage() {
   const currentLang = LANGUAGES.find((entry) => entry.code === lang) || LANGUAGES[0]
   const terminalSystemLabel = assistantAliases[lang] || assistantAliases.en
   const terminalProtocolLabel = 'PROTOCOL_SECURE_LINE'
-  const executeLabel = lang === 'fr' ? 'EXECUTER' : lang === 'ko' ? '\uC2E4\uD589' : 'EXECUTE'
 
   const quickQuestions = useMemo(() => {
     if (!guide) return []
@@ -752,7 +775,9 @@ function ChatPage() {
             brand: data.guide.brand || '',
             segment: data.guide.segment || '',
           }))
-        } catch {}
+        } catch {
+          // Ignore localStorage failures in restricted environments.
+        }
       } catch {
         setErrorKey('guideLoadError')
       }
@@ -895,17 +920,17 @@ function ChatPage() {
       if (tokenFlushTimerRef.current) {
         window.clearInterval(tokenFlushTimerRef.current)
       }
-      if (drainTimerRef.current) {
-        window.clearInterval(drainTimerRef.current)
+      if (drainFrameRef.current !== null) {
+        window.cancelAnimationFrame(drainFrameRef.current)
       }
     }
   }, [])
 
   const streamBotMessage = (fullText) =>
     new Promise((resolve) => {
-      if (drainTimerRef.current) {
-        window.clearInterval(drainTimerRef.current)
-        drainTimerRef.current = null
+      if (drainFrameRef.current !== null) {
+        window.cancelAnimationFrame(drainFrameRef.current)
+        drainFrameRef.current = null
       }
       chunkBufferRef.current = ''
       streamDoneRef.current = false
@@ -968,41 +993,30 @@ function ChatPage() {
   const drainTick = () => {
     const buf = chunkBufferRef.current
     if (!buf) {
-      if (streamDoneRef.current && drainTimerRef.current) {
-        window.clearInterval(drainTimerRef.current)
-        drainTimerRef.current = null
+      drainFrameRef.current = null
+      if (streamDoneRef.current) {
         streamDoneRef.current = false
         setIsStreaming(false)
       }
       return
     }
-    // Smooth word-by-word drain — readable pace, not too fast.
-    const target = Math.min(buf.length, 10)
-    let end = target
-    if (end < buf.length) {
-      // Snap to next word boundary for natural reading
-      const nextSpace = buf.indexOf(' ', end)
-      if (nextSpace > 0 && nextSpace <= end + 8) {
-        end = nextSpace + 1
-      }
-    }
-    const chunk = buf.slice(0, end)
-    chunkBufferRef.current = buf.slice(end)
+    chunkBufferRef.current = ''
     setMessages((prev) => {
-      if (!prev.length) return [{ type: 'bot', content: chunk }]
+      if (!prev.length) return [{ type: 'bot', content: buf }]
       const updated = [...prev]
       const last = updated[updated.length - 1]
       if (!last || last.type !== 'bot') {
-        return [...prev, { type: 'bot', content: chunk }]
+        return [...prev, { type: 'bot', content: buf }]
       }
-      updated[updated.length - 1] = { ...last, content: (last.content || '') + chunk }
+      updated[updated.length - 1] = { ...last, content: (last.content || '') + buf }
       return updated
     })
+    drainFrameRef.current = window.requestAnimationFrame(drainTick)
   }
 
   const startDrain = () => {
-    if (drainTimerRef.current) return
-    drainTimerRef.current = window.setInterval(drainTick, 45)
+    if (drainFrameRef.current !== null) return
+    drainFrameRef.current = window.requestAnimationFrame(drainTick)
   }
 
   const appendBotChunk = (chunkText) => {
@@ -1018,7 +1032,7 @@ function ChatPage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: text, lang, session_id: sessionId }),
-      signal,
+      ...(signal ? { signal } : {}),
     })
 
     const data = await response.json()
@@ -1029,8 +1043,9 @@ function ChatPage() {
     return (data.error || '').trim() || t.chat.unavailable
   }
 
-  const consumeChatStream = async ({ text, signal }) => {
+  const consumeChatStream = async ({ text, signal, onFirstChunk, onChunkReceived, onEndReceived }) => {
     let hasChunkContent = false
+    let sawEndEvent = false
 
     const response = await fetch(`${API_URL}/guides/${slug}/chat/stream`, {
       method: 'POST',
@@ -1066,6 +1081,14 @@ function ChatPage() {
       })
     }
 
+    const registerFirstChunk = () => {
+      if (!hasChunkContent) {
+        onFirstChunk?.()
+      }
+      hasChunkContent = true
+      onChunkReceived?.()
+    }
+
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
     let buffer = ''
@@ -1074,7 +1097,6 @@ function ChatPage() {
       const eventName = normalizeStreamEventName(event, data)
 
       if (eventName === 'start') {
-        // Don't create the bot message yet — wait for first chunk
         return
       }
 
@@ -1088,12 +1110,14 @@ function ChatPage() {
         const chunkText = extractStreamText(data)
         if (!chunkText) return
         ensureStreamingMessage()
-        hasChunkContent = true
+        registerFirstChunk()
         appendBotChunk(chunkText)
         return
       }
 
       if (eventName === 'end') {
+        sawEndEvent = true
+        onEndReceived?.()
         setStreamStatus('')
         const confidence = (data && typeof data === 'object') ? (data.confidence || '') : ''
         if (confidence) {
@@ -1174,7 +1198,7 @@ function ChatPage() {
       const fallbackChunk = extractStreamText(data)
       if (!fallbackChunk) return
       ensureStreamingMessage()
-      hasChunkContent = true
+      registerFirstChunk()
       appendBotChunk(fallbackChunk)
     }
 
@@ -1203,6 +1227,14 @@ function ChatPage() {
         handleStreamEvent(parseSseEventBlock(buffer))
       }
 
+      if (hasChunkContent && !sawEndEvent) {
+        const streamError = new Error('stream closed before end event')
+        streamError.allowFallback = false
+        streamError.hasChunkContent = true
+        streamError.streamErrorMessage = streamRuntimeCopy.partial
+        throw streamError
+      }
+
       streamDoneRef.current = true
       startDrain()
 
@@ -1214,7 +1246,6 @@ function ChatPage() {
       }
     } finally {
       reader.releaseLock()
-      // isStreaming is set to false by the drain when buffer is empty
     }
   }
 
@@ -1223,33 +1254,70 @@ function ChatPage() {
     if (!text || isLoading || isStreaming) return
     setStreamStatus('')
 
-    // Cancel any pending drain from a previous stream
-    if (drainTimerRef.current) {
-      window.clearInterval(drainTimerRef.current)
-      drainTimerRef.current = null
+    if (drainFrameRef.current !== null) {
+      window.cancelAnimationFrame(drainFrameRef.current)
+      drainFrameRef.current = null
     }
     chunkBufferRef.current = ''
     streamDoneRef.current = false
+    abortReasonRef.current = ''
 
     setMessages((previous) => [...previous, { type: 'user', content: text }])
     setInput('')
     setIsLoading(true)
     setLangOpen(false)
-    let timeoutId
+
+    let ttfbTimeoutId = null
+    let totalTimeoutId = null
+    let receivedChunk = false
+
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+
+    const abortWithReason = (reason) => {
+      if (controller.signal.aborted) return
+      abortReasonRef.current = reason
+      controller.abort()
+    }
+
+    const clearTtfbTimeout = () => {
+      if (ttfbTimeoutId) {
+        window.clearTimeout(ttfbTimeoutId)
+        ttfbTimeoutId = null
+      }
+    }
+
+    const clearTotalTimeout = () => {
+      if (totalTimeoutId) {
+        window.clearTimeout(totalTimeoutId)
+        totalTimeoutId = null
+      }
+    }
 
     try {
-      const controller = new AbortController()
-      abortControllerRef.current = controller
-      timeoutId = window.setTimeout(() => controller.abort(), CHAT_REQUEST_TIMEOUT_MS)
+      ttfbTimeoutId = window.setTimeout(() => abortWithReason('timeout_ttfb'), CHAT_TTFB_TIMEOUT_MS)
+      totalTimeoutId = window.setTimeout(() => abortWithReason('timeout_total'), CHAT_TOTAL_TIMEOUT_MS)
+
       try {
-        await consumeChatStream({ text, signal: controller.signal })
+        await consumeChatStream({
+          text,
+          signal: controller.signal,
+          onFirstChunk: clearTtfbTimeout,
+          onChunkReceived: () => {
+            receivedChunk = true
+          },
+          onEndReceived: () => {
+            clearTtfbTimeout()
+            clearTotalTimeout()
+          },
+        })
       } catch (streamError) {
         if (streamError?.name === 'AbortError') {
           throw streamError
         }
 
         if (streamError?.allowFallback) {
-          const fallbackResponse = await requestChatJson({ text, signal: controller.signal })
+          const fallbackResponse = await requestChatJson({ text })
           await streamBotMessage(fallbackResponse)
           return
         }
@@ -1265,16 +1333,37 @@ function ChatPage() {
       }
     } catch (error) {
       if (error?.name === 'AbortError') {
-        // User clicked stop or timeout — don't show error message
+        const abortReason = abortReasonRef.current
+        if (abortReason === 'manual_stop') {
+          return
+        }
+
+        if (!receivedChunk) {
+          setStreamStatus('')
+          try {
+            await streamBotMessage(streamRuntimeCopy.timeoutInitial)
+            const fallbackResponse = await requestChatJson({ text })
+            await streamBotMessage(fallbackResponse)
+            return
+          } catch {
+            await streamBotMessage(streamRuntimeCopy.timeoutFinal)
+            return
+          }
+        }
+
+        appendBotChunk(`\n\n${streamRuntimeCopy.timeoutPartial}`)
+        streamDoneRef.current = true
+        startDrain()
         return
       }
       await streamBotMessage(t.chat.serverUnavailable)
     } finally {
-      if (timeoutId) {
-        window.clearTimeout(timeoutId)
-      }
+      clearTtfbTimeout()
+      clearTotalTimeout()
       setIsLoading(false)
-      if (!drainTimerRef.current) {
+      abortControllerRef.current = null
+      abortReasonRef.current = ''
+      if (drainFrameRef.current === null) {
         setIsStreaming(false)
       }
       inputRef.current?.focus()
@@ -1283,13 +1372,13 @@ function ChatPage() {
 
   const handleStopGeneration = () => {
     if (abortControllerRef.current) {
+      abortReasonRef.current = 'manual_stop'
       abortControllerRef.current.abort()
       abortControllerRef.current = null
     }
-    // Flush any remaining buffer so partial text shows
-    if (drainTimerRef.current) {
-      window.clearInterval(drainTimerRef.current)
-      drainTimerRef.current = null
+    if (drainFrameRef.current !== null) {
+      window.cancelAnimationFrame(drainFrameRef.current)
+      drainFrameRef.current = null
     }
     const remaining = chunkBufferRef.current
     if (remaining) {
