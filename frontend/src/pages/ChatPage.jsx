@@ -154,6 +154,8 @@ const COMPACT_MENU_BREAKPOINT = 1024
 const CHAT_TTFB_TIMEOUT_MS = 12000
 const CHAT_TOTAL_TIMEOUT_MS = 90000
 const MAX_INPUT_LENGTH = 3000
+const STREAM_DRAIN_IDLE_MS = 32
+const STREAM_DRAIN_BUSY_MS = 18
 const KNOWN_STREAM_EVENTS = new Set([
   'start', 'chunk', 'end', 'error',
   'sources_start', 'source_item', 'sources_end',
@@ -383,6 +385,40 @@ const extractStreamError = (payload) => {
   const errorCandidates = [payload.error, payload.message, payload.detail]
   const firstError = errorCandidates.find((value) => typeof value === 'string' && value.trim())
   return firstError ? firstError.trim() : ''
+}
+
+const createEmptyStreamArtifacts = () => ({
+  sources: [],
+  video: null,
+  confidence: '',
+  metrics: null,
+})
+
+const sliceStreamChunkForDisplay = (chunkText) => {
+  const chars = Array.from(String(chunkText || ''))
+  if (chars.length === 0) {
+    return []
+  }
+
+  const sliceSize = chars.length > 180 ? 20 : chars.length > 96 ? 12 : chars.length > 48 ? 7 : chars.length > 16 ? 4 : 2
+  const slices = []
+  for (let index = 0; index < chars.length; index += sliceSize) {
+    slices.push(chars.slice(index, index + sliceSize).join(''))
+  }
+  return slices
+}
+
+const pickStreamDrainProfile = (queueLength) => {
+  if (queueLength > 72) {
+    return { intervalMs: STREAM_DRAIN_BUSY_MS, slicesPerTick: 5 }
+  }
+  if (queueLength > 36) {
+    return { intervalMs: 22, slicesPerTick: 4 }
+  }
+  if (queueLength > 16) {
+    return { intervalMs: 26, slicesPerTick: 3 }
+  }
+  return { intervalMs: STREAM_DRAIN_IDLE_MS, slicesPerTick: 2 }
 }
 
 const SOURCE_I18N = {
@@ -684,6 +720,18 @@ const RichBotMessage = memo(function RichBotMessage({ text, lang = 'fr', video, 
   )
 })
 
+const StreamingBotMessage = memo(function StreamingBotMessage({ text }) {
+  const content = normalizeAssistantText(text).replace(/\r\n/g, '\n')
+
+  return (
+    <div className="bot-rich-message bot-rich-message--streaming" aria-live="polite" aria-atomic="false">
+      <div style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+        {content}
+      </div>
+    </div>
+  )
+})
+
 function ChatPage() {
   const { slug } = useParams()
   const navigate = useNavigate()
@@ -714,9 +762,10 @@ function ChatPage() {
   const langDropdownRef = useRef(null)
   const tokenFlushTimerRef = useRef(null)
   const inputRef = useRef(null)
-  const chunkBufferRef = useRef('')
-  const drainFrameRef = useRef(null)
+  const displayQueueRef = useRef([])
+  const drainTimerRef = useRef(null)
   const streamDoneRef = useRef(false)
+  const pendingStreamArtifactsRef = useRef(createEmptyStreamArtifacts())
   const userScrolledUpRef = useRef(false)
   const abortControllerRef = useRef(null)
   const abortReasonRef = useRef('')
@@ -920,20 +969,100 @@ function ChatPage() {
       if (tokenFlushTimerRef.current) {
         window.clearInterval(tokenFlushTimerRef.current)
       }
-      if (drainFrameRef.current !== null) {
-        window.cancelAnimationFrame(drainFrameRef.current)
+      if (drainTimerRef.current !== null) {
+        window.clearTimeout(drainTimerRef.current)
       }
     }
   }, [])
 
+  const resetPendingStreamArtifacts = () => {
+    pendingStreamArtifactsRef.current = createEmptyStreamArtifacts()
+  }
+
+  const cancelDrain = () => {
+    if (drainTimerRef.current !== null) {
+      window.clearTimeout(drainTimerRef.current)
+      drainTimerRef.current = null
+    }
+  }
+
+  const mergeBufferedArtifactsIntoLastBot = () => {
+    const pendingArtifacts = pendingStreamArtifactsRef.current
+    const hasArtifacts = Boolean(
+      pendingArtifacts.confidence
+        || pendingArtifacts.metrics
+        || pendingArtifacts.video?.url
+        || pendingArtifacts.sources.length,
+    )
+
+    if (!hasArtifacts) {
+      return
+    }
+
+    setMessages((previous) => {
+      if (previous.length === 0) return previous
+      const updated = [...previous]
+      const lastMessage = updated[updated.length - 1]
+      if (!lastMessage || lastMessage.type !== 'bot') {
+        return previous
+      }
+
+      updated[updated.length - 1] = {
+        ...lastMessage,
+        ...(pendingArtifacts.confidence ? { confidence: pendingArtifacts.confidence } : {}),
+        ...(pendingArtifacts.metrics ? { metrics: pendingArtifacts.metrics } : {}),
+        ...(pendingArtifacts.video?.url ? { video: pendingArtifacts.video } : {}),
+        ...(pendingArtifacts.sources.length ? { sources: pendingArtifacts.sources } : {}),
+      }
+      return updated
+    })
+  }
+
+  const finalizeStreamingPresentation = () => {
+    cancelDrain()
+    mergeBufferedArtifactsIntoLastBot()
+    resetPendingStreamArtifacts()
+    displayQueueRef.current = []
+    streamDoneRef.current = false
+    setIsStreaming(false)
+  }
+
+  const appendTextToLastBotMessage = (textDelta) => {
+    if (!textDelta) return
+
+    setMessages((previous) => {
+      if (!previous.length) return [{ type: 'bot', content: textDelta }]
+      const updated = [...previous]
+      const lastMessage = updated[updated.length - 1]
+
+      if (!lastMessage || lastMessage.type !== 'bot') {
+        return [...previous, { type: 'bot', content: textDelta }]
+      }
+
+      updated[updated.length - 1] = {
+        ...lastMessage,
+        content: `${lastMessage.content || ''}${textDelta}`,
+      }
+      return updated
+    })
+  }
+
+  const flushQueuedStreamText = () => {
+    if (displayQueueRef.current.length === 0) {
+      return
+    }
+
+    const pendingText = displayQueueRef.current.join('')
+    displayQueueRef.current = []
+    appendTextToLastBotMessage(pendingText)
+  }
+
   const streamBotMessage = (fullText) =>
     new Promise((resolve) => {
-      if (drainFrameRef.current !== null) {
-        window.cancelAnimationFrame(drainFrameRef.current)
-        drainFrameRef.current = null
-      }
-      chunkBufferRef.current = ''
+      cancelDrain()
+      displayQueueRef.current = []
       streamDoneRef.current = false
+      resetPendingStreamArtifacts()
 
       const safeText = normalizeAssistantText(fullText || '') || t.chat.unavailable
       const chars = Array.from(safeText)
@@ -991,38 +1120,29 @@ function ChatPage() {
     })
 
   const drainTick = () => {
-    const buf = chunkBufferRef.current
-    if (!buf) {
-      drainFrameRef.current = null
+    if (displayQueueRef.current.length === 0) {
+      drainTimerRef.current = null
       if (streamDoneRef.current) {
-        streamDoneRef.current = false
-        setIsStreaming(false)
+        finalizeStreamingPresentation()
       }
       return
     }
-    chunkBufferRef.current = ''
-    setMessages((prev) => {
-      if (!prev.length) return [{ type: 'bot', content: buf }]
-      const updated = [...prev]
-      const last = updated[updated.length - 1]
-      if (!last || last.type !== 'bot') {
-        return [...prev, { type: 'bot', content: buf }]
-      }
-      updated[updated.length - 1] = { ...last, content: (last.content || '') + buf }
-      return updated
-    })
-    drainFrameRef.current = window.requestAnimationFrame(drainTick)
+
+    const { intervalMs, slicesPerTick } = pickStreamDrainProfile(displayQueueRef.current.length)
+    const nextSlices = displayQueueRef.current.splice(0, slicesPerTick)
+    appendTextToLastBotMessage(nextSlices.join(''))
+    drainTimerRef.current = window.setTimeout(drainTick, intervalMs)
   }
 
   const startDrain = () => {
-    if (drainFrameRef.current !== null) return
-    drainFrameRef.current = window.requestAnimationFrame(drainTick)
+    if (drainTimerRef.current !== null) return
+    drainTimerRef.current = window.setTimeout(drainTick, 0)
   }
 
   const appendBotChunk = (chunkText) => {
     const nextChunk = String(chunkText || '')
     if (!nextChunk) return
-    chunkBufferRef.current += nextChunk
+    displayQueueRef.current.push(...sliceStreamChunkForDisplay(nextChunk))
     startDrain()
   }
 
@@ -1119,38 +1239,33 @@ function ChatPage() {
         sawEndEvent = true
         onEndReceived?.()
         setStreamStatus('')
-        const confidence = (data && typeof data === 'object') ? (data.confidence || '') : ''
-        if (confidence) {
-          setMessages((prev) => {
-            if (!prev.length) return prev
-            const updated = [...prev]
-            const last = updated[updated.length - 1]
-            if (last?.type === 'bot') {
-              updated[updated.length - 1] = { ...last, confidence }
-            }
-            return updated
-          })
+        if (data && typeof data === 'object') {
+          pendingStreamArtifactsRef.current = {
+            ...pendingStreamArtifactsRef.current,
+            confidence: String(data.confidence || ''),
+            metrics: data.metrics && typeof data.metrics === 'object'
+              ? data.metrics
+              : pendingStreamArtifactsRef.current.metrics,
+          }
         }
         return
       }
 
       if (eventName === 'sources_start') {
+        pendingStreamArtifactsRef.current = {
+          ...pendingStreamArtifactsRef.current,
+          sources: [],
+        }
         return
       }
 
       if (eventName === 'source_item') {
         const src = (data && typeof data === 'object') ? data.source : null
         if (src) {
-          setMessages((prev) => {
-            if (!prev.length) return prev
-            const updated = [...prev]
-            const last = updated[updated.length - 1]
-            if (last?.type === 'bot') {
-              const existing = last.sources || []
-              updated[updated.length - 1] = { ...last, sources: [...existing, src] }
-            }
-            return updated
-          })
+          pendingStreamArtifactsRef.current = {
+            ...pendingStreamArtifactsRef.current,
+            sources: [...pendingStreamArtifactsRef.current.sources, src],
+          }
         }
         return
       }
@@ -1163,22 +1278,14 @@ function ChatPage() {
         const videoData = (data && typeof data === 'object') ? data : {}
         const url = String(videoData.url || '').trim()
         if (!url || !/^https:\/\//.test(url)) return
-        setMessages((previous) => {
-          if (previous.length === 0) return previous
-          const updated = [...previous]
-          const lastMessage = updated[updated.length - 1]
-          if (lastMessage && lastMessage.type === 'bot') {
-            updated[updated.length - 1] = {
-              ...lastMessage,
-              video: {
-                title: String(videoData.title || 'YouTube'),
-                url,
-                thumb: String(videoData.thumbnail || '') || youtubeThumbFromUrl(url),
-              },
-            }
-          }
-          return updated
-        })
+        pendingStreamArtifactsRef.current = {
+          ...pendingStreamArtifactsRef.current,
+          video: {
+            title: String(videoData.title || 'YouTube'),
+            url,
+            thumb: String(videoData.thumbnail || '') || youtubeThumbFromUrl(url),
+          },
+        }
         return
       }
 
@@ -1254,12 +1361,10 @@ function ChatPage() {
     if (!text || isLoading || isStreaming) return
     setStreamStatus('')
 
-    if (drainFrameRef.current !== null) {
-      window.cancelAnimationFrame(drainFrameRef.current)
-      drainFrameRef.current = null
-    }
-    chunkBufferRef.current = ''
+    cancelDrain()
+    displayQueueRef.current = []
     streamDoneRef.current = false
+    resetPendingStreamArtifacts()
     abortReasonRef.current = ''
 
     setMessages((previous) => [...previous, { type: 'user', content: text }])
@@ -1363,7 +1468,7 @@ function ChatPage() {
       setIsLoading(false)
       abortControllerRef.current = null
       abortReasonRef.current = ''
-      if (drainFrameRef.current === null) {
+      if (drainTimerRef.current === null) {
         setIsStreaming(false)
       }
       inputRef.current?.focus()
@@ -1376,23 +1481,9 @@ function ChatPage() {
       abortControllerRef.current.abort()
       abortControllerRef.current = null
     }
-    if (drainFrameRef.current !== null) {
-      window.cancelAnimationFrame(drainFrameRef.current)
-      drainFrameRef.current = null
-    }
-    const remaining = chunkBufferRef.current
-    if (remaining) {
-      chunkBufferRef.current = ''
-      setMessages((prev) => {
-        if (!prev.length) return prev
-        const updated = [...prev]
-        const last = updated[updated.length - 1]
-        if (last?.type === 'bot') {
-          updated[updated.length - 1] = { ...last, content: (last.content || '') + remaining }
-        }
-        return updated
-      })
-    }
+    cancelDrain()
+    flushQueuedStreamText()
+    resetPendingStreamArtifacts()
     streamDoneRef.current = false
     setIsStreaming(false)
     setIsLoading(false)
@@ -1638,13 +1729,17 @@ function ChatPage() {
 
                     <div className="msg-bubble">
                       {msg.type === 'bot' ? (
-                        <RichBotMessage
-                          text={msg.content}
-                          lang={lang}
-                          video={isLastBotStreaming ? null : msg.video}
-                          confidence={isLastBotStreaming ? null : msg.confidence}
-                          sources={isLastBotStreaming ? null : msg.sources}
-                        />
+                        isLastBotStreaming ? (
+                          <StreamingBotMessage text={msg.content} />
+                        ) : (
+                          <RichBotMessage
+                            text={msg.content}
+                            lang={lang}
+                            video={msg.video}
+                            confidence={msg.confidence}
+                            sources={msg.sources}
+                          />
+                        )
                       ) : msg.content}
                     </div>
 
