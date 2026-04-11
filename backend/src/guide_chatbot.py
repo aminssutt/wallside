@@ -1485,9 +1485,16 @@ REGLES STRICTES:
             quality_stats=payload.get("quality_stats") or {},
         )
 
+        should_web_enrich = ENABLE_WEB_ENRICHMENT and (
+            mode == WEB_ASYNC or (mode == WEB_BLOCKING and not p_has_ctx)
+        )
+        if should_web_enrich:
+            yield {"type": "status", "step": "web_search", "message_id": message_id}
+            if mode == WEB_BLOCKING and not p_has_ctx and ENABLE_DEEP_WEB_ENRICHMENT:
+                yield {"type": "status", "step": "deep_web_search", "message_id": message_id}
+
         # --- Fallback: if RAG found nothing, do a quick web search to enrich prompt ---
         if not p_has_ctx and ENABLE_WEB_ENRICHMENT:
-            yield {"type": "status", "step": "web_search", "message_id": message_id}
             enrichment_query = f"{self.guide.name} {question}".strip()
             budget = max(0.5, ENRICHMENT_TIME_BUDGET_SECONDS)
             try:
@@ -1645,10 +1652,11 @@ REGLES STRICTES:
         # Collect async web sources (mode C) — already running in background
         if web_future is not None:
             try:
-                web_results = web_future.result(timeout=0.25)
-                if web_results:
-                    for ws in build_sources_structured([], web_results=web_results):
-                        sources.append(ws)
+                if web_future.done():
+                    web_results = web_future.result()
+                    if web_results:
+                        for ws in build_sources_structured([], web_results=web_results):
+                            sources.append(ws)
             except Exception:
                 pass
 
@@ -1664,11 +1672,6 @@ REGLES STRICTES:
             if video_future is not None:
                 if video_future.done():
                     video = video_future.result()
-                else:
-                    try:
-                        video = video_future.result(timeout=0.15)
-                    except Exception:
-                        video = {}
 
             if video:
                 try:

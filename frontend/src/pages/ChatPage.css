@@ -914,6 +914,7 @@
   color: inherit;
   transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
   min-width: 0;
+  animation: statusFadeIn 180ms ease-out;
 }
 
 .bot-video-card:hover {
@@ -1044,6 +1045,7 @@
   border-radius: 12px;
   border-top: none;
   border-image: none;
+  animation: statusFadeIn 180ms ease-out;
 }
 
 .bot-sources-section::before {
@@ -1073,11 +1075,14 @@
 .bot-source-link {
   color: var(--text-muted);
   text-decoration: none;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   max-width: 100%;
   overflow-wrap: anywhere;
   word-break: break-word;
   transition: color 0.15s;
+  min-height: 1.4rem;
 }
 
 .bot-source-link:hover {
@@ -1102,6 +1107,13 @@ button.bot-source-link {
   font: inherit;
   padding: 0;
   text-align: left;
+  border-radius: 8px;
+}
+
+button.bot-source-link:focus-visible,
+.bot-source-link:focus-visible {
+  outline: 1px solid rgba(200, 168, 78, 0.45);
+  outline-offset: 3px;
 }
 
 /* ============================================================

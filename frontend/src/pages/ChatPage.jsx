@@ -279,6 +279,359 @@ const youtubeThumbFromUrl = (urlValue) => {
   return `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`
 }
 
+const SOURCE_SECTION_HEADING_REGEX = /^(?:sources?|references?|r[ée]f[ée]rences?|출처)(?:\s+(?:web|manual|online|liens?|links?))?\s*[:：-]?\s*$/i
+const SOURCE_LIST_PREFIX_REGEX = /^\s*(?:[-*•]|\d+[.)])\s+/
+const SOURCE_PAGE_REGEX = /\b(?:page|pages|p\.)\s*(\d+(?:\s*[-–]\s*\d+)?)\b/i
+const SOURCE_URL_MATCH_REGEX = /(https?:\/\/[^\s)]+)/i
+
+const stripSourceListPrefix = (value) => String(value || '').replace(SOURCE_LIST_PREFIX_REGEX, '').trim()
+
+const extractFirstUrl = (value) => {
+  const match = String(value || '').match(SOURCE_URL_MATCH_REGEX)
+  return match ? sanitizeUrl(match[1]) : ''
+}
+
+const extractSourcePage = (value) => {
+  const match = String(value || '').match(SOURCE_PAGE_REGEX)
+  return match ? match[1].replace(/\s+/g, '') : ''
+}
+
+const formatWebSourceDisplay = (label, url) => {
+  const safeLabel = String(label || '').trim()
+  const host = (() => {
+    try {
+      return new URL(url).hostname.replace(/^www\./i, '')
+    } catch {
+      return ''
+    }
+  })()
+
+  if (safeLabel) {
+    return safeLabel.startsWith('Web:') ? safeLabel : `Web: ${safeLabel}`
+  }
+
+  return host ? `Web: ${host}` : url
+}
+
+const normalizeSourceObject = (source, guideCtx) => {
+  if (!source) {
+    return null
+  }
+
+  const guideSlug = String(guideCtx?.slug || '').trim()
+  const guideName = String(guideCtx?.name || '').trim()
+
+  if (typeof source === 'string') {
+    return normalizeSourceObject({ display: source }, guideCtx)
+  }
+
+  if (typeof source !== 'object') {
+    return null
+  }
+
+  const kind = String(source.kind || '').trim().toLowerCase()
+  const display = String(source.display || '').trim()
+  const label = String(source.label || '').trim()
+  const url = extractFirstUrl(source.url || source.display || display || label)
+  const page = String(source.page || '').trim() || extractSourcePage(display || label)
+  const pdfUrl = String(source.pdf_url || '').trim()
+  const excerpt = String(source.excerpt || '').trim()
+  const domain = String(source.domain || '').trim()
+
+  if (kind === 'manual') {
+    const manualLabel = label
+      || display.replace(/^manual\s*:\s*/i, '').replace(SOURCE_PAGE_REGEX, '').trim()
+      || guideName
+      || 'Manual'
+    const manualDisplay = display || `Manual: ${manualLabel}${page ? `, page ${page}` : ''}`
+    return {
+      kind: 'manual',
+      label: manualLabel,
+      page: page || '?',
+      slug: guideSlug || String(source.slug || '').trim(),
+      ...(pdfUrl ? { pdf_url: pdfUrl } : {}),
+      ...(excerpt ? { excerpt } : {}),
+      display: manualDisplay,
+    }
+  }
+
+  if (kind === 'web') {
+    const webLabel = label || display || formatWebSourceDisplay('', url || domain || 'Web')
+    const webUrl = url || String(source.url || '').trim()
+    if (!webUrl) {
+      return null
+    }
+    return {
+      kind: 'web',
+      label: webLabel.replace(/^Web:\s*/i, '').trim() || webLabel,
+      domain: domain || '',
+      url: sanitizeUrl(webUrl),
+      display: display || formatWebSourceDisplay(webLabel, webUrl),
+    }
+  }
+
+  const manualPage = page || extractSourcePage(display || label)
+  if (/^manual\s*:/i.test(display) || /^manual\s*:/i.test(label) || manualPage) {
+    const manualLabel = (display || label)
+      .replace(/^manual\s*:\s*/i, '')
+      .replace(SOURCE_PAGE_REGEX, '')
+      .replace(/\s*[,;:-]\s*$/, '')
+      .trim() || guideName || 'Manual'
+    const maybePdfUrl = url && /\.pdf(?:$|[?#])/i.test(url) ? url : pdfUrl
+    return {
+      kind: 'manual',
+      label: manualLabel,
+      page: manualPage || '?',
+      slug: guideSlug || String(source.slug || '').trim(),
+      ...(maybePdfUrl ? { pdf_url: sanitizeUrl(maybePdfUrl) } : {}),
+      ...(excerpt ? { excerpt } : {}),
+      display: display || `Manual: ${manualLabel}${manualPage ? `, page ${manualPage}` : ''}`,
+    }
+  }
+
+  if (url) {
+    const webLabel = (display || label || domain || formatWebSourceDisplay('', url))
+      .replace(/^web\s*:\s*/i, '')
+      .trim()
+    return {
+      kind: 'web',
+      label: webLabel || formatWebSourceDisplay('', url),
+      domain,
+      url: sanitizeUrl(url),
+      display: display || formatWebSourceDisplay(webLabel, url),
+    }
+  }
+
+  return null
+}
+
+const normalizeSourceArray = (sources, guideCtx) => {
+  const normalized = []
+  const seen = new Set()
+  const sourceList = Array.isArray(sources)
+    ? sources
+    : sources
+      ? [sources]
+      : []
+
+  sourceList.forEach((source) => {
+    const item = normalizeSourceObject(source, guideCtx)
+    if (!item) {
+      return
+    }
+
+    const key = item.kind === 'manual'
+      ? `manual:${item.slug}:${item.page}:${item.label}`
+      : `web:${item.url}`
+
+    if (seen.has(key)) {
+      return
+    }
+
+    seen.add(key)
+    normalized.push(item)
+  })
+
+  return normalized
+}
+
+const splitAssistantResponseArtifacts = (rawText, guideCtx) => {
+  const cleanText = normalizeAssistantText(rawText || '')
+  if (!cleanText) {
+    return { bodyText: '', sources: [] }
+  }
+
+  const lines = cleanText.replace(/\r\n/g, '\n').split('\n')
+
+  const isProbableSourceLine = (line) => {
+    const normalized = stripSourceListPrefix(line)
+    if (!normalized) return false
+    return Boolean(
+      /^manual\s*:/i.test(normalized)
+        || /^web\s*:/i.test(normalized)
+        || SOURCE_SECTION_HEADING_REGEX.test(normalized)
+        || SOURCE_PAGE_REGEX.test(normalized)
+        || extractFirstUrl(normalized),
+    )
+  }
+
+  let sourceStartIndex = -1
+  let sourceHasHeading = false
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const normalized = stripSourceListPrefix(lines[index])
+    if (!SOURCE_SECTION_HEADING_REGEX.test(normalized)) {
+      continue
+    }
+
+    const tailHasSourceLines = lines.slice(index + 1).some((line) => isProbableSourceLine(line))
+    if (tailHasSourceLines) {
+      sourceStartIndex = index
+      sourceHasHeading = true
+      break
+    }
+  }
+
+  if (sourceStartIndex < 0) {
+    let scanIndex = lines.length
+    while (scanIndex > 0 && !lines[scanIndex - 1].trim()) {
+      scanIndex -= 1
+    }
+
+    let trailingCount = 0
+    while (scanIndex > 0) {
+      const normalized = stripSourceListPrefix(lines[scanIndex - 1])
+      if (!normalized || !isProbableSourceLine(normalized)) {
+        break
+      }
+      trailingCount += 1
+      scanIndex -= 1
+    }
+
+    if (trailingCount >= 2) {
+      sourceStartIndex = scanIndex
+      sourceHasHeading = false
+    }
+  }
+
+  if (sourceStartIndex < 0) {
+    return {
+      bodyText: cleanText,
+      sources: [],
+    }
+  }
+
+  const bodyText = lines.slice(0, sourceStartIndex).join('\n').trimEnd()
+  const sourceLines = lines.slice(sourceHasHeading ? sourceStartIndex + 1 : sourceStartIndex)
+  const parsedSources = []
+  const sourceHint = {
+    slug: guideCtx?.slug || '',
+    name: guideCtx?.name || '',
+  }
+
+  sourceLines.forEach((line) => {
+    const normalized = stripSourceListPrefix(line)
+    if (!normalized) {
+      return
+    }
+
+    if (SOURCE_SECTION_HEADING_REGEX.test(normalized)) {
+      return
+    }
+
+    const exactManualMatch = normalized.match(/^manual\s*:\s*(.+?)(?:,\s*page(?:s)?\s+(.+))?$/i)
+    if (exactManualMatch) {
+      const label = exactManualMatch[1].trim() || sourceHint.name || 'Manual'
+      const page = (exactManualMatch[2] || extractSourcePage(normalized) || '').trim() || '?'
+      const pdfUrl = extractFirstUrl(normalized)
+      parsedSources.push({
+        kind: 'manual',
+        label,
+        page,
+        slug: sourceHint.slug,
+        ...(pdfUrl && /\.pdf(?:$|[?#])/i.test(pdfUrl) ? { pdf_url: pdfUrl } : {}),
+        display: `Manual: ${label}${page ? `, page ${page}` : ''}`,
+        excerpt: normalized,
+      })
+      return
+    }
+
+    const exactWebMatch = normalized.match(/^web\s*:\s*(.+?)(?:\s*-\s*(https?:\/\/\S+))?$/i)
+    if (exactWebMatch) {
+      const label = exactWebMatch[1].trim() || formatWebSourceDisplay('', extractFirstUrl(normalized))
+      const url = sanitizeUrl(exactWebMatch[2] || extractFirstUrl(normalized))
+      if (url) {
+        parsedSources.push({
+          kind: 'web',
+          label: label.replace(/\s*\([^)]+\)\s*$/, '').trim() || label,
+          url,
+          display: `Web: ${label}`,
+        })
+      }
+      return
+    }
+
+    const url = extractFirstUrl(normalized)
+    if (url) {
+      parsedSources.push({
+        kind: 'web',
+        label: formatWebSourceDisplay('', url).replace(/^Web:\s*/i, ''),
+        url,
+        display: formatWebSourceDisplay('', url),
+      })
+      return
+    }
+
+    const page = extractSourcePage(normalized)
+    if (page) {
+      const label = normalized
+        .replace(/^manual\s*:\s*/i, '')
+        .replace(SOURCE_PAGE_REGEX, '')
+        .replace(/\s*[,;:-]\s*$/, '')
+        .trim() || sourceHint.name || 'Manual'
+      parsedSources.push({
+        kind: 'manual',
+        label,
+        page: page || '?',
+        slug: sourceHint.slug,
+        display: `Manual: ${label}${page ? `, page ${page}` : ''}`,
+        excerpt: normalized,
+      })
+    }
+  })
+
+  return {
+    bodyText,
+    sources: normalizeSourceArray(parsedSources, sourceHint),
+  }
+}
+
+const extractResponseArtifacts = (payload, guideCtx) => {
+  if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
+    const rawText = String(payload.text || payload.response || '')
+    const parsedText = splitAssistantResponseArtifacts(rawText, guideCtx)
+    const structuredSources = normalizeSourceArray(
+      payload.sources_structured || payload.sources || [],
+      guideCtx,
+    )
+    const parsedVideo = normalizeVideoArtifact(payload.video)
+
+    return {
+      text: parsedText.bodyText,
+      sources: structuredSources.length > 0 ? structuredSources : parsedText.sources,
+      video: parsedVideo,
+      confidence: String(payload.confidence || ''),
+      metrics: payload.metrics && typeof payload.metrics === 'object' ? payload.metrics : null,
+    }
+  }
+
+  const parsedText = splitAssistantResponseArtifacts(payload, guideCtx)
+  return {
+    text: parsedText.bodyText,
+    sources: parsedText.sources,
+    video: null,
+    confidence: '',
+    metrics: null,
+  }
+}
+
+const normalizeVideoArtifact = (video) => {
+  if (!video || typeof video !== 'object') {
+    return null
+  }
+
+  const url = String(video.url || '').trim()
+  if (!/^https:\/\//.test(url)) {
+    return null
+  }
+
+  return {
+    title: String(video.title || 'YouTube').trim() || 'YouTube',
+    url,
+    thumb: String(video.thumb || video.thumbnail || '').trim() || youtubeThumbFromUrl(url),
+  }
+}
+
 const renderTextWithLinks = (text, keyPrefix) => {
   const chunks = String(text || '').split(URL_REGEX)
   return chunks.map((chunk, index) => {
@@ -1074,7 +1427,14 @@ function ChatPage() {
         ...(pendingArtifacts.confidence ? { confidence: pendingArtifacts.confidence } : {}),
         ...(pendingArtifacts.metrics ? { metrics: pendingArtifacts.metrics } : {}),
         ...(pendingArtifacts.video?.url ? { video: pendingArtifacts.video } : {}),
-        ...(pendingArtifacts.sources.length ? { sources: pendingArtifacts.sources } : {}),
+        ...(pendingArtifacts.sources.length
+          ? {
+              sources: normalizeSourceArray(pendingArtifacts.sources, {
+                slug: guide?.slug || '',
+                name: guide?.name || '',
+              }),
+            }
+          : {}),
       }
       return updated
     })
@@ -1124,67 +1484,52 @@ function ChatPage() {
     appendTextToLastBotMessage(pendingText)
   }
 
-  const streamBotMessage = (fullText) =>
-    new Promise((resolve) => {
-      cancelDrain()
-      displayQueueRef.current = []
-      streamDoneRef.current = false
-      resetPendingStreamArtifacts()
-
-      const safeText = normalizeAssistantText(fullText || '') || t.chat.unavailable
-      const chars = Array.from(safeText)
-
-      setMessages((previous) => {
-        const lastMessage = previous[previous.length - 1]
-        if (lastMessage && lastMessage.type === 'bot' && !lastMessage.content) {
-          return previous
-        }
-        return [...previous, { type: 'bot', content: '' }]
-      })
-      setIsStreaming(true)
-
-      if (chars.length === 0) {
-        setIsStreaming(false)
-        resolve()
-        return
-      }
-
-      const step = chars.length > 2000 ? 8 : chars.length > 1200 ? 6 : chars.length > 700 ? 4 : 2
-      const intervalMs = chars.length > 1600 ? 18 : 22
-      let index = 0
-
-      if (tokenFlushTimerRef.current) {
-        window.clearInterval(tokenFlushTimerRef.current)
-      }
-
-      tokenFlushTimerRef.current = window.setInterval(() => {
-        index = Math.min(chars.length, index + step)
-        const nextContent = chars.slice(0, index).join('')
-
-        setMessages((previous) => {
-          if (previous.length === 0) return previous
-          const updated = [...previous]
-          const lastMessage = updated[updated.length - 1]
-
-          if (!lastMessage || lastMessage.type !== 'bot') {
-            updated.push({ type: 'bot', content: nextContent })
-            return updated
-          }
-
-          updated[updated.length - 1] = { ...lastMessage, content: nextContent }
-          return updated
-        })
-
-        if (index >= chars.length) {
-          if (tokenFlushTimerRef.current) {
-            window.clearInterval(tokenFlushTimerRef.current)
-            tokenFlushTimerRef.current = null
-          }
-          setIsStreaming(false)
-          resolve()
-        }
-      }, intervalMs)
+  const appendFinalBotResponse = (responsePayload) => {
+    const parsed = extractResponseArtifacts(responsePayload, {
+      slug: guide?.slug || '',
+      name: guide?.name || '',
     })
+
+    const hasRenderableContent = Boolean(
+      parsed.text || parsed.sources.length > 0 || parsed.video,
+    )
+    const finalText = parsed.text || (hasRenderableContent ? '' : t.chat.unavailable)
+
+    cancelDrain()
+    displayQueueRef.current = []
+    if (tokenFlushTimerRef.current) {
+      window.clearInterval(tokenFlushTimerRef.current)
+      tokenFlushTimerRef.current = null
+    }
+
+    setMessages((previous) => {
+      const nextBotMessage = {
+        type: 'bot',
+        content: finalText,
+        ...(parsed.sources.length ? { sources: parsed.sources } : {}),
+        ...(parsed.video ? { video: parsed.video } : {}),
+        ...(parsed.confidence ? { confidence: parsed.confidence } : {}),
+        ...(parsed.metrics ? { metrics: parsed.metrics } : {}),
+      }
+
+      if (previous.length === 0) {
+        return [nextBotMessage]
+      }
+
+      const updated = [...previous]
+      const lastMessage = updated[updated.length - 1]
+
+      if (lastMessage && lastMessage.type === 'bot' && !lastMessage.content && !lastMessage.sources && !lastMessage.video && !lastMessage.confidence && !lastMessage.metrics) {
+        updated[updated.length - 1] = { ...lastMessage, ...nextBotMessage }
+        return updated
+      }
+
+      updated.push(nextBotMessage)
+      return updated
+    })
+
+    setIsStreaming(false)
+  }
 
   const drainTick = () => {
     if (displayQueueRef.current.length === 0) {
@@ -1214,24 +1559,71 @@ function ChatPage() {
   }
 
 
-  const requestChatJson = async ({ text, signal }) => {
-    const response = await fetch(`${API_URL}/guides/${slug}/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: text, lang, session_id: sessionId }),
-      ...(signal ? { signal } : {}),
-    })
+  const requestChatJson = async ({ text, signal, timeoutMs = 25_000 }) => {
+    const controller = new AbortController()
+    let timeoutId = null
+    let detachParentAbort = null
 
-    const data = await response.json()
-    if (data.success) {
-      return data.response || ''
+    if (signal) {
+      const relay = () => {
+        if (!controller.signal.aborted) {
+          controller.abort()
+        }
+      }
+      if (signal.aborted) {
+        relay()
+      } else {
+        signal.addEventListener('abort', relay, { once: true })
+        detachParentAbort = () => signal.removeEventListener('abort', relay)
+      }
     }
 
-    return (data.error || '').trim() || t.chat.unavailable
+    if (timeoutMs > 0) {
+      timeoutId = window.setTimeout(() => {
+        if (!controller.signal.aborted) {
+          controller.abort()
+        }
+      }, timeoutMs)
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/guides/${slug}/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text, lang, session_id: sessionId }),
+        signal: controller.signal,
+      })
+
+      let data = null
+      try {
+        data = await response.json()
+      } catch {
+        if (!response.ok) {
+          throw new Error(`fallback_http_${response.status}`)
+        }
+        return t.chat.unavailable
+      }
+
+      if (response.ok && data?.success) {
+        return data.response || ''
+      }
+
+      if (!response.ok) {
+        throw new Error(`fallback_http_${response.status}`)
+      }
+
+      return String(data?.error || '').trim() || t.chat.unavailable
+    } finally {
+      if (timeoutId) {
+        window.clearTimeout(timeoutId)
+      }
+      detachParentAbort?.()
+    }
   }
 
   const consumeChatStream = async ({ text, signal, onFirstChunk, onChunkReceived, onEndReceived }) => {
     let hasChunkContent = false
+    let hasStreamActivity = false
     let sawEndEvent = false
 
     const response = await fetch(`${API_URL}/guides/${slug}/chat/stream`, {
@@ -1276,6 +1668,12 @@ function ChatPage() {
       onChunkReceived?.()
     }
 
+    const registerStreamActivity = () => {
+      if (hasStreamActivity) return
+      hasStreamActivity = true
+      onFirstChunk?.()
+    }
+
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
     let buffer = ''
@@ -1284,16 +1682,19 @@ function ChatPage() {
       const eventName = normalizeStreamEventName(event, data)
 
       if (eventName === 'start') {
+        registerStreamActivity()
         return
       }
 
       if (eventName === 'status') {
+        registerStreamActivity()
         const step = (data && typeof data === 'object') ? data.step : ''
         setStreamStatus(step || '')
         return
       }
 
       if (eventName === 'chunk') {
+        registerStreamActivity()
         const chunkText = extractStreamText(data)
         if (!chunkText) return
         ensureStreamingMessage()
@@ -1303,18 +1704,12 @@ function ChatPage() {
       }
 
       if (eventName === 'end') {
+        registerStreamActivity()
         sawEndEvent = true
         onEndReceived?.()
         setStreamStatus('finalizing_artifacts')
         if (!hasChunkContent) {
-          const endText = (data && typeof data === 'object')
-            ? String(data.response || '').trim()
-            : ''
-          if (endText) {
-            ensureStreamingMessage()
-            registerFirstChunk()
-            appendBotChunk(endText)
-          }
+          appendFinalBotResponse(data)
         }
         if (data && typeof data === 'object') {
           pendingStreamArtifactsRef.current = {
@@ -1329,6 +1724,7 @@ function ChatPage() {
       }
 
       if (eventName === 'sources_start') {
+        registerStreamActivity()
         pendingStreamArtifactsRef.current = {
           ...pendingStreamArtifactsRef.current,
           sources: [],
@@ -1337,6 +1733,7 @@ function ChatPage() {
       }
 
       if (eventName === 'source_item') {
+        registerStreamActivity()
         const src = (data && typeof data === 'object') ? data.source : null
         if (src) {
           pendingStreamArtifactsRef.current = {
@@ -1351,6 +1748,7 @@ function ChatPage() {
       }
 
       if (eventName === 'sources_end') {
+        registerStreamActivity()
         if (sawEndEvent) {
           scheduleArtifactMerge()
         }
@@ -1358,6 +1756,7 @@ function ChatPage() {
       }
 
       if (eventName === 'video_result') {
+        registerStreamActivity()
         const videoData = (data && typeof data === 'object') ? data : {}
         const url = String(videoData.url || '').trim()
         if (!url || !/^https:\/\//.test(url)) return
@@ -1376,6 +1775,7 @@ function ChatPage() {
       }
 
       if (eventName === 'video_none') {
+        registerStreamActivity()
         return
       }
 
@@ -1527,9 +1927,13 @@ function ChatPage() {
 
         if (streamError?.allowFallback) {
           setStreamStatus('deep_web_search')
-          const fallbackResponse = await requestChatJson({ text, signal: controller.signal })
+          const fallbackResponse = await requestChatJson({
+            text,
+            signal: controller.signal,
+            timeoutMs: 25_000,
+          })
           setStreamStatus('generating')
-          await streamBotMessage(fallbackResponse)
+          appendFinalBotResponse(fallbackResponse)
           setStreamStatus('')
           return
         }
@@ -1539,7 +1943,7 @@ function ChatPage() {
           startDrain()
           setStreamStatus('')
         } else {
-          await streamBotMessage(t.chat.serverUnavailable)
+          appendFinalBotResponse(t.chat.serverUnavailable)
           setStreamStatus('')
         }
       }
@@ -1557,19 +1961,25 @@ function ChatPage() {
           return
         }
 
-        if (!receivedChunk) {
+        if (abortReason === 'timeout_ttfb' && !receivedChunk) {
           setStreamStatus('deep_web_search')
           try {
-            const fallbackResponse = await requestChatJson({ text })
+            const fallbackResponse = await requestChatJson({ text, timeoutMs: 25_000 })
             setStreamStatus('generating')
-            await streamBotMessage(fallbackResponse)
+            appendFinalBotResponse(fallbackResponse)
             setStreamStatus('')
             return
           } catch {
-            await streamBotMessage(streamRuntimeCopy.timeoutFinal)
+            appendFinalBotResponse(streamRuntimeCopy.timeoutFinal)
             setStreamStatus('')
             return
           }
+        }
+
+        if (abortReason === 'timeout_total') {
+          appendFinalBotResponse(streamRuntimeCopy.timeoutFinal)
+          setStreamStatus('')
+          return
         }
 
         streamDoneRef.current = true
@@ -1577,7 +1987,7 @@ function ChatPage() {
         setStreamStatus('')
         return
       }
-      await streamBotMessage(t.chat.serverUnavailable)
+      appendFinalBotResponse(t.chat.serverUnavailable)
       setStreamStatus('')
     } finally {
       clearTtfbTimeout()

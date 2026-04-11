@@ -385,6 +385,27 @@ def chat_stream(slug):
             "vehicle_name": guide.name,
         })
         event_queue: "queue.Queue[tuple[str, object]]" = queue.Queue()
+        fallback_started = False
+        fallback_completed = False
+
+        def _start_fallback():
+            nonlocal fallback_started
+            if fallback_started:
+                return
+            fallback_started = True
+
+            def _run_fallback():
+                try:
+                    fallback_response = chatbot.chat(question, lang=lang, session_id=session_id)
+                    event_queue.put(("fallback_result", fallback_response))
+                except Exception as fallback_exc:
+                    event_queue.put(("fallback_error", fallback_exc))
+
+            Thread(
+                target=_run_fallback,
+                name=f"chat-fallback-{slug}",
+                daemon=True,
+            ).start()
 
         def _produce():
             try:
@@ -408,6 +429,8 @@ def chat_stream(slug):
                     continue
 
                 if kind == "done":
+                    if fallback_started and not fallback_completed:
+                        continue
                     break
                 if kind == "error":
                     stream_error = payload
@@ -416,12 +439,25 @@ def chat_stream(slug):
                         break
 
                     log.error("Chat stream error for guide %s, switching to sync fallback: %s", slug, stream_error)
-                    fallback_response = ""
-                    try:
-                        fallback_response = chatbot.chat(question, lang=lang, session_id=session_id)
-                    except Exception as fallback_exc:
-                        log.error("Chat stream sync fallback failed for guide %s: %s", slug, fallback_exc)
+                    _start_fallback()
+                    continue
 
+                if kind == "fallback_error":
+                    fallback_completed = True
+                    log.error("Chat stream sync fallback failed for guide %s: %s", slug, payload)
+                    fallback_response = "Une erreur interne est survenue. Veuillez reessayer."
+                    yield _sse_event("end", {
+                        "success": True,
+                        "vehicle_name": guide.name,
+                        "message_id": last_message_id,
+                        "response": fallback_response,
+                    })
+                    ended = True
+                    break
+
+                if kind == "fallback_result":
+                    fallback_completed = True
+                    fallback_response = payload
                     if not isinstance(fallback_response, str) or not fallback_response.strip():
                         fallback_response = "Une erreur interne est survenue. Veuillez reessayer."
                     fallback_response = fallback_response.strip()
