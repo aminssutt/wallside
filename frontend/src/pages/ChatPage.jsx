@@ -782,7 +782,24 @@ const createEmptyStreamArtifacts = () => ({
   video: null,
   confidence: '',
   metrics: null,
+  finalText: '',
 })
+
+const looksAbruptlyTruncated = (value) => {
+  const text = String(value || '').trim()
+  if (!text || text.length < 60) return false
+  return !/[.!?…)\]]$/.test(text)
+}
+
+const shouldPreferFinalResponse = (currentText, finalText) => {
+  const current = String(currentText || '').trim()
+  const finalValue = String(finalText || '').trim()
+  if (!finalValue) return false
+  if (!current) return true
+  if (finalValue.length >= current.length + 40) return true
+  if (looksAbruptlyTruncated(current) && finalValue.length >= current.length) return true
+  return false
+}
 
 const sliceStreamChunkForDisplay = (chunkText) => {
   const chars = Array.from(String(chunkText || ''))
@@ -1418,10 +1435,11 @@ function ChatPage() {
   const mergeBufferedArtifactsIntoLastBot = () => {
     const pendingArtifacts = pendingStreamArtifactsRef.current
     const hasArtifacts = Boolean(
-      pendingArtifacts.confidence
-        || pendingArtifacts.metrics
-        || pendingArtifacts.video?.url
-        || pendingArtifacts.sources.length,
+      pendingArtifacts.finalText
+      || pendingArtifacts.confidence
+      || pendingArtifacts.metrics
+      || pendingArtifacts.video?.url
+      || pendingArtifacts.sources.length,
     )
 
     if (!hasArtifacts) {
@@ -1438,6 +1456,9 @@ function ChatPage() {
 
       updated[updated.length - 1] = {
         ...lastMessage,
+        ...(shouldPreferFinalResponse(lastMessage.content, pendingArtifacts.finalText)
+          ? { content: pendingArtifacts.finalText }
+          : {}),
         ...(pendingArtifacts.confidence ? { confidence: pendingArtifacts.confidence } : {}),
         ...(pendingArtifacts.metrics ? { metrics: pendingArtifacts.metrics } : {}),
         ...(pendingArtifacts.video?.url ? { video: pendingArtifacts.video } : {}),
@@ -1730,12 +1751,14 @@ function ChatPage() {
           appendFinalBotResponse(data)
         }
         if (data && typeof data === 'object') {
+          const finalResponseText = String(data.response || '').trim()
           pendingStreamArtifactsRef.current = {
             ...pendingStreamArtifactsRef.current,
             confidence: String(data.confidence || ''),
             metrics: data.metrics && typeof data.metrics === 'object'
               ? data.metrics
               : pendingStreamArtifactsRef.current.metrics,
+            finalText: finalResponseText || pendingStreamArtifactsRef.current.finalText,
           }
         }
         return

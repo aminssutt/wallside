@@ -657,6 +657,27 @@ def _looks_unavailable_answer(text: str) -> bool:
     return bool(_UNAVAILABLE_RESPONSE_RE.search((text or "").strip()))
 
 
+def _is_thin_or_incomplete_answer(text: str) -> bool:
+    """Heuristic guard against overly short or abruptly truncated answers."""
+    clean = (text or "").strip()
+    if not clean:
+        return True
+
+    lines = [line.strip() for line in clean.splitlines() if line.strip()]
+    bullet_count = sum(
+        1 for line in lines if re.match(r"^(?:[-*]\s+|\d+[.)]\s+)", line)
+    )
+    sentence_count = len(re.findall(r"[.!?…](?:\s|$)", clean))
+    has_decent_structure = bullet_count >= 3 or sentence_count >= 3
+    ends_cleanly = bool(re.search(r"[.!?…)\]]\s*$", clean))
+
+    if len(clean) < 220 and not has_decent_structure:
+        return True
+    if not ends_cleanly and len(clean) >= 60:
+        return True
+    return False
+
+
 def _build_generic_web_guidance(question: str, vehicle_name: str, lang: str = "fr") -> str:
     q = (question or "").lower()
     fr_default = (
@@ -1838,6 +1859,17 @@ REGLES STRICTES:
                 video_block=str(payload.get("video_block", "")),
                 video_score=payload.get("video_score", 0),
             )
+            if procedural_intent and (not manual_context_strong) and _is_thin_or_incomplete_answer(answer):
+                answer, final_answer = self._finalize_answer(
+                    _build_generic_web_guidance(
+                        question,
+                        self.guide.name,
+                        str(payload.get("detected_lang", "fr")),
+                    ),
+                    sources_block=str(payload.get("sources_block", "")),
+                    video_block=str(payload.get("video_block", "")),
+                    video_score=payload.get("video_score", 0),
+                )
             has_web_sources = any(
                 isinstance(src, dict) and str(src.get("kind", "")).lower() == "web"
                 for src in (payload.get("sources_structured") or [])
@@ -2160,6 +2192,13 @@ REGLES STRICTES:
             answer = trim_response(clean_model_output(raw_answer or ""))
             if not answer:
                 answer = "Je n'ai pas trouve de reponse exploitable dans le manuel."
+            procedural_intent = detect_fix_mode(question)
+            if procedural_intent and (not manual_context_strong) and _is_thin_or_incomplete_answer(answer):
+                answer = _build_generic_web_guidance(
+                    question,
+                    self.guide.name,
+                    str(payload.get("detected_lang", "fr")),
+                )
             if _looks_unavailable_answer(answer) and (has_web_sources or not manual_context_strong):
                 answer = _build_generic_web_guidance(
                     question,
