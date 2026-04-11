@@ -120,6 +120,48 @@ def test_stream_ignores_post_end_failure_instead_of_emitting_error(monkeypatch, 
     assert chatbot.chat_called is False
 
 
+def test_stream_end_passes_structured_sources(monkeypatch, client):
+    class DummyChatbot:
+        def chat_stream(self, question, lang=None, session_id="default"):
+            yield {"type": "status", "step": "manual_search", "message_id": "mid-3"}
+            yield {"type": "chunk", "text": "Texte source", "message_id": "mid-3"}
+            yield {
+                "type": "end",
+                "response": "Texte source",
+                "message_id": "mid-3",
+                "confidence": "medium",
+                "sources_structured": [
+                    {
+                        "kind": "manual",
+                        "label": "bmw.pdf",
+                        "page": "118",
+                        "slug": "bmw-3-series-2024",
+                        "display": "Manual: bmw.pdf, page 118",
+                    },
+                    {
+                        "kind": "web",
+                        "label": "BMW Support",
+                        "url": "https://www.bmw.com/en/index.html",
+                        "display": "Web: BMW Support",
+                    },
+                ],
+            }
+
+        def chat(self, question, lang=None, session_id="default"):
+            return "Ne doit pas etre appele"
+
+    monkeypatch.setattr(api, "get_guide_chatbot", lambda slug: DummyChatbot())
+
+    events = _post_stream(client)
+    end_payloads = [payload for event_name, payload in events if event_name == "end"]
+
+    assert len(end_payloads) == 1
+    assert "sources_structured" in end_payloads[0]
+    assert len(end_payloads[0]["sources_structured"]) == 2
+    assert end_payloads[0]["sources_structured"][0]["kind"] == "manual"
+    assert end_payloads[0]["sources_structured"][1]["url"] == "https://www.bmw.com/en/index.html"
+
+
 def test_stream_still_ends_when_stream_and_sync_fallback_both_fail(monkeypatch, client):
     class DummyChatbot:
         def chat_stream(self, question, lang=None, session_id="default"):

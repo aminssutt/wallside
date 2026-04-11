@@ -3,9 +3,9 @@ import { expect, test } from '@playwright/test'
 const GUIDE_SLUG = 'tesla-model-y'
 const GUIDE_PATH = `/api/guides/${GUIDE_SLUG}`
 const GUIDE_NAME = 'Tesla Model Y'
-const GUIDE_RE = /\/guides\/tesla-model-y\/?(\?.*)?$/
-const STREAM_RE = /\/guides\/tesla-model-y\/chat\/stream\/?(\?.*)?$/
-const CHAT_RE = /\/guides\/tesla-model-y\/chat\/?(\?.*)?$/
+const GUIDE_RE = /(?:\/api)?\/guides\/tesla-model-y\/?(\?.*)?$/
+const STREAM_RE = /(?:\/api)?\/guides\/tesla-model-y\/chat\/stream\/?(\?.*)?$/
+const CHAT_RE = /(?:\/api)?\/guides\/tesla-model-y\/chat\/?(\?.*)?$/
 const CORS_HEADERS = {
   'access-control-allow-origin': '*',
   'access-control-allow-methods': 'GET,POST,OPTIONS',
@@ -125,6 +125,7 @@ test('streamed markdown is rendered cleanly and with sources', async ({ page }) 
   await expect(lastBubble).not.toContainText('* **')
   await expect(page.locator('.bot-sources-section')).toBeVisible()
   await expect(page.locator('.bot-source-link').first()).toContainText('Tesla Support')
+  await expect(page.locator('.bot-source-link').first()).toHaveAttribute('href', 'https://www.tesla.com/support')
 })
 
 test('stream fallback shows deep web search status and no timeout copy', async ({ page }) => {
@@ -205,4 +206,58 @@ test('end response without chunk is still displayed', async ({ page }) => {
   await askQuestion(page, 'Test end sans chunk')
 
   await expect(page.locator('.msg.bot .msg-bubble').last()).toContainText('end.response sans chunk')
+})
+
+test('sources from end payload are rendered as clickable links', async ({ page }) => {
+  await installGuideRoutes(page)
+
+  const sseBody = buildSsePayload([
+    { event: 'start', data: { success: true, vehicle_name: GUIDE_NAME } },
+    { event: 'status', data: { step: 'manual_search', message_id: 'mid-end-sources' } },
+    { event: 'status', data: { step: 'generating', message_id: 'mid-end-sources' } },
+    {
+      event: 'chunk',
+      data: {
+        message_id: 'mid-end-sources',
+        text: 'Utilise les commandes sur le volant pour activer le regulateur.',
+      },
+    },
+    {
+      event: 'end',
+      data: {
+        success: true,
+        message_id: 'mid-end-sources',
+        response: 'Utilise les commandes sur le volant pour activer le regulateur.',
+        confidence: 'medium',
+        sources_structured: [
+          {
+            kind: 'web',
+            label: 'BMW Support',
+            display: 'Web: BMW Support',
+            url: 'https://www.bmw.com/en/index.html',
+          },
+        ],
+      },
+    },
+  ])
+
+  await page.route('**/*', async (route) => {
+    const pathname = new URL(route.request().url()).pathname
+    if (!STREAM_RE.test(pathname)) {
+      await route.fallback()
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'text/event-stream; charset=utf-8',
+      headers: CORS_HEADERS,
+      body: sseBody,
+    })
+  })
+
+  await askQuestion(page, 'Comment activer le regulateur ?')
+
+  const sourceLink = page.locator('.bot-source-link').first()
+  await expect(sourceLink).toHaveText(/BMW Support/i)
+  await expect(sourceLink).toHaveAttribute('href', 'https://www.bmw.com/en/index.html')
 })

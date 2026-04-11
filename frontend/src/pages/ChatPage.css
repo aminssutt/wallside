@@ -1077,6 +1077,7 @@
   text-decoration: none;
   display: inline-flex;
   align-items: center;
+  pointer-events: auto;
   gap: 6px;
   max-width: 100%;
   overflow-wrap: anywhere;

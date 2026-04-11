@@ -507,6 +507,10 @@ def chat_stream(slug):
                         end_payload["fix_mode"] = event["fix_mode"]
                     if "metrics" in event and isinstance(event["metrics"], dict):
                         end_payload["metrics"] = event["metrics"]
+                    if "sources_structured" in event and isinstance(event["sources_structured"], list):
+                        end_payload["sources_structured"] = event["sources_structured"]
+                    if "video" in event and isinstance(event["video"], dict):
+                        end_payload["video"] = event["video"]
                     yield _sse_event("end", end_payload)
                     ended = True
                 elif event_type == "status":

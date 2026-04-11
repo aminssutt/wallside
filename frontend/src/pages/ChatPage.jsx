@@ -151,11 +151,11 @@ function getVehicleQuestions(vehicleName, segment, lang) {
   return questions.map((q) => q.replace(/\{vehicle\}/g, vehicleName))
 }
 const COMPACT_MENU_BREAKPOINT = 1024
-const CHAT_TTFB_TIMEOUT_MS = 18000
+const CHAT_TTFB_TIMEOUT_MS = 10000
 const CHAT_TOTAL_TIMEOUT_MS = 90000
 const CHAT_END_ARTIFACT_TIMEOUT_MS = 9000
 const MAX_INPUT_LENGTH = 3000
-const STREAM_DRAIN_IDLE_MS = 36
+const STREAM_DRAIN_IDLE_MS = 30
 const STREAM_DRAIN_BUSY_MS = 24
 const KNOWN_STREAM_EVENTS = new Set([
   'start', 'chunk', 'end', 'error',
@@ -169,6 +169,10 @@ const generateSessionId = () => {
   crypto.getRandomValues(arr)
   return Array.from(arr, (b) => b.toString(16).padStart(2, '0')).join('')
 }
+
+const generateMessageId = (prefix = 'msg') => (
+  `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+)
 const ASSISTANT_ALIAS_BANK = {
   fr: {
     prefix: ['Atelier', 'Circuit', 'Pitlane', 'Moteur', 'Garage', 'Turbo'],
@@ -245,6 +249,14 @@ const VIDEO_UI = {
 
 const sanitizeUrl = (url) => {
   return String(url || '').replace(/[)\],.;!?]+$/g, '')
+}
+
+const normalizeWebHref = (url) => {
+  const clean = sanitizeUrl(url).trim()
+  if (!clean) return ''
+  if (/^https?:\/\//i.test(clean)) return clean
+  if (/^www\./i.test(clean)) return `https://${clean}`
+  return ''
 }
 
 const extractYoutubeId = (urlValue) => {
@@ -332,7 +344,7 @@ const normalizeSourceObject = (source, guideCtx) => {
   const kind = String(source.kind || '').trim().toLowerCase()
   const display = String(source.display || '').trim()
   const label = String(source.label || '').trim()
-  const url = extractFirstUrl(source.url || source.display || display || label)
+  const url = normalizeWebHref(extractFirstUrl(source.url || source.display || display || label))
   const page = String(source.page || '').trim() || extractSourcePage(display || label)
   const pdfUrl = String(source.pdf_url || '').trim()
   const excerpt = String(source.excerpt || '').trim()
@@ -357,7 +369,7 @@ const normalizeSourceObject = (source, guideCtx) => {
 
   if (kind === 'web') {
     const webLabel = label || display || formatWebSourceDisplay('', url || domain || 'Web')
-    const webUrl = url || String(source.url || '').trim()
+    const webUrl = normalizeWebHref(url || String(source.url || '').trim())
     if (!webUrl) {
       return null
     }
@@ -365,7 +377,7 @@ const normalizeSourceObject = (source, guideCtx) => {
       kind: 'web',
       label: webLabel.replace(/^Web:\s*/i, '').trim() || webLabel,
       domain: domain || '',
-      url: sanitizeUrl(webUrl),
+      url: webUrl,
       display: display || formatWebSourceDisplay(webLabel, webUrl),
     }
   }
@@ -397,7 +409,7 @@ const normalizeSourceObject = (source, guideCtx) => {
       kind: 'web',
       label: webLabel || formatWebSourceDisplay('', url),
       domain,
-      url: sanitizeUrl(url),
+      url,
       display: display || formatWebSourceDisplay(webLabel, url),
     }
   }
@@ -539,7 +551,7 @@ const splitAssistantResponseArtifacts = (rawText, guideCtx) => {
     const exactWebMatch = normalized.match(/^web\s*:\s*(.+?)(?:\s*-\s*(https?:\/\/\S+))?$/i)
     if (exactWebMatch) {
       const label = exactWebMatch[1].trim() || formatWebSourceDisplay('', extractFirstUrl(normalized))
-      const url = sanitizeUrl(exactWebMatch[2] || extractFirstUrl(normalized))
+      const url = normalizeWebHref(exactWebMatch[2] || extractFirstUrl(normalized))
       if (url) {
         parsedSources.push({
           kind: 'web',
@@ -777,7 +789,7 @@ const sliceStreamChunkForDisplay = (chunkText) => {
     return []
   }
 
-  const sliceSize = chars.length > 220 ? 9 : chars.length > 120 ? 6 : chars.length > 60 ? 4 : 2
+  const sliceSize = chars.length > 360 ? 4 : chars.length > 180 ? 3 : 2
   const slices = []
   for (let index = 0; index < chars.length; index += sliceSize) {
     slices.push(chars.slice(index, index + sliceSize).join(''))
@@ -786,14 +798,14 @@ const sliceStreamChunkForDisplay = (chunkText) => {
 }
 
 const pickStreamDrainProfile = (queueLength) => {
-  if (queueLength > 72) {
-    return { intervalMs: STREAM_DRAIN_BUSY_MS, slicesPerTick: 3 }
+  if (queueLength > 120) {
+    return { intervalMs: STREAM_DRAIN_BUSY_MS, slicesPerTick: 2 }
   }
-  if (queueLength > 36) {
+  if (queueLength > 60) {
     return { intervalMs: 26, slicesPerTick: 2 }
   }
-  if (queueLength > 16) {
-    return { intervalMs: 30, slicesPerTick: 2 }
+  if (queueLength > 24) {
+    return { intervalMs: 28, slicesPerTick: 1 }
   }
   return { intervalMs: STREAM_DRAIN_IDLE_MS, slicesPerTick: 1 }
 }
@@ -826,7 +838,10 @@ function SourcesList({ sources, lang }) {
                 {src.display || `${src.label}, page ${src.page}`}
               </button>
             ) : src.kind === 'web' && src.url ? (() => {
-              const safeHref = (src.url && /^https?:\/\//.test(src.url)) ? src.url : '#'
+              const safeHref = normalizeWebHref(src.url)
+              if (!safeHref) {
+                return <span>{src.display || src.label}</span>
+              }
               return (
                 <a href={safeHref} target="_blank" rel="noopener noreferrer" className="bot-source-link">
                   {src.display || src.label}
@@ -1458,12 +1473,12 @@ function ChatPage() {
     if (!textDelta) return
 
     setMessages((previous) => {
-      if (!previous.length) return [{ type: 'bot', content: textDelta }]
+      if (!previous.length) return [{ id: generateMessageId('bot'), type: 'bot', content: textDelta }]
       const updated = [...previous]
       const lastMessage = updated[updated.length - 1]
 
       if (!lastMessage || lastMessage.type !== 'bot') {
-        return [...previous, { type: 'bot', content: textDelta }]
+        return [...previous, { id: generateMessageId('bot'), type: 'bot', content: textDelta }]
       }
 
       updated[updated.length - 1] = {
@@ -1504,6 +1519,7 @@ function ChatPage() {
 
     setMessages((previous) => {
       const nextBotMessage = {
+        id: generateMessageId('bot'),
         type: 'bot',
         content: finalText,
         ...(parsed.sources.length ? { sources: parsed.sources } : {}),
@@ -1520,7 +1536,7 @@ function ChatPage() {
       const lastMessage = updated[updated.length - 1]
 
       if (lastMessage && lastMessage.type === 'bot' && !lastMessage.content && !lastMessage.sources && !lastMessage.video && !lastMessage.confidence && !lastMessage.metrics) {
-        updated[updated.length - 1] = { ...lastMessage, ...nextBotMessage }
+        updated[updated.length - 1] = { ...lastMessage, ...nextBotMessage, id: lastMessage.id || nextBotMessage.id }
         return updated
       }
 
@@ -1548,7 +1564,7 @@ function ChatPage() {
 
   const startDrain = () => {
     if (drainTimerRef.current !== null) return
-    drainTimerRef.current = window.setTimeout(drainTick, 0)
+    drainTimerRef.current = window.setTimeout(drainTick, STREAM_DRAIN_IDLE_MS)
   }
 
   const appendBotChunk = (chunkText) => {
@@ -1621,7 +1637,7 @@ function ChatPage() {
     }
   }
 
-  const consumeChatStream = async ({ text, signal, onFirstChunk, onChunkReceived, onEndReceived }) => {
+  const consumeChatStream = async ({ text, signal, onFirstActivity, onFirstChunk, onChunkReceived, onEndReceived }) => {
     let hasChunkContent = false
     let hasStreamActivity = false
     let sawEndEvent = false
@@ -1656,7 +1672,7 @@ function ChatPage() {
         if (lastMessage && lastMessage.type === 'bot') {
           return previous
         }
-        return [...previous, { type: 'bot', content: '' }]
+        return [...previous, { id: generateMessageId('bot'), type: 'bot', content: '' }]
       })
     }
 
@@ -1671,7 +1687,7 @@ function ChatPage() {
     const registerStreamActivity = () => {
       if (hasStreamActivity) return
       hasStreamActivity = true
-      onFirstChunk?.()
+      onFirstActivity?.()
     }
 
     const reader = response.body.getReader()
@@ -1853,7 +1869,7 @@ function ChatPage() {
     resetPendingStreamArtifacts()
     abortReasonRef.current = ''
 
-    setMessages((previous) => [...previous, { type: 'user', content: text }])
+    setMessages((previous) => [...previous, { id: generateMessageId('user'), type: 'user', content: text }])
     setInput('')
     window.requestAnimationFrame(() => {
       if (inputRef.current) {
@@ -2253,7 +2269,7 @@ function ChatPage() {
                 const isLastBotStreaming = isStreaming && msg.type === 'bot' && index === messages.length - 1
                 return (
                   <Motion.div
-                    key={`${msg.type}-${index}`}
+                    key={msg.id || `${msg.type}-${index}`}
                     className={`msg ${msg.type}`}
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}

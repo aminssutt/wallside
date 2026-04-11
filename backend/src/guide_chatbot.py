@@ -8,6 +8,7 @@ from collections import OrderedDict
 import logging
 import json
 import pickle
+import queue
 import re
 import importlib.util
 import time
@@ -610,9 +611,14 @@ def web_search_results(
     seen_urls = set()
     seen_domains = set()
     started_at = time.perf_counter()
+    request_timeout = max(1, int(min(8, max(1.0, float(time_budget_seconds or 0.0)))))
 
     try:
-        with DDGS() as ddgs:
+        try:
+            ddgs_ctx = DDGS(timeout=request_timeout)
+        except TypeError:
+            ddgs_ctx = DDGS()
+        with ddgs_ctx as ddgs:
             results = ddgs.text(query, max_results=max(1, max_results * 3), region=WEB_SEARCH_REGION)
             for item in results:
                 if (time.perf_counter() - started_at) > max(0.2, time_budget_seconds):
@@ -686,6 +692,68 @@ def _merge_web_results(
     return merged[:max(1, max_results)]
 
 
+def _run_with_hard_timeout(
+    fn: Any,
+    timeout_seconds: float,
+    *,
+    fallback: Any,
+    label: str,
+) -> Any:
+    """Run a callable in a daemon thread and return fallback if it exceeds timeout."""
+    timeout = max(0.2, float(timeout_seconds or 0.0))
+    result_queue: "queue.Queue[Tuple[str, Any]]" = queue.Queue(maxsize=1)
+
+    def _target() -> None:
+        try:
+            result_queue.put(("ok", fn()))
+        except Exception as exc:  # pragma: no cover - defensive
+            result_queue.put(("err", exc))
+
+    worker = threading.Thread(
+        target=_target,
+        name=f"enrichment-timebox-{label}",
+        daemon=True,
+    )
+    worker.start()
+    worker.join(timeout)
+
+    if worker.is_alive():
+        log.warning("Enrichment task '%s' exceeded %.2fs budget", label, timeout)
+        return fallback
+
+    try:
+        status, payload = result_queue.get_nowait()
+    except queue.Empty:  # pragma: no cover - defensive
+        return fallback
+
+    if status == "err":
+        log.warning("Enrichment task '%s' failed: %s", label, payload)
+        return fallback
+
+    return payload
+
+
+def _bounded_web_search_results(
+    query: str,
+    *,
+    max_results: int,
+    time_budget_seconds: float,
+    hard_timeout_seconds: float,
+    label: str,
+) -> List[Dict[str, str]]:
+    """Web search with an external hard timeout guard to protect TTFT."""
+    return _run_with_hard_timeout(
+        lambda: web_search_results(
+            query,
+            max_results=max_results,
+            time_budget_seconds=time_budget_seconds,
+        ),
+        timeout_seconds=hard_timeout_seconds,
+        fallback=[],
+        label=label,
+    )
+
+
 def youtube_video_suggestion(
     query: str, time_budget_seconds: float = ENRICHMENT_TIME_BUDGET_SECONDS
 ) -> Dict[str, str]:
@@ -705,7 +773,12 @@ def youtube_video_suggestion(
                 f"{query} tutorial",
                 f"{query} review",
             ]
-            with DDGS() as ddgs:
+            request_timeout = max(1, int(min(6, max(1.0, float(time_budget_seconds or 0.0)))))
+            try:
+                ddgs_ctx = DDGS(timeout=request_timeout)
+            except TypeError:
+                ddgs_ctx = DDGS()
+            with ddgs_ctx as ddgs:
                 for search_query in search_queries:
                     if (time.perf_counter() - started_at) > max(0.2, time_budget_seconds):
                         break
@@ -1452,11 +1525,20 @@ REGLES STRICTES:
         """Stream response with intelligent routing (A/B/C modes)."""
         message_id = str(uuid.uuid4())
         mode = classify_query(question)
+        emitted_status_steps: set[str] = set()
+
+        def _status_event(step: str) -> Optional[Dict[str, Any]]:
+            if step in emitted_status_steps:
+                return None
+            emitted_status_steps.add(step)
+            return {"type": "status", "step": step, "message_id": message_id}
 
         # Mode A (default) or C: no web in prompt → fastest TTFT
         # Mode B: web blocking in prompt (for recall/pricing/regulatory Qs)
         payload_mode = mode if mode == WEB_BLOCKING else MANUAL_ONLY
-        yield {"type": "status", "step": "manual_search", "message_id": message_id}
+        manual_status = _status_event("manual_search")
+        if manual_status:
+            yield manual_status
         payload = self._prepare_chat_payload(
             question=question, lang=lang, session_id=session_id, mode=payload_mode,
         )
@@ -1489,22 +1571,49 @@ REGLES STRICTES:
             mode == WEB_ASYNC or (mode == WEB_BLOCKING and not p_has_ctx)
         )
         if should_web_enrich:
-            yield {"type": "status", "step": "web_search", "message_id": message_id}
-            if mode == WEB_BLOCKING and not p_has_ctx and ENABLE_DEEP_WEB_ENRICHMENT:
-                yield {"type": "status", "step": "deep_web_search", "message_id": message_id}
+            web_status = _status_event("web_search")
+            if web_status:
+                yield web_status
 
         # --- Fallback: if RAG found nothing, do a quick web search to enrich prompt ---
         if not p_has_ctx and ENABLE_WEB_ENRICHMENT:
             enrichment_query = f"{self.guide.name} {question}".strip()
             budget = max(0.5, ENRICHMENT_TIME_BUDGET_SECONDS)
-            try:
-                # Phase 1: fast web search + Oscaro priority signal.
-                fast_web = web_search_results(
-                    enrichment_query, max_results=WEB_MAX_RESULTS, time_budget_seconds=budget,
+            total_budget = max(1.8, min(7.0, budget * 2.0))
+            stage_started_at = time.perf_counter()
+
+            def remaining_budget() -> float:
+                elapsed = time.perf_counter() - stage_started_at
+                return max(0.0, total_budget - elapsed)
+
+            def timed_search(search_query: str, *, max_results: int, label: str) -> List[Dict[str, str]]:
+                remaining = remaining_budget()
+                if remaining <= 0.2:
+                    return []
+                per_call_budget = max(0.35, min(1.8, remaining))
+                return _bounded_web_search_results(
+                    search_query,
+                    max_results=max_results,
+                    time_budget_seconds=per_call_budget,
+                    hard_timeout_seconds=min(remaining, per_call_budget + 0.25),
+                    label=label,
                 )
-                oscaro_fast = web_search_results(
+
+            try:
+                web_status = _status_event("web_search")
+                if web_status:
+                    yield web_status
+
+                # Phase 1: fast web search + Oscaro priority signal.
+                fast_web = timed_search(
+                    enrichment_query,
+                    max_results=WEB_MAX_RESULTS,
+                    label="fallback-fast",
+                )
+                oscaro_fast = timed_search(
                     f"site:oscaro.com {self.guide.name} {question}",
-                    max_results=2, time_budget_seconds=budget,
+                    max_results=2,
+                    label="fallback-oscaro",
                 )
                 fallback_web = _merge_web_results(
                     [oscaro_fast, fast_web],
@@ -1512,9 +1621,10 @@ REGLES STRICTES:
                 )
 
                 # Phase 2: deeper search only if the fast pass found nothing.
-                if not fallback_web and ENABLE_DEEP_WEB_ENRICHMENT:
-                    yield {"type": "status", "step": "deep_web_search", "message_id": message_id}
-                    deep_budget = max(2.0, ENRICHMENT_TIME_BUDGET_SECONDS * 2.5)
+                if not fallback_web and ENABLE_DEEP_WEB_ENRICHMENT and remaining_budget() > 0.35:
+                    deep_status = _status_event("deep_web_search")
+                    if deep_status:
+                        yield deep_status
                     deep_queries = [
                         enrichment_query,
                         f"{self.guide.name} {question} owner manual",
@@ -1522,13 +1632,14 @@ REGLES STRICTES:
                         f"{self.guide.name} {question} site:manualslib.com",
                     ]
                     deep_batches: List[List[Dict[str, str]]] = []
-                    per_query_budget = max(0.8, deep_budget / len(deep_queries))
-                    for deep_query in deep_queries:
+                    for idx, deep_query in enumerate(deep_queries):
+                        if remaining_budget() <= 0.2:
+                            break
                         deep_batches.append(
-                            web_search_results(
+                            timed_search(
                                 deep_query,
                                 max_results=max(WEB_MAX_RESULTS, 4),
-                                time_budget_seconds=per_query_budget,
+                                label=f"fallback-deep-{idx}",
                             )
                         )
                     fallback_web = _merge_web_results(
@@ -1570,7 +1681,9 @@ REGLES STRICTES:
                 web_search_results, enrichment_query, WEB_MAX_RESULTS, budget,
             )
 
-        yield {"type": "status", "step": "generating", "message_id": message_id}
+        generating_status = _status_event("generating")
+        if generating_status:
+            yield generating_status
 
         try:
             started_at = time.perf_counter()
@@ -1621,6 +1734,7 @@ REGLES STRICTES:
                 "message_id": message_id,
                 "confidence": confidence_level,
                 "fix_mode": fix_mode_active,
+                "sources_structured": list(payload.get("sources_structured") or []),
                 "metrics": self._build_metrics(
                     question=question,
                     payload=payload,
