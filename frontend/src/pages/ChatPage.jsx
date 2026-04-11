@@ -151,7 +151,7 @@ function getVehicleQuestions(vehicleName, segment, lang) {
   return questions.map((q) => q.replace(/\{vehicle\}/g, vehicleName))
 }
 const COMPACT_MENU_BREAKPOINT = 1024
-const CHAT_TTFB_TIMEOUT_MS = 12000
+const CHAT_TTFB_TIMEOUT_MS = 18000
 const CHAT_TOTAL_TIMEOUT_MS = 90000
 const MAX_INPUT_LENGTH = 3000
 const STREAM_DRAIN_IDLE_MS = 32
@@ -1165,6 +1165,7 @@ function ChatPage() {
 
   const consumeChatStream = async ({ text, signal, onFirstChunk, onChunkReceived, onEndReceived }) => {
     let hasChunkContent = false
+    let hasStreamActivity = false
     let sawEndEvent = false
 
     const response = await fetch(`${API_URL}/guides/${slug}/chat/stream`, {
@@ -1209,6 +1210,12 @@ function ChatPage() {
       onChunkReceived?.()
     }
 
+    const registerStreamActivity = () => {
+      if (hasStreamActivity) return
+      hasStreamActivity = true
+      onFirstChunk?.()
+    }
+
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
     let buffer = ''
@@ -1217,16 +1224,19 @@ function ChatPage() {
       const eventName = normalizeStreamEventName(event, data)
 
       if (eventName === 'start') {
+        registerStreamActivity()
         return
       }
 
       if (eventName === 'status') {
+        registerStreamActivity()
         const step = (data && typeof data === 'object') ? data.step : ''
         setStreamStatus(step || '')
         return
       }
 
       if (eventName === 'chunk') {
+        registerStreamActivity()
         const chunkText = extractStreamText(data)
         if (!chunkText) return
         ensureStreamingMessage()
@@ -1236,9 +1246,20 @@ function ChatPage() {
       }
 
       if (eventName === 'end') {
+        registerStreamActivity()
         sawEndEvent = true
         onEndReceived?.()
         setStreamStatus('')
+        if (!hasChunkContent) {
+          const endText = (data && typeof data === 'object')
+            ? String(data.response || '').trim()
+            : ''
+          if (endText) {
+            ensureStreamingMessage()
+            registerFirstChunk()
+            appendBotChunk(endText)
+          }
+        }
         if (data && typeof data === 'object') {
           pendingStreamArtifactsRef.current = {
             ...pendingStreamArtifactsRef.current,
@@ -1252,6 +1273,7 @@ function ChatPage() {
       }
 
       if (eventName === 'sources_start') {
+        registerStreamActivity()
         pendingStreamArtifactsRef.current = {
           ...pendingStreamArtifactsRef.current,
           sources: [],
@@ -1260,6 +1282,7 @@ function ChatPage() {
       }
 
       if (eventName === 'source_item') {
+        registerStreamActivity()
         const src = (data && typeof data === 'object') ? data.source : null
         if (src) {
           pendingStreamArtifactsRef.current = {
@@ -1271,10 +1294,12 @@ function ChatPage() {
       }
 
       if (eventName === 'sources_end') {
+        registerStreamActivity()
         return
       }
 
       if (eventName === 'video_result') {
+        registerStreamActivity()
         const videoData = (data && typeof data === 'object') ? data : {}
         const url = String(videoData.url || '').trim()
         if (!url || !/^https:\/\//.test(url)) return
@@ -1290,6 +1315,7 @@ function ChatPage() {
       }
 
       if (eventName === 'video_none') {
+        registerStreamActivity()
         return
       }
 
@@ -1369,6 +1395,11 @@ function ChatPage() {
 
     setMessages((previous) => [...previous, { type: 'user', content: text }])
     setInput('')
+    window.requestAnimationFrame(() => {
+      if (inputRef.current) {
+        inputRef.current.style.height = 'auto'
+      }
+    })
     setIsLoading(true)
     setLangOpen(false)
 

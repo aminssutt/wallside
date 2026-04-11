@@ -113,6 +113,28 @@ def _sse_comment(comment: str) -> str:
     return f": {comment}\n\n"
 
 
+def _compute_fallback_chunk(streamed_text: str, fallback_text: str) -> str:
+    """Return only the missing suffix when a sync fallback completes a partial stream."""
+    streamed = streamed_text or ""
+    fallback = fallback_text or ""
+
+    if not fallback:
+        return ""
+    if not streamed:
+        return fallback
+    if fallback.startswith(streamed):
+        return fallback[len(streamed):]
+
+    common_prefix = os.path.commonprefix([streamed, fallback])
+    minimum_overlap = min(64, max(16, len(streamed) // 2))
+    if len(common_prefix) >= minimum_overlap:
+        return fallback[len(common_prefix):]
+
+    if fallback == streamed:
+        return ""
+    return f"\n\n{fallback}"
+
+
 _PREWARM_STARTED = False
 _PREWARM_LOCK = Lock()
 
@@ -376,6 +398,8 @@ def chat_stream(slug):
         Thread(target=_produce, name=f"chat-stream-{slug}", daemon=True).start()
         try:
             ended = False
+            streamed_parts: list[str] = []
+            last_message_id = ""
             while True:
                 try:
                     kind, payload = event_queue.get(timeout=max(1.0, STREAM_HEARTBEAT_SECONDS))
@@ -386,14 +410,51 @@ def chat_stream(slug):
                 if kind == "done":
                     break
                 if kind == "error":
-                    raise payload
+                    stream_error = payload
+                    if ended:
+                        log.warning("Chat stream post-end error for guide %s: %s", slug, stream_error)
+                        break
+
+                    log.error("Chat stream error for guide %s, switching to sync fallback: %s", slug, stream_error)
+                    fallback_response = ""
+                    try:
+                        fallback_response = chatbot.chat(question, lang=lang, session_id=session_id)
+                    except Exception as fallback_exc:
+                        log.error("Chat stream sync fallback failed for guide %s: %s", slug, fallback_exc)
+
+                    if not isinstance(fallback_response, str) or not fallback_response.strip():
+                        fallback_response = "Une erreur interne est survenue. Veuillez reessayer."
+                    fallback_response = fallback_response.strip()
+
+                    fallback_chunk = _compute_fallback_chunk(
+                        "".join(streamed_parts),
+                        fallback_response,
+                    )
+                    if fallback_chunk and streamed_parts:
+                        yield _sse_event("chunk", {
+                            "text": fallback_chunk,
+                            "message_id": last_message_id,
+                        })
+                        streamed_parts.append(fallback_chunk)
+
+                    yield _sse_event("end", {
+                        "success": True,
+                        "vehicle_name": guide.name,
+                        "message_id": last_message_id,
+                        "response": fallback_response,
+                    })
+                    ended = True
+                    break
 
                 event = payload
                 event_type = str(event.get("type", "")).strip().lower()
                 mid = event.get("message_id", "")
+                if mid:
+                    last_message_id = mid
                 if event_type == "chunk":
                     chunk_text = str(event.get("text", ""))
                     if chunk_text:
+                        streamed_parts.append(chunk_text)
                         yield _sse_event("chunk", {"text": chunk_text, "message_id": mid})
                 elif event_type == "end":
                     end_payload = {
@@ -439,9 +500,10 @@ def chat_stream(slug):
                 })
         except Exception as e:
             log.error("Chat stream error for guide %s: %s", slug, e)
-            yield _sse_event("error", {
-                "success": False,
-                "error": "Une erreur interne est survenue. Veuillez reessayer."
+            yield _sse_event("end", {
+                "success": True,
+                "vehicle_name": guide.name,
+                "response": "Une erreur interne est survenue. Veuillez reessayer.",
             })
 
     response = Response(event_stream(), mimetype="text/event-stream")
@@ -655,7 +717,7 @@ if __name__ == '__main__':
 
     port = int(os.getenv("PORT", 5002))
     guides = guide_manager.list_guides()
-    print(f"\n API Vehicle Guide Chatbot v3.0")
+    print("\n API Vehicle Guide Chatbot v3.0")
     print(f" {len(guides)} guide(s) available")
     for g in guides:
         print(f"   - {g['name']} ({g['slug']})")
