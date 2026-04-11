@@ -329,15 +329,22 @@ def has_strong_manual_context(
     if reliable_doc_count <= 0:
         return False
 
-    # Multi-token questions with only weak lexical overlap are usually noisy retrieval.
+    # Very short queries can still be strong with one high-scoring hit.
     if (
-        query_token_count >= 4
-        and best_overlap_count < 2
-        and top_rrf_score < RETRIEVAL_HIGH_CONFIDENCE_RRF
+        query_token_count <= 2
+        and reliable_doc_count >= 1
+        and top_rrf_score >= RETRIEVAL_HIGH_CONFIDENCE_RRF
     ):
-        return False
+        return True
 
-    return True
+    # For normal/long questions, require robust grounding before skipping web rescue.
+    if reliable_doc_count >= 2 and (
+        best_overlap_count >= 2
+        or top_rrf_score >= RETRIEVAL_HIGH_CONFIDENCE_RRF
+    ):
+        return True
+
+    return False
 
 
 def detect_fix_mode(question: str) -> bool:

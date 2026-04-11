@@ -154,6 +154,7 @@ const COMPACT_MENU_BREAKPOINT = 1024
 const CHAT_TTFB_TIMEOUT_MS = 10000
 const CHAT_TOTAL_TIMEOUT_MS = 90000
 const CHAT_END_ARTIFACT_TIMEOUT_MS = 9000
+const CHAT_FALLBACK_TIMEOUT_MS = 45000
 const MAX_INPUT_LENGTH = 3000
 const STREAM_DRAIN_IDLE_MS = 30
 const STREAM_DRAIN_BUSY_MS = 24
@@ -1575,7 +1576,7 @@ function ChatPage() {
   }
 
 
-  const requestChatJson = async ({ text, signal, timeoutMs = 25_000 }) => {
+  const requestChatJson = async ({ text, signal, timeoutMs = CHAT_FALLBACK_TIMEOUT_MS }) => {
     const controller = new AbortController()
     let timeoutId = null
     let detachParentAbort = null
@@ -1883,6 +1884,7 @@ function ChatPage() {
     let totalTimeoutId = null
     let endArtifactsTimeoutId = null
     let receivedChunk = false
+    let receivedStreamActivity = false
 
     const controller = new AbortController()
     abortControllerRef.current = controller
@@ -1922,6 +1924,10 @@ function ChatPage() {
         await consumeChatStream({
           text,
           signal: controller.signal,
+          onFirstActivity: () => {
+            receivedStreamActivity = true
+            clearTtfbTimeout()
+          },
           onFirstChunk: clearTtfbTimeout,
           onChunkReceived: () => {
             receivedChunk = true
@@ -1946,7 +1952,7 @@ function ChatPage() {
           const fallbackResponse = await requestChatJson({
             text,
             signal: controller.signal,
-            timeoutMs: 25_000,
+            timeoutMs: CHAT_FALLBACK_TIMEOUT_MS,
           })
           setStreamStatus('generating')
           appendFinalBotResponse(fallbackResponse)
@@ -1978,9 +1984,13 @@ function ChatPage() {
         }
 
         if (abortReason === 'timeout_ttfb' && !receivedChunk) {
+          if (receivedStreamActivity) {
+            setStreamStatus('generating')
+            return
+          }
           setStreamStatus('deep_web_search')
           try {
-            const fallbackResponse = await requestChatJson({ text, timeoutMs: 25_000 })
+            const fallbackResponse = await requestChatJson({ text, timeoutMs: CHAT_FALLBACK_TIMEOUT_MS })
             setStreamStatus('generating')
             appendFinalBotResponse(fallbackResponse)
             setStreamStatus('')
