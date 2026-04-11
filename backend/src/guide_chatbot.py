@@ -670,6 +670,17 @@ def _is_thin_or_incomplete_answer(text: str) -> bool:
     sentence_count = len(re.findall(r"[.!?…](?:\s|$)", clean))
     has_decent_structure = bullet_count >= 3 or sentence_count >= 3
     ends_cleanly = bool(re.search(r"[.!?…)\]]\s*$", clean))
+    lowered = clean.lower()
+
+    # Detect obvious degeneration / repetition loops.
+    words = re.findall(r"[a-zà-ÿ0-9]{2,}", lowered)
+    if len(words) >= 12:
+        seen_chunks = set()
+        for idx in range(0, len(words) - 5):
+            chunk = tuple(words[idx : idx + 6])
+            if chunk in seen_chunks:
+                return True
+            seen_chunks.add(chunk)
 
     if len(clean) < 220 and not has_decent_structure:
         return True
@@ -1881,6 +1892,17 @@ REGLES STRICTES:
                     video_block=str(payload.get("video_block", "")),
                     video_score=payload.get("video_score", 0),
                 )
+            elif _is_thin_or_incomplete_answer(answer) and (has_web_sources or not manual_context_strong):
+                answer, final_answer = self._finalize_answer(
+                    _build_generic_web_guidance(
+                        question,
+                        self.guide.name,
+                        str(payload.get("detected_lang", "fr")),
+                    ),
+                    sources_block=str(payload.get("sources_block", "")),
+                    video_block=str(payload.get("video_block", "")),
+                    video_score=payload.get("video_score", 0),
+                )
             self._log_metrics(
                 "chat_metrics",
                 self._build_metrics(
@@ -2200,6 +2222,12 @@ REGLES STRICTES:
                     str(payload.get("detected_lang", "fr")),
                 )
             if _looks_unavailable_answer(answer) and (has_web_sources or not manual_context_strong):
+                answer = _build_generic_web_guidance(
+                    question,
+                    self.guide.name,
+                    str(payload.get("detected_lang", "fr")),
+                )
+            elif _is_thin_or_incomplete_answer(answer) and (has_web_sources or not manual_context_strong):
                 answer = _build_generic_web_guidance(
                     question,
                     self.guide.name,

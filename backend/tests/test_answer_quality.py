@@ -24,6 +24,15 @@ def test_thin_answer_detects_abrupt_tail():
     assert _is_thin_or_incomplete_answer(text)
 
 
+def test_thin_answer_detects_repetition_loop():
+    text = (
+        "Pour utiliser le regulateur de vitesse, les etapes precises d'activation "
+        "et de configuration ne sont pas. Pour utiliser le regulateur de vitesse, "
+        "les etapes precises d'activation et de configuration ne sont pas."
+    )
+    assert _is_thin_or_incomplete_answer(text)
+
+
 def test_thin_answer_accepts_structured_complete_response():
     text = (
         "1. Activez le regulateur sur route degagee.\n"
