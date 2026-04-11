@@ -16,7 +16,7 @@ import hashlib
 import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor, Future
-from urllib.parse import quote_plus, urlparse
+from urllib.parse import quote_plus, urlparse, parse_qs, unquote
 from urllib.request import Request, urlopen
 
 from google import genai
@@ -309,6 +309,37 @@ def compute_confidence(
     return "low"
 
 
+def has_strong_manual_context(
+    has_relevant_context: bool,
+    docs: List[Document],
+    quality_stats: Optional[Dict[str, Any]] = None,
+) -> bool:
+    """Return True when manual retrieval quality is strong enough to answer without web rescue."""
+    if not has_relevant_context or not docs:
+        return False
+
+    if not quality_stats:
+        return len(docs) >= 2
+
+    reliable_doc_count = int(quality_stats.get("reliable_doc_count", 0) or 0)
+    best_overlap_count = int(quality_stats.get("best_overlap_count", 0) or 0)
+    query_token_count = int(quality_stats.get("query_token_count", 0) or 0)
+    top_rrf_score = float(quality_stats.get("top_rrf_score", 0.0) or 0.0)
+
+    if reliable_doc_count <= 0:
+        return False
+
+    # Multi-token questions with only weak lexical overlap are usually noisy retrieval.
+    if (
+        query_token_count >= 4
+        and best_overlap_count < 2
+        and top_rrf_score < RETRIEVAL_HIGH_CONFIDENCE_RRF
+    ):
+        return False
+
+    return True
+
+
 def detect_fix_mode(question: str) -> bool:
     """Return True if the question expresses procedural intent.
 
@@ -500,6 +531,77 @@ def _youtube_html_search(
     return found
 
 
+def _duckduckgo_html_search(
+    query: str, max_results: int = 8, timeout_seconds: float = 2.0
+) -> List[Dict[str, str]]:
+    """Fallback web search by scraping DuckDuckGo HTML results."""
+    search_url = f"https://duckduckgo.com/html/?q={quote_plus(query)}"
+    req = Request(
+        search_url,
+        headers={
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/123.0.0.0 Safari/537.36"
+            )
+        },
+    )
+
+    try:
+        with urlopen(req, timeout=max(1.0, float(timeout_seconds))) as response:
+            html = response.read().decode("utf-8", errors="ignore")
+    except Exception:
+        return []
+
+    results: List[Dict[str, str]] = []
+    seen_urls = set()
+    pattern = re.compile(
+        r'<a[^>]+class="result__a"[^>]+href="(?P<href>[^"]+)"[^>]*>(?P<title>.*?)</a>',
+        re.IGNORECASE,
+    )
+
+    for match in pattern.finditer(html):
+        raw_href = match.group("href")
+        title_html = match.group("title")
+        href = raw_href.strip()
+        if not href:
+            continue
+
+        if "duckduckgo.com/l/?" in href:
+            parsed = urlparse(href)
+            params = parse_qs(parsed.query)
+            uddg = params.get("uddg", [])
+            if uddg:
+                href = unquote(uddg[0])
+        elif href.startswith("//"):
+            href = f"https:{href}"
+
+        if not href.startswith("http"):
+            continue
+        if href in seen_urls:
+            continue
+        seen_urls.add(href)
+
+        title = re.sub(r"<[^>]+>", "", title_html or "").strip()
+        domain = _safe_domain(href)
+        if not title or not domain:
+            continue
+
+        results.append(
+            {
+                "title": title,
+                "url": href,
+                "snippet": "",
+                "domain": domain,
+                "score": "0",
+            }
+        )
+        if len(results) >= max(1, max_results):
+            break
+
+    return results
+
+
 def trim_response(answer: str) -> str:
     """Limit response size while keeping coherent sections."""
     clean = (answer or "").replace("\r\n", "\n").strip()
@@ -613,6 +715,7 @@ def web_search_results(
     started_at = time.perf_counter()
     request_timeout = max(1, int(min(8, max(1.0, float(time_budget_seconds or 0.0)))))
 
+    ddgs_failed = False
     try:
         try:
             ddgs_ctx = DDGS(timeout=request_timeout)
@@ -661,9 +764,57 @@ def web_search_results(
                 if len(found) >= max_results:
                     break
     except Exception as exc:
+        ddgs_failed = True
         log.warning("Web search failed for query '%s': %s", query, exc)
-        return []
 
+    if found:
+        return found
+
+    # Secondary fallback: direct DuckDuckGo HTML parsing.
+    html_results = _duckduckgo_html_search(
+        query,
+        max_results=max(1, max_results * 2),
+        timeout_seconds=max(0.8, min(3.0, float(time_budget_seconds or 1.0))),
+    )
+    for item in html_results:
+        if (time.perf_counter() - started_at) > max(0.2, time_budget_seconds):
+            break
+        title = str(item.get("title", "")).strip()
+        url = str(item.get("url", "")).strip()
+        snippet = str(item.get("snippet", "")).strip()
+        if not title or not url:
+            continue
+        if url in seen_urls:
+            continue
+
+        domain = _safe_domain(url)
+        if not domain:
+            continue
+        if any(x in domain for x in ("facebook.com", "instagram.com", "tiktok.com", "pinterest.")):
+            continue
+
+        score = _relevance_score(query, title, snippet, url)
+        if score < 1:
+            continue
+        if domain in seen_domains:
+            continue
+
+        seen_urls.add(url)
+        seen_domains.add(domain)
+        found.append(
+            {
+                "title": title,
+                "url": url,
+                "snippet": snippet,
+                "domain": domain,
+                "score": str(score),
+            }
+        )
+        if len(found) >= max_results:
+            break
+
+    if ddgs_failed and found:
+        log.info("Web search fallback (DDG HTML) returned %d results for '%s'", len(found), query)
     return found
 
 
@@ -1338,7 +1489,9 @@ class GuideChatbot:
 REGLES STRICTES:
 1) {lang_instruction}
 2) Base-toi UNIQUEMENT sur le contexte fourni (manuel du vehicule et web).
-3) JAMAIS d'invention: si une information (valeur technique, procedure, specification) n'est PAS dans le contexte fourni, dis-le clairement. Exemple: "Cette information n'est pas disponible dans le manuel fourni."
+3) JAMAIS d'invention: si une information (valeur technique, procedure, specification) n'est PAS dans le contexte manuel ET web fourni, dis-le clairement.
+3b) Si le manuel est incomplet mais que le contexte web contient des informations pertinentes, fournis une reponse utile basee sur ces informations web au lieu d'une simple phrase "information non disponible".
+3c) Si le contexte web est generaliste mais pertinent, fournis tout de meme des etapes pratiques et applicables, en precisant que ce sont des recommandations generales.
 4) Ne JAMAIS inventer de valeurs chiffrees (couples de serrage, pressions, capacites, intervalles) qui ne sont pas explicitement dans le contexte.
 5) Le contexte web est un complement. En cas de conflit avec le manuel, le manuel prime TOUJOURS.
 6) Reponds de facon complete et detaillee. Pour les procedures en etapes, donne TOUTES les etapes. Ne tronque JAMAIS ta reponse.
@@ -1559,16 +1712,29 @@ REGLES STRICTES:
         p_has_ctx = payload.get("has_relevant_context", False)
         p_docs = payload.get("docs") or []
         p_mode = payload.get("mode", MANUAL_ONLY)
+        p_quality_stats = payload.get("quality_stats") or {}
+        manual_context_strong = has_strong_manual_context(
+            p_has_ctx,
+            p_docs,
+            quality_stats=p_quality_stats,
+        )
         confidence_level = compute_confidence(
             p_has_ctx,
             p_docs,
             p_mode,
             False,
-            quality_stats=payload.get("quality_stats") or {},
+            quality_stats=p_quality_stats,
+        )
+        if not manual_context_strong:
+            confidence_level = "low"
+
+        has_web_sources = any(
+            isinstance(src, dict) and str(src.get("kind", "")).lower() == "web"
+            for src in (payload.get("sources_structured") or [])
         )
 
         should_web_enrich = ENABLE_WEB_ENRICHMENT and (
-            mode == WEB_ASYNC or (mode == WEB_BLOCKING and not p_has_ctx)
+            mode in (WEB_ASYNC, WEB_BLOCKING) or not manual_context_strong
         )
         if should_web_enrich:
             web_status = _status_event("web_search")
@@ -1576,10 +1742,15 @@ REGLES STRICTES:
                 yield web_status
 
         # --- Fallback: if RAG found nothing, do a quick web search to enrich prompt ---
-        if not p_has_ctx and ENABLE_WEB_ENRICHMENT:
+        if ENABLE_WEB_ENRICHMENT and (not manual_context_strong) and not has_web_sources:
             enrichment_query = f"{self.guide.name} {question}".strip()
             budget = max(0.5, ENRICHMENT_TIME_BUDGET_SECONDS)
-            total_budget = max(1.8, min(7.0, budget * 2.0))
+            rescue_fast_only = mode == MANUAL_ONLY
+            total_budget = (
+                max(1.6, min(3.0, budget))
+                if rescue_fast_only
+                else max(1.8, min(7.0, budget * 2.0))
+            )
             stage_started_at = time.perf_counter()
 
             def remaining_budget() -> float:
@@ -1610,18 +1781,25 @@ REGLES STRICTES:
                     max_results=WEB_MAX_RESULTS,
                     label="fallback-fast",
                 )
-                oscaro_fast = timed_search(
-                    f"site:oscaro.com {self.guide.name} {question}",
-                    max_results=2,
-                    label="fallback-oscaro",
-                )
+                oscaro_fast: List[Dict[str, str]] = []
+                if not rescue_fast_only and remaining_budget() > 0.3:
+                    oscaro_fast = timed_search(
+                        f"site:oscaro.com {self.guide.name} {question}",
+                        max_results=2,
+                        label="fallback-oscaro",
+                    )
                 fallback_web = _merge_web_results(
                     [oscaro_fast, fast_web],
                     max_results=max(WEB_MAX_RESULTS + 1, 4),
                 )
 
                 # Phase 2: deeper search only if the fast pass found nothing.
-                if not fallback_web and ENABLE_DEEP_WEB_ENRICHMENT and remaining_budget() > 0.35:
+                if (
+                    not rescue_fast_only
+                    and not fallback_web
+                    and ENABLE_DEEP_WEB_ENRICHMENT
+                    and remaining_budget() > 0.35
+                ):
                     deep_status = _status_event("deep_web_search")
                     if deep_status:
                         yield deep_status
@@ -1649,15 +1827,20 @@ REGLES STRICTES:
 
                 if fallback_web:
                     web_context = format_web_context(fallback_web, lang=payload.get("detected_lang", "fr"))
-                    payload["user_content"] = payload.get("user_content", "") + f"\n\n---\n\n<web_enrichment>\n{web_context}\n</web_enrichment>"
+                    payload["user_content"] = (
+                        payload.get("user_content", "")
+                        + f"\n\n---\n\n<web_enrichment>\n{web_context}\n</web_enrichment>"
+                        + "\n\nNote: Le contexte manuel semble incomplet pour cette question. Priorise les informations web pertinentes ci-dessus."
+                    )
                     payload["sources_structured"] = build_sources_structured([], web_results=fallback_web, slug=self.guide.slug)
                     confidence_level = "medium"
+                    has_web_sources = True
                     log.info("Fallback web search for %s: %d results", self.guide.slug, len(fallback_web))
             except Exception as exc:
                 log.warning("Fallback web search failed: %s", exc)
 
         # --- Detect fix mode (procedural intent + manual context available) ---
-        fix_mode_active = detect_fix_mode(question) and (p_has_ctx or payload.get("sources_structured"))
+        fix_mode_active = detect_fix_mode(question) and (manual_context_strong or has_web_sources)
         if fix_mode_active:
             detected_lang = payload.get("detected_lang", "fr")
             fix_preamble = FIX_MODE_PROMPT.get(detected_lang, FIX_MODE_PROMPT["fr"])
