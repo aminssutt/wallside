@@ -8,6 +8,7 @@ import os
 import queue
 import re
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from threading import Lock, Thread
@@ -387,16 +388,32 @@ def chat_stream(slug):
         event_queue: "queue.Queue[tuple[str, object]]" = queue.Queue()
         fallback_started = False
         fallback_completed = False
+        fallback_started_at = 0.0
+        request_started_at = time.monotonic()
+        first_chunk_received = False
+        stream_poll_timeout = max(1.0, min(3.0, STREAM_HEARTBEAT_SECONDS))
+        stream_stall_timeout = 18.0
+        fallback_deadline = 14.0
 
-        def _start_fallback():
-            nonlocal fallback_started
+        def _start_fallback(reason: str = "error"):
+            nonlocal fallback_started, fallback_started_at
             if fallback_started:
                 return
             fallback_started = True
+            fallback_started_at = time.monotonic()
+            log.warning("Starting sync fallback for guide %s (reason=%s)", slug, reason)
 
             def _run_fallback():
                 try:
-                    fallback_response = chatbot.chat(question, lang=lang, session_id=session_id)
+                    fallback_response = chatbot.chat(
+                        question,
+                        lang=lang,
+                        session_id=session_id,
+                        mode_override="manual_only",
+                        allow_web_enrichment=False,
+                        llm_timeout_cap_seconds=10,
+                        max_output_tokens_cap=700,
+                    )
                     event_queue.put(("fallback_result", fallback_response))
                 except Exception as fallback_exc:
                     event_queue.put(("fallback_error", fallback_exc))
@@ -423,9 +440,31 @@ def chat_stream(slug):
             last_message_id = ""
             while True:
                 try:
-                    kind, payload = event_queue.get(timeout=max(1.0, STREAM_HEARTBEAT_SECONDS))
+                    kind, payload = event_queue.get(timeout=stream_poll_timeout)
                 except queue.Empty:
                     yield _sse_comment("ping")
+                    now = time.monotonic()
+                    if (
+                        not ended
+                        and not fallback_started
+                        and not first_chunk_received
+                        and (now - request_started_at) >= stream_stall_timeout
+                    ):
+                        _start_fallback("stall_no_chunk")
+                    if (
+                        fallback_started
+                        and not fallback_completed
+                        and fallback_started_at > 0.0
+                        and (now - fallback_started_at) >= fallback_deadline
+                    ):
+                        yield _sse_event("end", {
+                            "success": True,
+                            "vehicle_name": guide.name,
+                            "message_id": last_message_id,
+                            "response": "La reponse a pris trop de temps. Reessayez dans un instant.",
+                        })
+                        ended = True
+                        break
                     continue
 
                 if kind == "done":
@@ -439,7 +478,7 @@ def chat_stream(slug):
                         break
 
                     log.error("Chat stream error for guide %s, switching to sync fallback: %s", slug, stream_error)
-                    _start_fallback()
+                    _start_fallback("stream_error")
                     continue
 
                 if kind == "fallback_error":
@@ -490,6 +529,7 @@ def chat_stream(slug):
                 if event_type == "chunk":
                     chunk_text = str(event.get("text", ""))
                     if chunk_text:
+                        first_chunk_received = True
                         streamed_parts.append(chunk_text)
                         yield _sse_event("chunk", {"text": chunk_text, "message_id": mid})
                 elif event_type == "end":

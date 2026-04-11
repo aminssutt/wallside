@@ -151,10 +151,10 @@ function getVehicleQuestions(vehicleName, segment, lang) {
   return questions.map((q) => q.replace(/\{vehicle\}/g, vehicleName))
 }
 const COMPACT_MENU_BREAKPOINT = 1024
-const CHAT_TTFB_TIMEOUT_MS = 10000
-const CHAT_TOTAL_TIMEOUT_MS = 90000
+const CHAT_TTFB_TIMEOUT_MS = 8000
+const CHAT_TOTAL_TIMEOUT_MS = 60000
 const CHAT_END_ARTIFACT_TIMEOUT_MS = 9000
-const CHAT_FALLBACK_TIMEOUT_MS = 45000
+const CHAT_FALLBACK_TIMEOUT_MS = 18000
 const MAX_INPUT_LENGTH = 3000
 const STREAM_DRAIN_IDLE_MS = 30
 const STREAM_DRAIN_BUSY_MS = 24
@@ -1610,17 +1610,20 @@ function ChatPage() {
       })
 
       let data = null
+      let rawText = ''
       try {
-        data = await response.json()
+        rawText = await response.text()
+        data = rawText ? JSON.parse(rawText) : null
       } catch {
-        if (!response.ok) {
-          throw new Error(`fallback_http_${response.status}`)
-        }
-        return t.chat.unavailable
+        data = null
       }
 
       if (response.ok && data?.success) {
         return data.response || ''
+      }
+
+      if (response.ok && rawText && !data) {
+        return rawText.trim() || t.chat.unavailable
       }
 
       if (!response.ok) {
@@ -1982,28 +1985,38 @@ function ChatPage() {
         }
 
         if (abortReason === 'timeout_ttfb' && !receivedChunk) {
-          if (receivedStreamActivity) {
-            setStreamStatus('generating')
-            return
-          }
           setStreamStatus('deep_web_search')
           try {
-            const fallbackResponse = await requestChatJson({ text, timeoutMs: CHAT_FALLBACK_TIMEOUT_MS })
+            const fallbackResponse = await requestChatJson({
+              text,
+              signal: controller.signal,
+              timeoutMs: CHAT_FALLBACK_TIMEOUT_MS,
+            })
             setStreamStatus('generating')
             appendFinalBotResponse(fallbackResponse)
             setStreamStatus('')
             return
-          } catch {
-            appendFinalBotResponse(streamRuntimeCopy.timeoutFinal)
+          } catch (fallbackError) {
+            if (fallbackError?.name === 'AbortError') {
+              appendFinalBotResponse(streamRuntimeCopy.timeoutFinal)
+              setStreamStatus('')
+              return
+            }
+            appendFinalBotResponse(t.chat.serverUnavailable)
             setStreamStatus('')
             return
           }
         }
 
         if (abortReason === 'timeout_total') {
-          appendFinalBotResponse(streamRuntimeCopy.timeoutFinal)
-          setStreamStatus('')
-          return
+          if (receivedStreamActivity && !receivedChunk) {
+            appendFinalBotResponse(t.chat.serverUnavailable)
+            setStreamStatus('')
+            return
+          }
+            appendFinalBotResponse(streamRuntimeCopy.timeoutFinal)
+            setStreamStatus('')
+            return
         }
 
         streamDoneRef.current = true

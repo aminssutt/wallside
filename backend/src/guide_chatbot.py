@@ -1421,6 +1421,7 @@ class GuideChatbot:
         session_id: str = "default",
         mode: str = MANUAL_ONLY,
         fix_mode: bool = False,
+        allow_web_enrichment: bool = True,
     ) -> Dict[str, Any]:
         """Build chat payload (prompt + retrieval context) shared by sync and stream paths."""
         # Sanitize input and check for injection attempts
@@ -1490,7 +1491,12 @@ class GuideChatbot:
         video: Dict[str, str] = {}
         web_context = ""
 
-        if ENABLE_WEB_ENRICHMENT and confidence >= 0.5 and mode == WEB_BLOCKING:
+        if (
+            allow_web_enrichment
+            and ENABLE_WEB_ENRICHMENT
+            and confidence >= 0.5
+            and mode == WEB_BLOCKING
+        ):
             enrichment_query = f"{self.guide.name} {question}".strip()
             budget = max(0.5, ENRICHMENT_TIME_BUDGET_SECONDS)
 
@@ -1687,17 +1693,28 @@ REGLES STRICTES:
                     pieces.append(part_text)
         return "".join(pieces)
 
-    def chat(self, question: str, lang: str = None, session_id: str = "default") -> str:
+    def chat(
+        self,
+        question: str,
+        lang: str = None,
+        session_id: str = "default",
+        *,
+        mode_override: Optional[str] = None,
+        allow_web_enrichment: bool = True,
+        llm_timeout_cap_seconds: Optional[int] = None,
+        max_output_tokens_cap: Optional[int] = None,
+    ) -> str:
         """Generate a response (sync fallback - uses web enrichment)."""
         started_at = time.perf_counter()
-        mode = classify_query(question)
-        if mode == MANUAL_ONLY:
-            mode = WEB_BLOCKING  # fallback path always gets full enrichment
+        mode = mode_override or classify_query(question)
+        if mode_override is None and mode == MANUAL_ONLY and allow_web_enrichment:
+            mode = WEB_BLOCKING  # compat: keep enrichment for direct sync chat
         payload = self._prepare_chat_payload(
             question=question,
             lang=lang,
             session_id=session_id,
             mode=mode,
+            allow_web_enrichment=allow_web_enrichment,
         )
         early_answer = payload.get("early_answer")
         if isinstance(early_answer, str):
@@ -1731,19 +1748,34 @@ REGLES STRICTES:
         )
         if not manual_context_strong:
             max_output_tokens = min(max_output_tokens, 900)
-        llm_timeout_seconds = max(12, min(LLM_TIMEOUT_SECONDS, 30))
+        if isinstance(max_output_tokens_cap, int) and max_output_tokens_cap > 0:
+            max_output_tokens = min(max_output_tokens, max_output_tokens_cap)
+        llm_timeout_seconds = max(8, min(LLM_TIMEOUT_SECONDS, 30))
+        if isinstance(llm_timeout_cap_seconds, int) and llm_timeout_cap_seconds > 0:
+            llm_timeout_seconds = min(llm_timeout_seconds, llm_timeout_cap_seconds)
 
         try:
-            response = self.client.models.generate_content(
-                model=self.model_name,
-                contents=str(payload.get("user_content", "")),
-                config=genai_types.GenerateContentConfig(
-                    system_instruction=str(payload.get("system_instruction", "")),
-                    temperature=0.15,
-                    max_output_tokens=max_output_tokens,
-                    http_options=genai_types.HttpOptions(timeout=llm_timeout_seconds * 1000),
+            response = _run_with_hard_timeout(
+                lambda: self.client.models.generate_content(
+                    model=self.model_name,
+                    contents=str(payload.get("user_content", "")),
+                    config=genai_types.GenerateContentConfig(
+                        system_instruction=str(payload.get("system_instruction", "")),
+                        temperature=0.15,
+                        max_output_tokens=max_output_tokens,
+                        http_options=genai_types.HttpOptions(timeout=llm_timeout_seconds * 1000),
+                    ),
                 ),
+                timeout_seconds=max(1.0, llm_timeout_seconds + 1.0),
+                fallback=None,
+                label=f"chat-sync-{self.guide.slug}",
             )
+            if response is None:
+                return _build_generic_web_guidance(
+                    question,
+                    self.guide.name,
+                    str(payload.get("detected_lang", "fr")),
+                )
 
             raw_answer = (getattr(response, "text", "") or "").strip()
             answer, final_answer = self._finalize_answer(
@@ -1756,7 +1788,7 @@ REGLES STRICTES:
                 isinstance(src, dict) and str(src.get("kind", "")).lower() == "web"
                 for src in (payload.get("sources_structured") or [])
             )
-            if has_web_sources and _looks_unavailable_answer(answer):
+            if _looks_unavailable_answer(answer) and (has_web_sources or not manual_context_strong):
                 answer, final_answer = self._finalize_answer(
                     _build_generic_web_guidance(question, self.guide.name, str(payload.get("detected_lang", "fr"))),
                     sources_block=str(payload.get("sources_block", "")),
@@ -2059,7 +2091,7 @@ REGLES STRICTES:
             answer = trim_response(clean_model_output(raw_answer or ""))
             if not answer:
                 answer = "Je n'ai pas trouve de reponse exploitable dans le manuel."
-            if has_web_sources and _looks_unavailable_answer(answer):
+            if _looks_unavailable_answer(answer) and (has_web_sources or not manual_context_strong):
                 answer = _build_generic_web_guidance(
                     question,
                     self.guide.name,

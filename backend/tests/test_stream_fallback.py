@@ -62,7 +62,7 @@ def test_stream_uses_sync_fallback_without_emitting_error(monkeypatch, client):
             yield {"type": "chunk", "text": "Bonjour", "message_id": "mid-1"}
             raise TimeoutError("stream timeout")
 
-        def chat(self, question, lang=None, session_id="default"):
+        def chat(self, question, lang=None, session_id="default", **kwargs):
             chatbot_calls.append((question, lang, session_id))
             return "Bonjour depuis le fallback.\n\nSources web:\n- https://example.com/help"
 
@@ -104,7 +104,7 @@ def test_stream_ignores_post_end_failure_instead_of_emitting_error(monkeypatch, 
         }
         raise RuntimeError("sources failed")
 
-    def chat(question, lang=None, session_id="default"):
+    def chat(question, lang=None, session_id="default", **kwargs):
         chatbot.chat_called = True
         return "Ne doit pas etre appele"
 
@@ -147,7 +147,7 @@ def test_stream_end_passes_structured_sources(monkeypatch, client):
                 ],
             }
 
-        def chat(self, question, lang=None, session_id="default"):
+        def chat(self, question, lang=None, session_id="default", **kwargs):
             return "Ne doit pas etre appele"
 
     monkeypatch.setattr(api, "get_guide_chatbot", lambda slug: DummyChatbot())
@@ -168,7 +168,7 @@ def test_stream_still_ends_when_stream_and_sync_fallback_both_fail(monkeypatch, 
             raise RuntimeError("primary stream failed")
             yield  # pragma: no cover
 
-        def chat(self, question, lang=None, session_id="default"):
+        def chat(self, question, lang=None, session_id="default", **kwargs):
             raise RuntimeError("sync fallback failed")
 
     monkeypatch.setattr(api, "get_guide_chatbot", lambda slug: DummyChatbot())
