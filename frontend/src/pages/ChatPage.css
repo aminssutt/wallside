@@ -1344,6 +1344,16 @@ button.bot-source-link {
   z-index: 2;
 }
 
+.chat-runtime-status {
+  margin: 8px 8px 0;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--accent);
+  letter-spacing: 0.04em;
+  opacity: 0.85;
+  animation: statusFadeIn 0.24s ease;
+}
+
 /* --- Prompt Bar (inspired by 21st.dev Prompt Input) --- */
 
 .chat-prompt-bar {

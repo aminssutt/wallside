@@ -153,6 +153,7 @@ function getVehicleQuestions(vehicleName, segment, lang) {
 const COMPACT_MENU_BREAKPOINT = 1024
 const CHAT_TTFB_TIMEOUT_MS = 18000
 const CHAT_TOTAL_TIMEOUT_MS = 90000
+const CHAT_END_ARTIFACT_TIMEOUT_MS = 9000
 const MAX_INPUT_LENGTH = 3000
 const STREAM_DRAIN_IDLE_MS = 36
 const STREAM_DRAIN_BUSY_MS = 24
@@ -393,12 +394,14 @@ const STREAM_STATUS_LABELS = {
     web_search: 'Recherche sur le web...',
     deep_web_search: 'Recherche web approfondie...',
     generating: 'Generation de la reponse...',
+    finalizing_artifacts: 'Finalisation des sources et de la video...',
   },
   en: {
     manual_search: 'Searching manual...',
     web_search: 'Searching the web...',
     deep_web_search: 'Running deeper web search...',
     generating: 'Generating response...',
+    finalizing_artifacts: 'Finalizing sources and video...',
   },
   ko: {
     manual_search: '매뉴얼 검색 중...',
@@ -811,6 +814,7 @@ function ChatPage() {
   const drainTimerRef = useRef(null)
   const streamDoneRef = useRef(false)
   const pendingStreamArtifactsRef = useRef(createEmptyStreamArtifacts())
+  const artifactMergeTimerRef = useRef(null)
   const userScrolledUpRef = useRef(false)
   const abortControllerRef = useRef(null)
   const abortReasonRef = useRef('')
@@ -1017,6 +1021,9 @@ function ChatPage() {
       if (drainTimerRef.current !== null) {
         window.clearTimeout(drainTimerRef.current)
       }
+      if (artifactMergeTimerRef.current !== null) {
+        window.clearTimeout(artifactMergeTimerRef.current)
+      }
     }
   }, [])
 
@@ -1029,6 +1036,16 @@ function ChatPage() {
       window.clearTimeout(drainTimerRef.current)
       drainTimerRef.current = null
     }
+  }
+
+  const scheduleArtifactMerge = () => {
+    if (artifactMergeTimerRef.current !== null) {
+      window.clearTimeout(artifactMergeTimerRef.current)
+    }
+    artifactMergeTimerRef.current = window.setTimeout(() => {
+      artifactMergeTimerRef.current = null
+      mergeBufferedArtifactsIntoLastBot()
+    }, 90)
   }
 
   const mergeBufferedArtifactsIntoLastBot = () => {
@@ -1065,6 +1082,10 @@ function ChatPage() {
 
   const finalizeStreamingPresentation = () => {
     cancelDrain()
+    if (artifactMergeTimerRef.current !== null) {
+      window.clearTimeout(artifactMergeTimerRef.current)
+      artifactMergeTimerRef.current = null
+    }
     mergeBufferedArtifactsIntoLastBot()
     resetPendingStreamArtifacts()
     displayQueueRef.current = []
@@ -1211,7 +1232,6 @@ function ChatPage() {
 
   const consumeChatStream = async ({ text, signal, onFirstChunk, onChunkReceived, onEndReceived }) => {
     let hasChunkContent = false
-    let hasStreamActivity = false
     let sawEndEvent = false
 
     const response = await fetch(`${API_URL}/guides/${slug}/chat/stream`, {
@@ -1256,12 +1276,6 @@ function ChatPage() {
       onChunkReceived?.()
     }
 
-    const registerStreamActivity = () => {
-      if (hasStreamActivity) return
-      hasStreamActivity = true
-      onFirstChunk?.()
-    }
-
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
     let buffer = ''
@@ -1270,19 +1284,16 @@ function ChatPage() {
       const eventName = normalizeStreamEventName(event, data)
 
       if (eventName === 'start') {
-        registerStreamActivity()
         return
       }
 
       if (eventName === 'status') {
-        registerStreamActivity()
         const step = (data && typeof data === 'object') ? data.step : ''
         setStreamStatus(step || '')
         return
       }
 
       if (eventName === 'chunk') {
-        registerStreamActivity()
         const chunkText = extractStreamText(data)
         if (!chunkText) return
         ensureStreamingMessage()
@@ -1292,10 +1303,9 @@ function ChatPage() {
       }
 
       if (eventName === 'end') {
-        registerStreamActivity()
         sawEndEvent = true
         onEndReceived?.()
-        setStreamStatus('')
+        setStreamStatus('finalizing_artifacts')
         if (!hasChunkContent) {
           const endText = (data && typeof data === 'object')
             ? String(data.response || '').trim()
@@ -1319,7 +1329,6 @@ function ChatPage() {
       }
 
       if (eventName === 'sources_start') {
-        registerStreamActivity()
         pendingStreamArtifactsRef.current = {
           ...pendingStreamArtifactsRef.current,
           sources: [],
@@ -1328,7 +1337,6 @@ function ChatPage() {
       }
 
       if (eventName === 'source_item') {
-        registerStreamActivity()
         const src = (data && typeof data === 'object') ? data.source : null
         if (src) {
           pendingStreamArtifactsRef.current = {
@@ -1336,22 +1344,20 @@ function ChatPage() {
             sources: [...pendingStreamArtifactsRef.current.sources, src],
           }
           if (sawEndEvent) {
-            mergeBufferedArtifactsIntoLastBot()
+            scheduleArtifactMerge()
           }
         }
         return
       }
 
       if (eventName === 'sources_end') {
-        registerStreamActivity()
         if (sawEndEvent) {
-          mergeBufferedArtifactsIntoLastBot()
+          scheduleArtifactMerge()
         }
         return
       }
 
       if (eventName === 'video_result') {
-        registerStreamActivity()
         const videoData = (data && typeof data === 'object') ? data : {}
         const url = String(videoData.url || '').trim()
         if (!url || !/^https:\/\//.test(url)) return
@@ -1364,13 +1370,12 @@ function ChatPage() {
           },
         }
         if (sawEndEvent) {
-          mergeBufferedArtifactsIntoLastBot()
+          scheduleArtifactMerge()
         }
         return
       }
 
       if (eventName === 'video_none') {
-        registerStreamActivity()
         return
       }
 
@@ -1460,6 +1465,7 @@ function ChatPage() {
 
     let ttfbTimeoutId = null
     let totalTimeoutId = null
+    let endArtifactsTimeoutId = null
     let receivedChunk = false
 
     const controller = new AbortController()
@@ -1485,6 +1491,13 @@ function ChatPage() {
       }
     }
 
+    const clearEndArtifactsTimeout = () => {
+      if (endArtifactsTimeoutId) {
+        window.clearTimeout(endArtifactsTimeoutId)
+        endArtifactsTimeoutId = null
+      }
+    }
+
     try {
       ttfbTimeoutId = window.setTimeout(() => abortWithReason('timeout_ttfb'), CHAT_TTFB_TIMEOUT_MS)
       totalTimeoutId = window.setTimeout(() => abortWithReason('timeout_total'), CHAT_TOTAL_TIMEOUT_MS)
@@ -1500,6 +1513,11 @@ function ChatPage() {
           onEndReceived: () => {
             clearTtfbTimeout()
             clearTotalTimeout()
+            clearEndArtifactsTimeout()
+            endArtifactsTimeoutId = window.setTimeout(
+              () => abortWithReason('timeout_end_artifacts'),
+              CHAT_END_ARTIFACT_TIMEOUT_MS,
+            )
           },
         })
       } catch (streamError) {
@@ -1509,7 +1527,7 @@ function ChatPage() {
 
         if (streamError?.allowFallback) {
           setStreamStatus('deep_web_search')
-          const fallbackResponse = await requestChatJson({ text })
+          const fallbackResponse = await requestChatJson({ text, signal: controller.signal })
           setStreamStatus('generating')
           await streamBotMessage(fallbackResponse)
           setStreamStatus('')
@@ -1529,6 +1547,13 @@ function ChatPage() {
       if (error?.name === 'AbortError') {
         const abortReason = abortReasonRef.current
         if (abortReason === 'manual_stop') {
+          return
+        }
+
+        if (abortReason === 'timeout_end_artifacts') {
+          streamDoneRef.current = true
+          startDrain()
+          setStreamStatus('')
           return
         }
 
@@ -1557,6 +1582,7 @@ function ChatPage() {
     } finally {
       clearTtfbTimeout()
       clearTotalTimeout()
+      clearEndArtifactsTimeout()
       setIsLoading(false)
       abortControllerRef.current = null
       abortReasonRef.current = ''
@@ -1572,6 +1598,14 @@ function ChatPage() {
       abortReasonRef.current = 'manual_stop'
       abortControllerRef.current.abort()
       abortControllerRef.current = null
+    }
+    if (tokenFlushTimerRef.current) {
+      window.clearInterval(tokenFlushTimerRef.current)
+      tokenFlushTimerRef.current = null
+    }
+    if (artifactMergeTimerRef.current !== null) {
+      window.clearTimeout(artifactMergeTimerRef.current)
+      artifactMergeTimerRef.current = null
     }
     cancelDrain()
     flushQueuedStreamText()
@@ -1979,6 +2013,11 @@ function ChatPage() {
             </div>
           </div>
         </div>
+        {(isLoading || isStreaming) && streamStatus && (
+          <p className="chat-runtime-status">
+            {(STREAM_STATUS_LABELS[lang] || STREAM_STATUS_LABELS.en)?.[streamStatus] || ''}
+          </p>
+        )}
       </footer>
 
       <AnimatePresence>

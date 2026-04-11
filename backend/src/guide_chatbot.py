@@ -1456,11 +1456,10 @@ REGLES STRICTES:
         # Mode A (default) or C: no web in prompt → fastest TTFT
         # Mode B: web blocking in prompt (for recall/pricing/regulatory Qs)
         payload_mode = mode if mode == WEB_BLOCKING else MANUAL_ONLY
+        yield {"type": "status", "step": "manual_search", "message_id": message_id}
         payload = self._prepare_chat_payload(
             question=question, lang=lang, session_id=session_id, mode=payload_mode,
         )
-
-        yield {"type": "status", "step": "manual_search", "message_id": message_id}
 
         early_answer = payload.get("early_answer")
         if isinstance(early_answer, str):
@@ -1546,8 +1545,17 @@ REGLES STRICTES:
             fix_preamble = FIX_MODE_PROMPT.get(detected_lang, FIX_MODE_PROMPT["fr"])
             payload["system_instruction"] = fix_preamble + payload.get("system_instruction", "")
 
-        # Mode C: launch web search in background while LLM streams
+        # Launch enrichment tasks in background while the LLM streams.
         web_future = None
+        video_future = None
+        if ENABLE_WEB_ENRICHMENT and _YOUTUBE_ELIGIBLE_PATTERNS.search(question):
+            video_query = f"{self.guide.name} {question}".strip()
+            video_budget = max(0.35, min(ENRICHMENT_TIME_BUDGET_SECONDS, 1.5))
+            video_future = _enrichment_executor.submit(
+                youtube_video_suggestion, video_query, video_budget,
+            )
+
+        # Mode C: launch web search in background while LLM streams
         if mode == WEB_ASYNC and ENABLE_WEB_ENRICHMENT:
             enrichment_query = f"{self.guide.name} {question}".strip()
             budget = max(0.5, ENRICHMENT_TIME_BUDGET_SECONDS)
@@ -1637,7 +1645,7 @@ REGLES STRICTES:
         # Collect async web sources (mode C) — already running in background
         if web_future is not None:
             try:
-                web_results = web_future.result(timeout=2)
+                web_results = web_future.result(timeout=0.25)
                 if web_results:
                     for ws in build_sources_structured([], web_results=web_results):
                         sources.append(ws)
@@ -1652,12 +1660,22 @@ REGLES STRICTES:
 
         # --- Post-stream YouTube search ---
         try:
-            if ENABLE_WEB_ENRICHMENT and _YOUTUBE_ELIGIBLE_PATTERNS.search(question):
-                video = youtube_video_suggestion(
-                    f"{self.guide.name} {question}",
-                    time_budget_seconds=max(0.5, ENRICHMENT_TIME_BUDGET_SECONDS),
-                )
-                if video and int(video.get("score", "0")) >= YOUTUBE_MIN_RELEVANCE_SCORE:
+            video: Dict[str, str] = {}
+            if video_future is not None:
+                if video_future.done():
+                    video = video_future.result()
+                else:
+                    try:
+                        video = video_future.result(timeout=0.15)
+                    except Exception:
+                        video = {}
+
+            if video:
+                try:
+                    score = int(str(video.get("score", "0") or "0"))
+                except Exception:
+                    score = 0
+                if score >= YOUTUBE_MIN_RELEVANCE_SCORE:
                     video_id = _extract_youtube_id(video.get("url", ""))
                     yield {
                         "type": "video_result",
