@@ -1286,6 +1286,48 @@ class GuideChatbot:
                 )
         return indices
 
+    def _build_minimal_payload(
+        self,
+        *,
+        question: str,
+        lang: Optional[str],
+        session_id: str,
+        mode: str,
+    ) -> Dict[str, Any]:
+        """Build a fast fallback payload when retrieval preparation is too slow."""
+        detected_lang = lang or detect_language(question)
+        lang_instruction = LANG_INSTRUCTIONS.get(detected_lang, LANG_INSTRUCTIONS["fr"])
+        history = self._get_session_history(session_id)
+
+        system_instruction = f"""Tu es un assistant technique expert et precis, specialise pour le vehicule {self.guide.name}.
+
+REGLES STRICTES:
+1) {lang_instruction}
+2) Base-toi sur les informations disponibles, sans invention.
+3) Si les details exacts manquent, fournis une guidance pratique, claire et concise.
+4) Utilise des listes claires. Pas de section Sources dans le texte."""
+
+        user_content = (
+            "Aucun passage pertinent trouve dans le manuel du vehicule pour cette question."
+            f"\n\nQuestion de l'utilisateur: {question}"
+        )
+
+        return {
+            "history": history,
+            "system_instruction": system_instruction,
+            "user_content": user_content,
+            "sources_block": "",
+            "sources_structured": [],
+            "video_block": "",
+            "video_score": "0",
+            "has_relevant_context": False,
+            "docs": [],
+            "quality_stats": {},
+            "mode": mode,
+            "is_conversational": False,
+            "detected_lang": detected_lang,
+        }
+
     def _get_session_history(self, session_id: str) -> List[dict]:
         with self._history_lock:
             if session_id not in self._session_histories:
@@ -1709,13 +1751,25 @@ REGLES STRICTES:
         mode = mode_override or classify_query(question)
         if mode_override is None and mode == MANUAL_ONLY and allow_web_enrichment:
             mode = WEB_BLOCKING  # compat: keep enrichment for direct sync chat
-        payload = self._prepare_chat_payload(
-            question=question,
-            lang=lang,
-            session_id=session_id,
-            mode=mode,
-            allow_web_enrichment=allow_web_enrichment,
+        payload = _run_with_hard_timeout(
+            lambda: self._prepare_chat_payload(
+                question=question,
+                lang=lang,
+                session_id=session_id,
+                mode=mode,
+                allow_web_enrichment=allow_web_enrichment,
+            ),
+            timeout_seconds=9.0,
+            fallback=None,
+            label=f"prepare-sync-{self.guide.slug}",
         )
+        if payload is None:
+            payload = self._build_minimal_payload(
+                question=question,
+                lang=lang,
+                session_id=session_id,
+                mode=mode,
+            )
         early_answer = payload.get("early_answer")
         if isinstance(early_answer, str):
             return early_answer
@@ -1842,9 +1896,24 @@ REGLES STRICTES:
         manual_status = _status_event("manual_search")
         if manual_status:
             yield manual_status
-        payload = self._prepare_chat_payload(
-            question=question, lang=lang, session_id=session_id, mode=payload_mode,
+        payload = _run_with_hard_timeout(
+            lambda: self._prepare_chat_payload(
+                question=question,
+                lang=lang,
+                session_id=session_id,
+                mode=payload_mode,
+            ),
+            timeout_seconds=9.0,
+            fallback=None,
+            label=f"prepare-stream-{self.guide.slug}",
         )
+        if payload is None:
+            payload = self._build_minimal_payload(
+                question=question,
+                lang=lang,
+                session_id=session_id,
+                mode=payload_mode,
+            )
 
         early_answer = payload.get("early_answer")
         if isinstance(early_answer, str):
