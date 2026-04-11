@@ -1989,7 +1989,7 @@ function ChatPage() {
           try {
             const fallbackResponse = await requestChatJson({
               text,
-              signal: controller.signal,
+              signal: null,
               timeoutMs: CHAT_FALLBACK_TIMEOUT_MS,
             })
             setStreamStatus('generating')
