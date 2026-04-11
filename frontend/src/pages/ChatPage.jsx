@@ -785,6 +785,12 @@ const createEmptyStreamArtifacts = () => ({
   finalText: '',
 })
 
+const normalizeAndMergeSources = (primary, secondary, guideCtx) => {
+  const merged = [...(primary || []), ...(secondary || [])]
+  if (!merged.length) return []
+  return normalizeSourceArray(merged, guideCtx)
+}
+
 const looksAbruptlyTruncated = (value) => {
   const text = String(value || '').trim()
   if (!text || text.length < 60) return false
@@ -1461,10 +1467,16 @@ function ChatPage() {
           : {}),
         ...(pendingArtifacts.confidence ? { confidence: pendingArtifacts.confidence } : {}),
         ...(pendingArtifacts.metrics ? { metrics: pendingArtifacts.metrics } : {}),
-        ...(pendingArtifacts.video?.url ? { video: pendingArtifacts.video } : {}),
-        ...(pendingArtifacts.sources.length
+        ...(pendingArtifacts.video?.url
+          ? (
+              lastMessage.video?.url && lastMessage.video.url === pendingArtifacts.video.url
+                ? {}
+                : { video: pendingArtifacts.video }
+            )
+          : {}),
+        ...(pendingArtifacts.sources.length || (Array.isArray(lastMessage.sources) && lastMessage.sources.length)
           ? {
-              sources: normalizeSourceArray(pendingArtifacts.sources, {
+              sources: normalizeAndMergeSources(lastMessage.sources || [], pendingArtifacts.sources, {
                 slug: guide?.slug || '',
                 name: guide?.name || '',
               }),
@@ -1752,13 +1764,28 @@ function ChatPage() {
         }
         if (data && typeof data === 'object') {
           const finalResponseText = String(data.response || '').trim()
+          const parsedFinal = extractResponseArtifacts({ response: finalResponseText }, {
+            slug: guide?.slug || '',
+            name: guide?.name || '',
+          })
           pendingStreamArtifactsRef.current = {
             ...pendingStreamArtifactsRef.current,
             confidence: String(data.confidence || ''),
             metrics: data.metrics && typeof data.metrics === 'object'
               ? data.metrics
               : pendingStreamArtifactsRef.current.metrics,
-            finalText: finalResponseText || pendingStreamArtifactsRef.current.finalText,
+            finalText: parsedFinal.text || finalResponseText || pendingStreamArtifactsRef.current.finalText,
+            video: pendingStreamArtifactsRef.current.video?.url
+              ? pendingStreamArtifactsRef.current.video
+              : (parsedFinal.video || pendingStreamArtifactsRef.current.video),
+            sources: normalizeAndMergeSources(
+              pendingStreamArtifactsRef.current.sources,
+              parsedFinal.sources,
+              {
+                slug: guide?.slug || '',
+                name: guide?.name || '',
+              },
+            ),
           }
         }
         return
@@ -1869,15 +1896,15 @@ function ChatPage() {
         throw streamError
       }
 
-      streamDoneRef.current = true
-      startDrain()
-
-      if (!hasChunkContent) {
+      if (!sawEndEvent) {
         const streamError = new Error('empty stream response')
         streamError.allowFallback = true
         streamError.hasChunkContent = false
         throw streamError
       }
+
+      streamDoneRef.current = true
+      startDrain()
     } finally {
       reader.releaseLock()
     }
@@ -2414,7 +2441,7 @@ function ChatPage() {
                   <div className="msg-bubble msg-typing">
                     <span /><span /><span />
                     {streamStatus && (
-                      <p className="typing-status">{(STREAM_STATUS_LABELS[lang] || STREAM_STATUS_LABELS.en)?.[streamStatus] || ''}</p>
+                      <p className="typing-status">{(STREAM_STATUS_LABELS[lang] || STREAM_STATUS_LABELS.en)?.[streamStatus] || STREAM_STATUS_LABELS.en?.[streamStatus] || ''}</p>
                     )}
                   </div>
                 </Motion.div>
@@ -2498,7 +2525,7 @@ function ChatPage() {
         </div>
         {(isLoading || isStreaming) && streamStatus && (
           <p className="chat-runtime-status">
-            {(STREAM_STATUS_LABELS[lang] || STREAM_STATUS_LABELS.en)?.[streamStatus] || ''}
+            {(STREAM_STATUS_LABELS[lang] || STREAM_STATUS_LABELS.en)?.[streamStatus] || STREAM_STATUS_LABELS.en?.[streamStatus] || ''}
           </p>
         )}
       </footer>

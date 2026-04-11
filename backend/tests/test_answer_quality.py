@@ -8,7 +8,7 @@ sys.path.insert(0, str(BACKEND_DIR / "src"))
 
 os.environ.setdefault("GOOGLE_API_KEY", "test-key")
 
-from src.guide_chatbot import _is_thin_or_incomplete_answer  # noqa: E402
+from src.guide_chatbot import _has_repetition_loop, _is_thin_or_incomplete_answer  # noqa: E402
 
 
 def test_thin_answer_detects_short_single_sentence():
@@ -30,7 +30,7 @@ def test_thin_answer_detects_repetition_loop():
         "et de configuration ne sont pas. Pour utiliser le regulateur de vitesse, "
         "les etapes precises d'activation et de configuration ne sont pas."
     )
-    assert _is_thin_or_incomplete_answer(text)
+    assert _has_repetition_loop(text)
 
 
 def test_thin_answer_accepts_structured_complete_response():

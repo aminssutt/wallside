@@ -670,22 +670,24 @@ def _is_thin_or_incomplete_answer(text: str) -> bool:
     sentence_count = len(re.findall(r"[.!?…](?:\s|$)", clean))
     has_decent_structure = bullet_count >= 3 or sentence_count >= 3
     ends_cleanly = bool(re.search(r"[.!?…)\]]\s*$", clean))
-    lowered = clean.lower()
-
-    # Detect obvious degeneration / repetition loops.
-    words = re.findall(r"[a-zà-ÿ0-9]{2,}", lowered)
-    if len(words) >= 12:
-        seen_chunks = set()
-        for idx in range(0, len(words) - 5):
-            chunk = tuple(words[idx : idx + 6])
-            if chunk in seen_chunks:
-                return True
-            seen_chunks.add(chunk)
-
     if len(clean) < 220 and not has_decent_structure:
         return True
     if not ends_cleanly and len(clean) >= 60:
         return True
+    return False
+
+
+def _has_repetition_loop(text: str) -> bool:
+    clean = (text or "").strip().lower()
+    words = re.findall(r"[a-zà-ÿ0-9]{2,}", clean)
+    if len(words) < 12:
+        return False
+    seen_chunks = set()
+    for idx in range(0, len(words) - 5):
+        chunk = tuple(words[idx : idx + 6])
+        if chunk in seen_chunks:
+            return True
+        seen_chunks.add(chunk)
     return False
 
 
@@ -707,7 +709,7 @@ def _build_generic_web_guidance(question: str, vehicle_name: str, lang: str = "f
     if any(term in q for term in ("regulateur", "cruise", "vitesse")):
         return (
             f"Le manuel {vehicle_name} ne detaille pas clairement le regulateur de vitesse, "
-            "mais voici une procedure generale utile sur BMW Serie 3 recentes :\n"
+            "mais voici une procedure generale utile sur la plupart des vehicules recentes :\n"
             "1. Sur route degagee, accelerez au-dessus de la vitesse minimale d'activation.\n"
             "2. Activez le regulateur via la commande du volant (souvent touche de mode ou symbole regulateur).\n"
             "3. Appuyez sur `SET` pour memoriser la vitesse actuelle.\n"
@@ -1791,7 +1793,7 @@ REGLES STRICTES:
                 mode=mode,
                 allow_web_enrichment=allow_web_enrichment,
             ),
-            timeout_seconds=9.0,
+            timeout_seconds=11.0,
             fallback=None,
             label=f"prepare-sync-{self.guide.slug}",
         )
@@ -1870,7 +1872,18 @@ REGLES STRICTES:
                 video_block=str(payload.get("video_block", "")),
                 video_score=payload.get("video_score", 0),
             )
-            if procedural_intent and (not manual_context_strong) and _is_thin_or_incomplete_answer(answer):
+            if _has_repetition_loop(answer):
+                answer, final_answer = self._finalize_answer(
+                    _build_generic_web_guidance(
+                        question,
+                        self.guide.name,
+                        str(payload.get("detected_lang", "fr")),
+                    ),
+                    sources_block=str(payload.get("sources_block", "")),
+                    video_block=str(payload.get("video_block", "")),
+                    video_score=payload.get("video_score", 0),
+                )
+            elif procedural_intent and (not manual_context_strong) and _is_thin_or_incomplete_answer(answer):
                 answer, final_answer = self._finalize_answer(
                     _build_generic_web_guidance(
                         question,
@@ -1957,7 +1970,7 @@ REGLES STRICTES:
                 session_id=session_id,
                 mode=payload_mode,
             ),
-            timeout_seconds=9.0,
+            timeout_seconds=11.0,
             fallback=None,
             label=f"prepare-stream-{self.guide.slug}",
         )
@@ -2215,7 +2228,13 @@ REGLES STRICTES:
             if not answer:
                 answer = "Je n'ai pas trouve de reponse exploitable dans le manuel."
             procedural_intent = detect_fix_mode(question)
-            if procedural_intent and (not manual_context_strong) and _is_thin_or_incomplete_answer(answer):
+            if _has_repetition_loop(answer):
+                answer = _build_generic_web_guidance(
+                    question,
+                    self.guide.name,
+                    str(payload.get("detected_lang", "fr")),
+                )
+            elif procedural_intent and (not manual_context_strong) and _is_thin_or_incomplete_answer(answer):
                 answer = _build_generic_web_guidance(
                     question,
                     self.guide.name,
