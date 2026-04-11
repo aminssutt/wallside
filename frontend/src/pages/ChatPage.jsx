@@ -1214,18 +1214,6 @@ function ChatPage() {
     && messages[messages.length - 1]?.type === 'bot'
 
   useEffect(() => {
-    const previousBodyOverflow = document.body.style.overflow
-    const previousHtmlOverflow = document.documentElement.style.overflow
-    document.body.style.overflow = 'hidden'
-    document.documentElement.style.overflow = 'hidden'
-
-    return () => {
-      document.body.style.overflow = previousBodyOverflow
-      document.documentElement.style.overflow = previousHtmlOverflow
-    }
-  }, [])
-
-  useEffect(() => {
     const loadGuide = async () => {
       try {
         const res = await fetch(`${API_URL}/guides/${slug}`)
@@ -1292,6 +1280,16 @@ function ChatPage() {
       userScrolledUpRef.current = false
     }
   }, [isLoading])
+
+  const markUserScrollIntent = () => {
+    const el = chatContainerRef.current
+    if (!el) return
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    if (distanceFromBottom > 40) {
+      userScrolledUpRef.current = true
+      setShowScrollBtn(true)
+    }
+  }
 
   useEffect(() => {
     if (!langOpen) return undefined
@@ -2232,7 +2230,20 @@ function ChatPage() {
         )}
       </AnimatePresence>
 
-      <main className="chat-body" ref={chatContainerRef}>
+      <main
+        className="chat-body"
+        ref={chatContainerRef}
+        onWheelCapture={(event) => {
+          if (!isLoading && !isStreaming) return
+          if (event.deltaY < 0) {
+            markUserScrollIntent()
+          }
+        }}
+        onTouchMoveCapture={() => {
+          if (!isLoading && !isStreaming) return
+          markUserScrollIntent()
+        }}
+      >
           {!isIntroMode && (
             <div className="chat-vehicle-banner">
               <p>{terminalSystemLabel}</p>

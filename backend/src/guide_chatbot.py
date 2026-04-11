@@ -644,6 +644,73 @@ def trim_response(answer: str) -> str:
     return trimmed
 
 
+_UNAVAILABLE_RESPONSE_RE = re.compile(
+    r"(?is)\b("
+    r"pas\s+disponible|ne\s+sont\s+pas\s+disponibles|"
+    r"not\s+available|no\s+information|aucun\s+passage\s+pertinent|"
+    r"je n.ai pas trouve|impossible de trouver"
+    r")\b"
+)
+
+
+def _looks_unavailable_answer(text: str) -> bool:
+    return bool(_UNAVAILABLE_RESPONSE_RE.search((text or "").strip()))
+
+
+def _build_generic_web_guidance(question: str, vehicle_name: str, lang: str = "fr") -> str:
+    q = (question or "").lower()
+    fr_default = (
+        f"Le manuel {vehicle_name} ne couvre pas ce point en detail. "
+        "Voici une methode generale applicable sur la plupart des vehicules modernes :\n"
+        "1. Identifiez la commande concernee sur le volant ou le menu vehicule.\n"
+        "2. Activez la fonction, puis verifiez qu'un indicateur visuel apparait au tableau de bord.\n"
+        "3. Testez a faible vitesse dans un environnement securise.\n"
+        "4. Ajustez les parametres progressivement et confirmez le comportement attendu.\n"
+        "5. Si un message d'erreur apparait, coupez puis redemarrez la fonction et verifiez les preconditions."
+    )
+
+    if lang != "fr":
+        return fr_default
+
+    if any(term in q for term in ("regulateur", "cruise", "vitesse")):
+        return (
+            f"Le manuel {vehicle_name} ne detaille pas clairement le regulateur de vitesse, "
+            "mais voici une procedure generale utile sur BMW Serie 3 recentes :\n"
+            "1. Sur route degagee, accelerez au-dessus de la vitesse minimale d'activation.\n"
+            "2. Activez le regulateur via la commande du volant (souvent touche de mode ou symbole regulateur).\n"
+            "3. Appuyez sur `SET` pour memoriser la vitesse actuelle.\n"
+            "4. Ajustez ensuite avec `+/-` par petits paliers.\n"
+            "5. Utilisez `RES` pour reprendre la derniere vitesse memorisee apres un freinage.\n"
+            "6. Desactivez via frein, embrayage (boite manuelle) ou bouton OFF selon l'equipement.\n"
+            "7. Verifiez l'icone de regulateur au tableau de bord pour confirmer l'etat actif."
+        )
+
+    if any(term in q for term in ("voyant", "tableau de bord", "warning light")):
+        return (
+            f"Le manuel {vehicle_name} est incomplet sur ce point. "
+            "Repere rapide pour interpreter les voyants :\n"
+            "1. Rouge: arret recommande immediatement (frein, pression huile, surchauffe).\n"
+            "2. Orange/jaune: anomalie a diagnostiquer rapidement (moteur, ABS, pression pneus, entretien).\n"
+            "3. Vert/bleu: information de fonctionnement (feux, regulateur, aides actives).\n"
+            "4. Si un voyant rouge reste allume en roulant, immobilisez le vehicule des que possible en securite.\n"
+            "5. Si voyant orange persistant, planifiez un diagnostic rapidement."
+        )
+
+    if any(term in q for term in ("entretien", "maintenance", "service")):
+        return (
+            f"Le manuel {vehicle_name} ne detaille pas l'entretien de base sur cet extrait. "
+            "Checklist pratique (generale) :\n"
+            "1. Pression pneus a froid + inspection visuelle de l'usure.\n"
+            "2. Niveau huile moteur, liquide de refroidissement et lave-glace.\n"
+            "3. Controle visuel des freins (bruit, vibration, course pedale anormale).\n"
+            "4. Test eclairage complet (codes, phares, clignotants, feux stop).\n"
+            "5. Verification balais d'essuie-glace et etat batterie.\n"
+            "6. Passage valise/OBD si voyant ou alerte service actif."
+        )
+
+    return fr_default
+
+
 def clean_model_output(text: str) -> str:
     """Strip only LLM-generated Sources blocks and URLs; preserve all formatting."""
     if not text:
@@ -1501,7 +1568,10 @@ REGLES STRICTES:
 3c) Si le contexte web est generaliste mais pertinent, fournis tout de meme des etapes pratiques et applicables, en precisant que ce sont des recommandations generales.
 4) Ne JAMAIS inventer de valeurs chiffrees (couples de serrage, pressions, capacites, intervalles) qui ne sont pas explicitement dans le contexte.
 5) Le contexte web est un complement. En cas de conflit avec le manuel, le manuel prime TOUJOURS.
-6) Reponds de facon complete et detaillee. Pour les procedures en etapes, donne TOUTES les etapes. Ne tronque JAMAIS ta reponse.
+6) Reponds de facon complete mais concise:
+   - question explicative: 4 a 8 points clairs, puis un mini resume (vise ~220 mots max)
+   - procedure: 6 a 10 etapes concretes (vise ~320 mots max)
+   Evite les longueurs inutiles et les repetitions.
 7) Utilise un formatage clair et structure: listes numerotees pour les etapes, listes a puces pour les points cles, **gras** pour les termes importants. Pas de blocs de code (```).
 8) N'ajoute PAS de section "Sources" (elle sera ajoutee automatiquement).
 9) Orthographe, grammaire et ponctuation impeccables. Phrases claires et naturelles.
@@ -1633,6 +1703,36 @@ REGLES STRICTES:
         if isinstance(early_answer, str):
             return early_answer
 
+        p_has_ctx = bool(payload.get("has_relevant_context", False))
+        p_docs = payload.get("docs") or []
+        p_quality_stats = payload.get("quality_stats") or {}
+        manual_context_strong = has_strong_manual_context(
+            p_has_ctx,
+            p_docs,
+            quality_stats=p_quality_stats,
+        )
+        procedural_intent = detect_fix_mode(question)
+        if not manual_context_strong:
+            concise_preamble = (
+                "STYLE DE REPONSE:\n"
+                "- Priorise une reponse utile et actionnable en 4 a 7 points max.\n"
+                "- Limite les details non essentiels et evite les repetitions.\n"
+                "- Vise une reponse courte a moyenne (environ 180 a 280 mots).\n\n"
+            )
+            payload["system_instruction"] = concise_preamble + str(payload.get("system_instruction", ""))
+        elif procedural_intent:
+            detected_lang = payload.get("detected_lang", "fr")
+            fix_preamble = FIX_MODE_PROMPT.get(detected_lang, FIX_MODE_PROMPT["fr"])
+            payload["system_instruction"] = fix_preamble + str(payload.get("system_instruction", ""))
+
+        max_output_tokens = min(
+            LLM_MAX_OUTPUT_TOKENS,
+            1900 if procedural_intent and manual_context_strong else 1200,
+        )
+        if not manual_context_strong:
+            max_output_tokens = min(max_output_tokens, 900)
+        llm_timeout_seconds = max(12, min(LLM_TIMEOUT_SECONDS, 30))
+
         try:
             response = self.client.models.generate_content(
                 model=self.model_name,
@@ -1640,8 +1740,8 @@ REGLES STRICTES:
                 config=genai_types.GenerateContentConfig(
                     system_instruction=str(payload.get("system_instruction", "")),
                     temperature=0.15,
-                    max_output_tokens=LLM_MAX_OUTPUT_TOKENS,
-                    http_options=genai_types.HttpOptions(timeout=LLM_TIMEOUT_SECONDS * 1000),
+                    max_output_tokens=max_output_tokens,
+                    http_options=genai_types.HttpOptions(timeout=llm_timeout_seconds * 1000),
                 ),
             )
 
@@ -1652,6 +1752,17 @@ REGLES STRICTES:
                 video_block=str(payload.get("video_block", "")),
                 video_score=payload.get("video_score", 0),
             )
+            has_web_sources = any(
+                isinstance(src, dict) and str(src.get("kind", "")).lower() == "web"
+                for src in (payload.get("sources_structured") or [])
+            )
+            if has_web_sources and _looks_unavailable_answer(answer):
+                answer, final_answer = self._finalize_answer(
+                    _build_generic_web_guidance(question, self.guide.name, str(payload.get("detected_lang", "fr"))),
+                    sources_block=str(payload.get("sources_block", "")),
+                    video_block=str(payload.get("video_block", "")),
+                    video_score=payload.get("video_score", 0),
+                )
             self._log_metrics(
                 "chat_metrics",
                 self._build_metrics(
@@ -1754,7 +1865,7 @@ REGLES STRICTES:
             budget = max(0.5, ENRICHMENT_TIME_BUDGET_SECONDS)
             rescue_fast_only = mode == MANUAL_ONLY
             total_budget = (
-                max(1.6, min(3.0, budget))
+                max(2.2, min(4.2, budget * 1.6))
                 if rescue_fast_only
                 else max(1.8, min(7.0, budget * 2.0))
             )
@@ -1768,7 +1879,10 @@ REGLES STRICTES:
                 remaining = remaining_budget()
                 if remaining <= 0.2:
                     return []
-                per_call_budget = max(0.35, min(1.8, remaining))
+                per_call_budget = max(
+                    0.45,
+                    min(2.4 if rescue_fast_only else 1.8, remaining),
+                )
                 return _bounded_web_search_results(
                     search_query,
                     max_results=max_results,
@@ -1788,6 +1902,12 @@ REGLES STRICTES:
                     max_results=WEB_MAX_RESULTS,
                     label="fallback-fast",
                 )
+                if rescue_fast_only and not fast_web and remaining_budget() > 0.35:
+                    fast_web = timed_search(
+                        f"{question} {self.guide.name}",
+                        max_results=max(WEB_MAX_RESULTS, 4),
+                        label="fallback-fast-retry",
+                    )
                 oscaro_fast: List[Dict[str, str]] = []
                 if not rescue_fast_only and remaining_budget() > 0.3:
                     oscaro_fast = timed_search(
@@ -1799,6 +1919,17 @@ REGLES STRICTES:
                     [oscaro_fast, fast_web],
                     max_results=max(WEB_MAX_RESULTS + 1, 4),
                 )
+
+                if rescue_fast_only and not fallback_web and remaining_budget() > 0.35:
+                    last_chance = timed_search(
+                        f"{self.guide.name} {question} owner manual",
+                        max_results=max(WEB_MAX_RESULTS, 4),
+                        label="fallback-fast-owner-manual",
+                    )
+                    fallback_web = _merge_web_results(
+                        [fallback_web, last_chance],
+                        max_results=max(WEB_MAX_RESULTS + 1, 4),
+                    )
 
                 # Phase 2: deeper search only if the fast pass found nothing.
                 if (
@@ -1846,12 +1977,30 @@ REGLES STRICTES:
             except Exception as exc:
                 log.warning("Fallback web search failed: %s", exc)
 
-        # --- Detect fix mode (procedural intent + manual context available) ---
-        fix_mode_active = detect_fix_mode(question) and (manual_context_strong or has_web_sources)
+        # Keep responses concise when manual grounding is weak and web is used as fallback.
+        if not manual_context_strong:
+            concise_preamble = (
+                "STYLE DE REPONSE:\n"
+                "- Priorise une reponse utile et actionnable en 4 a 7 points max.\n"
+                "- Limite les details non essentiels et evite les repetitions.\n"
+                "- Vise une reponse courte a moyenne (environ 180 a 280 mots).\n\n"
+            )
+            payload["system_instruction"] = concise_preamble + payload.get("system_instruction", "")
+
+        # --- Detect fix mode (procedural intent + strong manual context only) ---
+        fix_mode_active = detect_fix_mode(question) and manual_context_strong
         if fix_mode_active:
             detected_lang = payload.get("detected_lang", "fr")
             fix_preamble = FIX_MODE_PROMPT.get(detected_lang, FIX_MODE_PROMPT["fr"])
             payload["system_instruction"] = fix_preamble + payload.get("system_instruction", "")
+
+        max_output_tokens = min(
+            LLM_MAX_OUTPUT_TOKENS,
+            1900 if fix_mode_active else 1200,
+        )
+        if not manual_context_strong:
+            max_output_tokens = min(max_output_tokens, 900)
+        llm_timeout_seconds = max(12, min(LLM_TIMEOUT_SECONDS, 35))
 
         # Launch enrichment tasks in background while the LLM streams.
         web_future = None
@@ -1885,8 +2034,8 @@ REGLES STRICTES:
                 config=genai_types.GenerateContentConfig(
                     system_instruction=str(payload.get("system_instruction", "")),
                     temperature=0.15,
-                    max_output_tokens=LLM_MAX_OUTPUT_TOKENS,
-                    http_options=genai_types.HttpOptions(timeout=LLM_TIMEOUT_SECONDS * 1000),
+                    max_output_tokens=max_output_tokens,
+                    http_options=genai_types.HttpOptions(timeout=llm_timeout_seconds * 1000),
                 ),
             )
 
@@ -1910,6 +2059,12 @@ REGLES STRICTES:
             answer = trim_response(clean_model_output(raw_answer or ""))
             if not answer:
                 answer = "Je n'ai pas trouve de reponse exploitable dans le manuel."
+            if has_web_sources and _looks_unavailable_answer(answer):
+                answer = _build_generic_web_guidance(
+                    question,
+                    self.guide.name,
+                    str(payload.get("detected_lang", "fr")),
+                )
 
             history = payload.get("history")
             if isinstance(history, list):

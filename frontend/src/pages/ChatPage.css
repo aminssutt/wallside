@@ -427,6 +427,9 @@
   scrollbar-width: thin;
   scrollbar-color: rgba(200, 168, 78, 0.15) transparent;
   -ms-overflow-style: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
   position: relative;
   z-index: 1;
 }
