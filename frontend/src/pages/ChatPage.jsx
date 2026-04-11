@@ -154,8 +154,8 @@ const COMPACT_MENU_BREAKPOINT = 1024
 const CHAT_TTFB_TIMEOUT_MS = 18000
 const CHAT_TOTAL_TIMEOUT_MS = 90000
 const MAX_INPUT_LENGTH = 3000
-const STREAM_DRAIN_IDLE_MS = 32
-const STREAM_DRAIN_BUSY_MS = 18
+const STREAM_DRAIN_IDLE_MS = 36
+const STREAM_DRAIN_BUSY_MS = 24
 const KNOWN_STREAM_EVENTS = new Set([
   'start', 'chunk', 'end', 'error',
   'sources_start', 'source_item', 'sources_end',
@@ -387,6 +387,27 @@ const extractStreamError = (payload) => {
   return firstError ? firstError.trim() : ''
 }
 
+const STREAM_STATUS_LABELS = {
+  fr: {
+    manual_search: 'Recherche dans le manuel...',
+    web_search: 'Recherche sur le web...',
+    deep_web_search: 'Recherche web approfondie...',
+    generating: 'Generation de la reponse...',
+  },
+  en: {
+    manual_search: 'Searching manual...',
+    web_search: 'Searching the web...',
+    deep_web_search: 'Running deeper web search...',
+    generating: 'Generating response...',
+  },
+  ko: {
+    manual_search: '매뉴얼 검색 중...',
+    web_search: '웹 검색 중...',
+    deep_web_search: '심화 웹 검색 중...',
+    generating: '응답 생성 중...',
+  },
+}
+
 const createEmptyStreamArtifacts = () => ({
   sources: [],
   video: null,
@@ -400,7 +421,7 @@ const sliceStreamChunkForDisplay = (chunkText) => {
     return []
   }
 
-  const sliceSize = chars.length > 180 ? 20 : chars.length > 96 ? 12 : chars.length > 48 ? 7 : chars.length > 16 ? 4 : 2
+  const sliceSize = chars.length > 220 ? 9 : chars.length > 120 ? 6 : chars.length > 60 ? 4 : 2
   const slices = []
   for (let index = 0; index < chars.length; index += sliceSize) {
     slices.push(chars.slice(index, index + sliceSize).join(''))
@@ -410,15 +431,15 @@ const sliceStreamChunkForDisplay = (chunkText) => {
 
 const pickStreamDrainProfile = (queueLength) => {
   if (queueLength > 72) {
-    return { intervalMs: STREAM_DRAIN_BUSY_MS, slicesPerTick: 5 }
+    return { intervalMs: STREAM_DRAIN_BUSY_MS, slicesPerTick: 3 }
   }
   if (queueLength > 36) {
-    return { intervalMs: 22, slicesPerTick: 4 }
+    return { intervalMs: 26, slicesPerTick: 2 }
   }
   if (queueLength > 16) {
-    return { intervalMs: 26, slicesPerTick: 3 }
+    return { intervalMs: 30, slicesPerTick: 2 }
   }
-  return { intervalMs: STREAM_DRAIN_IDLE_MS, slicesPerTick: 2 }
+  return { intervalMs: STREAM_DRAIN_IDLE_MS, slicesPerTick: 1 }
 }
 
 const SOURCE_I18N = {
@@ -720,14 +741,38 @@ const RichBotMessage = memo(function RichBotMessage({ text, lang = 'fr', video, 
   )
 })
 
+const normalizeStreamingLine = (line) => {
+  const raw = String(line || '')
+  if (!raw.trim()) return ''
+
+  let cleaned = raw
+    .replace(/^\s*#{1,6}\s+/, '')
+    .replace(/^\s*[-*]\s+(?=\S)/, '• ')
+    .replace(/^\s*\*\s+/, '• ')
+
+  cleaned = cleaned.replace(/\s{2,}/g, ' ').trim()
+  return cleaned
+}
+
 const StreamingBotMessage = memo(function StreamingBotMessage({ text }) {
-  const content = normalizeAssistantText(text).replace(/\r\n/g, '\n')
+  const lines = normalizeAssistantText(text)
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .map(normalizeStreamingLine)
 
   return (
     <div className="bot-rich-message bot-rich-message--streaming" aria-live="polite" aria-atomic="false">
-      <div style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
-        {content}
-      </div>
+      {lines.map((line, index) => {
+        if (!line) return null
+        return (
+          <p
+            key={`stream-line-${index}`}
+            className={`bot-paragraph${line.startsWith('• ') ? ' bot-stream-bullet' : ''}`}
+          >
+            {formatInline(line)}
+          </p>
+        )
+      })}
     </div>
   )
 })
@@ -1024,6 +1069,7 @@ function ChatPage() {
     resetPendingStreamArtifacts()
     displayQueueRef.current = []
     streamDoneRef.current = false
+    setStreamStatus('')
     setIsStreaming(false)
   }
 
@@ -1082,8 +1128,8 @@ function ChatPage() {
         return
       }
 
-      const step = chars.length > 1400 ? 40 : chars.length > 800 ? 25 : chars.length > 420 ? 15 : 10
-      const intervalMs = chars.length > 900 ? 12 : 16
+      const step = chars.length > 2000 ? 8 : chars.length > 1200 ? 6 : chars.length > 700 ? 4 : 2
+      const intervalMs = chars.length > 1600 ? 18 : 22
       let index = 0
 
       if (tokenFlushTimerRef.current) {
@@ -1289,12 +1335,18 @@ function ChatPage() {
             ...pendingStreamArtifactsRef.current,
             sources: [...pendingStreamArtifactsRef.current.sources, src],
           }
+          if (sawEndEvent) {
+            mergeBufferedArtifactsIntoLastBot()
+          }
         }
         return
       }
 
       if (eventName === 'sources_end') {
         registerStreamActivity()
+        if (sawEndEvent) {
+          mergeBufferedArtifactsIntoLastBot()
+        }
         return
       }
 
@@ -1310,6 +1362,9 @@ function ChatPage() {
             url,
             thumb: String(videoData.thumbnail || '') || youtubeThumbFromUrl(url),
           },
+        }
+        if (sawEndEvent) {
+          mergeBufferedArtifactsIntoLastBot()
         }
         return
       }
@@ -1453,18 +1508,21 @@ function ChatPage() {
         }
 
         if (streamError?.allowFallback) {
+          setStreamStatus('deep_web_search')
           const fallbackResponse = await requestChatJson({ text })
+          setStreamStatus('generating')
           await streamBotMessage(fallbackResponse)
+          setStreamStatus('')
           return
         }
 
-        const streamErrorText = streamError?.streamErrorMessage || t.chat.serverUnavailable
         if (streamError?.hasChunkContent) {
-          appendBotChunk(`\n\n${streamErrorText}`)
           streamDoneRef.current = true
           startDrain()
+          setStreamStatus('')
         } else {
-          await streamBotMessage(streamErrorText)
+          await streamBotMessage(t.chat.serverUnavailable)
+          setStreamStatus('')
         }
       }
     } catch (error) {
@@ -1475,24 +1533,27 @@ function ChatPage() {
         }
 
         if (!receivedChunk) {
-          setStreamStatus('')
+          setStreamStatus('deep_web_search')
           try {
-            await streamBotMessage(streamRuntimeCopy.timeoutInitial)
             const fallbackResponse = await requestChatJson({ text })
+            setStreamStatus('generating')
             await streamBotMessage(fallbackResponse)
+            setStreamStatus('')
             return
           } catch {
             await streamBotMessage(streamRuntimeCopy.timeoutFinal)
+            setStreamStatus('')
             return
           }
         }
 
-        appendBotChunk(`\n\n${streamRuntimeCopy.timeoutPartial}`)
         streamDoneRef.current = true
         startDrain()
+        setStreamStatus('')
         return
       }
       await streamBotMessage(t.chat.serverUnavailable)
+      setStreamStatus('')
     } finally {
       clearTtfbTimeout()
       clearTotalTimeout()
@@ -1836,13 +1897,7 @@ function ChatPage() {
                   <div className="msg-bubble msg-typing">
                     <span /><span /><span />
                     {streamStatus && (
-                      <p className="typing-status">{{ fr: {
-                        manual_search: 'Recherche dans le manuel...', web_search: 'Recherche sur le web...', generating: 'Generation en cours...',
-                      }, en: {
-                        manual_search: 'Searching manual...', web_search: 'Searching the web...', generating: 'Generating response...',
-                      }, ko: {
-                        manual_search: '\uB9E4\uB274\uC5BC \uAC80\uC0C9 \uC911...', web_search: '\uC6F9 \uAC80\uC0C9 \uC911...', generating: '\uC751\uB2F5 \uC0DD\uC131 \uC911...',
-                      }}[lang]?.[streamStatus] || ''}</p>
+                      <p className="typing-status">{(STREAM_STATUS_LABELS[lang] || STREAM_STATUS_LABELS.en)?.[streamStatus] || ''}</p>
                     )}
                   </div>
                 </Motion.div>

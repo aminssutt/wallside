@@ -783,6 +783,10 @@
   gap: 12px;
 }
 
+.bot-rich-message--streaming {
+  gap: 8px;
+}
+
 .bot-heading {
   font-family: var(--font-heading);
   font-size: 0.95rem;
@@ -803,6 +807,10 @@
   color: var(--text-primary);
   margin: 0;
   line-height: 1.65;
+}
+
+.bot-stream-bullet {
+  padding-left: 2px;
 }
 
 .bot-list {

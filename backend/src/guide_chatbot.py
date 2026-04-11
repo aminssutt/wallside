@@ -661,6 +661,31 @@ def web_search_results(
     return found
 
 
+def _merge_web_results(
+    batches: List[List[Dict[str, str]]],
+    max_results: int,
+) -> List[Dict[str, str]]:
+    """Merge web batches, deduplicate URLs, keep best score first."""
+    dedup: Dict[str, Dict[str, str]] = {}
+    for batch in batches:
+        for item in batch or []:
+            url = str(item.get("url", "")).strip()
+            if not url:
+                continue
+            incoming_score = int(str(item.get("score", "0") or "0"))
+            existing = dedup.get(url)
+            if existing is None:
+                dedup[url] = item
+                continue
+            existing_score = int(str(existing.get("score", "0") or "0"))
+            if incoming_score > existing_score:
+                dedup[url] = item
+
+    merged = list(dedup.values())
+    merged.sort(key=lambda row: int(str(row.get("score", "0") or "0")), reverse=True)
+    return merged[:max(1, max_results)]
+
+
 def youtube_video_suggestion(
     query: str, time_budget_seconds: float = ENRICHMENT_TIME_BUDGET_SECONDS
 ) -> Dict[str, str]:
@@ -1467,15 +1492,44 @@ REGLES STRICTES:
             enrichment_query = f"{self.guide.name} {question}".strip()
             budget = max(0.5, ENRICHMENT_TIME_BUDGET_SECONDS)
             try:
-                # Search general web + Oscaro tutorials as priority source
-                fallback_web = web_search_results(
+                # Phase 1: fast web search + Oscaro priority signal.
+                fast_web = web_search_results(
                     enrichment_query, max_results=WEB_MAX_RESULTS, time_budget_seconds=budget,
                 )
-                oscaro_results = web_search_results(
+                oscaro_fast = web_search_results(
                     f"site:oscaro.com {self.guide.name} {question}",
                     max_results=2, time_budget_seconds=budget,
                 )
-                fallback_web = oscaro_results + fallback_web
+                fallback_web = _merge_web_results(
+                    [oscaro_fast, fast_web],
+                    max_results=max(WEB_MAX_RESULTS + 1, 4),
+                )
+
+                # Phase 2: deeper search only if the fast pass found nothing.
+                if not fallback_web and ENABLE_DEEP_WEB_ENRICHMENT:
+                    yield {"type": "status", "step": "deep_web_search", "message_id": message_id}
+                    deep_budget = max(2.0, ENRICHMENT_TIME_BUDGET_SECONDS * 2.5)
+                    deep_queries = [
+                        enrichment_query,
+                        f"{self.guide.name} {question} owner manual",
+                        f"{self.guide.name} {question} troubleshooting",
+                        f"{self.guide.name} {question} site:manualslib.com",
+                    ]
+                    deep_batches: List[List[Dict[str, str]]] = []
+                    per_query_budget = max(0.8, deep_budget / len(deep_queries))
+                    for deep_query in deep_queries:
+                        deep_batches.append(
+                            web_search_results(
+                                deep_query,
+                                max_results=max(WEB_MAX_RESULTS, 4),
+                                time_budget_seconds=per_query_budget,
+                            )
+                        )
+                    fallback_web = _merge_web_results(
+                        deep_batches,
+                        max_results=max(WEB_MAX_RESULTS + 2, 5),
+                    )
+
                 if fallback_web:
                     web_context = format_web_context(fallback_web, lang=payload.get("detected_lang", "fr"))
                     payload["user_content"] = payload.get("user_content", "") + f"\n\n---\n\n<web_enrichment>\n{web_context}\n</web_enrichment>"
