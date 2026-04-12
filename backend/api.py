@@ -115,7 +115,14 @@ def _sse_comment(comment: str) -> str:
 
 
 def _compute_fallback_chunk(streamed_text: str, fallback_text: str) -> str:
-    """Return only the missing suffix when a sync fallback completes a partial stream."""
+    """Return only the missing suffix when a sync fallback completes a partial stream.
+
+    This function is strict by design: it ONLY emits the missing tail when the streamed
+    text is a clean prefix of the fallback text. If the two responses diverge mid-way
+    (common with non-deterministic LLM output), emitting any portion of the fallback
+    would cause visible duplication in the chat UI. In that case we prefer to leave
+    the already-streamed text alone and return an empty string.
+    """
     streamed = streamed_text or ""
     fallback = fallback_text or ""
 
@@ -123,17 +130,14 @@ def _compute_fallback_chunk(streamed_text: str, fallback_text: str) -> str:
         return ""
     if not streamed:
         return fallback
+    if streamed == fallback:
+        return ""
+    # Only append the fallback tail if the stream is a TRUE prefix.
     if fallback.startswith(streamed):
         return fallback[len(streamed):]
-
-    common_prefix = os.path.commonprefix([streamed, fallback])
-    minimum_overlap = min(64, max(16, len(streamed) // 2))
-    if len(common_prefix) >= minimum_overlap:
-        return fallback[len(common_prefix):]
-
-    if fallback == streamed:
-        return ""
-    return f"\n\n{fallback}"
+    # Be conservative: do not splice divergent text — that is what caused the
+    # duplicated responses observed in production.
+    return ""
 
 
 _PREWARM_STARTED = False
@@ -411,8 +415,8 @@ def chat_stream(slug):
                         session_id=session_id,
                         mode_override="manual_only",
                         allow_web_enrichment=False,
-                        llm_timeout_cap_seconds=10,
-                        max_output_tokens_cap=700,
+                        llm_timeout_cap_seconds=12,
+                        max_output_tokens_cap=1600,
                     )
                     event_queue.put(("fallback_result", fallback_response))
                 except Exception as fallback_exc:
@@ -501,22 +505,36 @@ def chat_stream(slug):
                         fallback_response = "Une erreur interne est survenue. Veuillez reessayer."
                     fallback_response = fallback_response.strip()
 
-                    fallback_chunk = _compute_fallback_chunk(
-                        "".join(streamed_parts),
-                        fallback_response,
-                    )
-                    if fallback_chunk and streamed_parts:
-                        yield _sse_event("chunk", {
-                            "text": fallback_chunk,
-                            "message_id": last_message_id,
-                        })
-                        streamed_parts.append(fallback_chunk)
+                    streamed_so_far = "".join(streamed_parts)
+                    # Only append the missing suffix when the streamed text is
+                    # a clean prefix of the fallback. Divergent text would
+                    # otherwise be spliced on top and produce duplicates.
+                    if streamed_parts:
+                        fallback_chunk = _compute_fallback_chunk(
+                            streamed_so_far,
+                            fallback_response,
+                        )
+                        if fallback_chunk:
+                            yield _sse_event("chunk", {
+                                "text": fallback_chunk,
+                                "message_id": last_message_id,
+                            })
+                            streamed_parts.append(fallback_chunk)
+                            final_response = streamed_so_far + fallback_chunk
+                        else:
+                            # Stream and fallback diverged — keep what was
+                            # already streamed; do not splice new content.
+                            final_response = streamed_so_far or fallback_response
+                    else:
+                        # No chunks streamed yet — let the frontend render the
+                        # full fallback via appendFinalBotResponse.
+                        final_response = fallback_response
 
                     yield _sse_event("end", {
                         "success": True,
                         "vehicle_name": guide.name,
                         "message_id": last_message_id,
-                        "response": fallback_response,
+                        "response": final_response,
                     })
                     ended = True
                     break

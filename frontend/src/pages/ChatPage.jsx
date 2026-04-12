@@ -756,11 +756,11 @@ const extractStreamError = (payload) => {
 
 const STREAM_STATUS_LABELS = {
   fr: {
-    manual_search: 'Recherche dans le manuel...',
-    web_search: 'Recherche sur le web...',
-    deep_web_search: 'Recherche web approfondie...',
-    generating: 'Generation de la reponse...',
-    finalizing_artifacts: 'Finalisation des sources et de la video...',
+    manual_search: 'Recherche dans le manuel…',
+    web_search: 'Recherche sur le web…',
+    deep_web_search: 'Recherche web approfondie…',
+    generating: 'Génération de la réponse…',
+    finalizing_artifacts: 'Finalisation des sources…',
   },
   en: {
     manual_search: 'Searching manual...',
@@ -776,6 +776,49 @@ const STREAM_STATUS_LABELS = {
     generating: '응답 생성 중...',
   },
 }
+
+const THINKING_STEPS_DEF = {
+  fr: [
+    { key: 'manual_search', label: 'Consultation du manuel' },
+    { key: 'web_search', label: 'Recherche internet', triggers: ['web_search', 'deep_web_search'] },
+    { key: 'generating', label: 'Rédaction de la réponse' },
+  ],
+  en: [
+    { key: 'manual_search', label: 'Searching the manual' },
+    { key: 'web_search', label: 'Web search', triggers: ['web_search', 'deep_web_search'] },
+    { key: 'generating', label: 'Writing response' },
+  ],
+  ko: [
+    { key: 'manual_search', label: '매뉴얼 검색' },
+    { key: 'web_search', label: '웹 검색', triggers: ['web_search', 'deep_web_search'] },
+    { key: 'generating', label: '응답 생성' },
+  ],
+}
+
+const ThinkingSteps = memo(function ThinkingSteps({ currentStep, visitedSteps, lang }) {
+  const steps = THINKING_STEPS_DEF[lang] || THINKING_STEPS_DEF.fr
+
+  return (
+    <div className="thinking-steps">
+      {steps.map((step) => {
+        const triggers = step.triggers || [step.key]
+        const isTriggered = triggers.some((t) => visitedSteps.has(t)) || triggers.includes(currentStep)
+        if (step.key === 'web_search' && !isTriggered) return null
+        const isActive = triggers.includes(currentStep)
+        const isDone = !isActive && triggers.some((t) => visitedSteps.has(t))
+        return (
+          <div
+            key={step.key}
+            className={`thinking-step${isActive ? ' thinking-step--active' : isDone ? ' thinking-step--done' : ' thinking-step--pending'}`}
+          >
+            <span className="thinking-step-dot" />
+            <span className="thinking-step-label">{step.label}</span>
+          </div>
+        )
+      })}
+    </div>
+  )
+})
 
 const createEmptyStreamArtifacts = () => ({
   sources: [],
@@ -1045,7 +1088,7 @@ const RichBotMessage = memo(function RichBotMessage({ text, lang = 'fr', video, 
     <div className="bot-rich-message">
       {confidence && (
         <span className={`confidence-badge confidence-${confidence}`}>
-          {{ fr: { high: 'Fiabilite elevee', medium: 'Fiabilite moyenne', low: 'Fiabilite limitee' },
+          {{ fr: { high: 'Fiabilité élevée', medium: 'Fiabilité moyenne', low: 'Fiabilité limitée' },
              en: { high: 'High confidence', medium: 'Medium confidence', low: 'Low confidence' },
              ko: { high: '\uB192\uC740 \uC2E0\uB8B0\uB3C4', medium: '\uC911\uAC04 \uC2E0\uB8B0\uB3C4', low: '\uB0AE\uC740 \uC2E0\uB8B0\uB3C4' },
           }[lang]?.[confidence] || confidence}
@@ -1155,19 +1198,35 @@ const StreamingBotMessage = memo(function StreamingBotMessage({ text }) {
     .split('\n')
     .map(normalizeStreamingLine)
 
+  const visibleLines = lines.map((line) => line || '')
+  let lastContentIndex = -1
+  for (let i = visibleLines.length - 1; i >= 0; i -= 1) {
+    if (visibleLines[i]) {
+      lastContentIndex = i
+      break
+    }
+  }
+
   return (
     <div className="bot-rich-message bot-rich-message--streaming" aria-live="polite" aria-atomic="false">
-      {lines.map((line, index) => {
+      {visibleLines.map((line, index) => {
         if (!line) return null
+        const isLast = index === lastContentIndex
         return (
           <p
             key={`stream-line-${index}`}
             className={`bot-paragraph${line.startsWith('• ') ? ' bot-stream-bullet' : ''}`}
           >
             {formatInline(line)}
+            {isLast && <span className="stream-cursor" aria-hidden="true" />}
           </p>
         )
       })}
+      {lastContentIndex < 0 && (
+        <p className="bot-paragraph">
+          <span className="stream-cursor" aria-hidden="true" />
+        </p>
+      )}
     </div>
   )
 })
@@ -1183,6 +1242,7 @@ function ChatPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [isStreaming, setIsStreaming] = useState(false)
   const [streamStatus, setStreamStatus] = useState('')
+  const [visitedSteps, setVisitedSteps] = useState(() => new Set())
   const [errorKey, setErrorKey] = useState('')
   const [langOpen, setLangOpen] = useState(false)
   const [navMenuOpen, setNavMenuOpen] = useState(false)
@@ -1263,6 +1323,15 @@ function ChatPage() {
 
     void loadGuide()
   }, [slug])
+
+  useEffect(() => {
+    if (streamStatus) {
+      setVisitedSteps((prev) => {
+        if (prev.has(streamStatus)) return prev
+        return new Set([...prev, streamStatus])
+      })
+    }
+  }, [streamStatus])
 
   /* -- detect user scrolling up (don't force scroll during streaming) -- */
   const isAutoScrollingRef = useRef(false)
@@ -1701,6 +1770,16 @@ function ChatPage() {
     }
 
     const ensureStreamingMessage = () => {
+      // Mark the pipeline as "generating" at the moment we first see chunks
+      // so the ThinkingSteps exit animation shows the final state cleanly
+      // (manual_search done → generating active) instead of jumping.
+      setStreamStatus((prev) => prev || 'generating')
+      setVisitedSteps((prev) => {
+        const next = new Set(prev)
+        next.add('manual_search')
+        next.add('generating')
+        return next
+      })
       setIsStreaming(true)
       setMessages((previous) => {
         const lastMessage = previous[previous.length - 1]
@@ -1913,7 +1992,10 @@ function ChatPage() {
   const sendMessage = async (messageText) => {
     const text = (messageText || input).trim()
     if (!text || isLoading || isStreaming) return
-    setStreamStatus('')
+    setStreamStatus('manual_search')
+    // Pre-mark manual_search as visited so the first step is always shown as
+    // active-then-done even on backends that skip the intermediate status.
+    setVisitedSteps(new Set(['manual_search']))
 
     cancelDrain()
     displayQueueRef.current = []
@@ -2433,16 +2515,13 @@ function ChatPage() {
                   className="msg bot"
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
+                  exit={{ opacity: 0, y: -6, transition: { duration: 0.2 } }}
                 >
                   <div className="msg-avatar">
                     <span className="msg-avatar-tag">AI</span>
                   </div>
-                  <div className="msg-bubble msg-typing">
-                    <span /><span /><span />
-                    {streamStatus && (
-                      <p className="typing-status">{(STREAM_STATUS_LABELS[lang] || STREAM_STATUS_LABELS.en)?.[streamStatus] || STREAM_STATUS_LABELS.en?.[streamStatus] || ''}</p>
-                    )}
+                  <div className="msg-bubble">
+                    <ThinkingSteps currentStep={streamStatus} visitedSteps={visitedSteps} lang={lang} />
                   </div>
                 </Motion.div>
               )}
@@ -2523,9 +2602,9 @@ function ChatPage() {
             </div>
           </div>
         </div>
-        {(isLoading || isStreaming) && streamStatus && (
+        {isStreaming && streamStatus && (
           <p className="chat-runtime-status">
-            {(STREAM_STATUS_LABELS[lang] || STREAM_STATUS_LABELS.en)?.[streamStatus] || STREAM_STATUS_LABELS.en?.[streamStatus] || ''}
+            {(STREAM_STATUS_LABELS[lang] || STREAM_STATUS_LABELS.en)?.[streamStatus] || ''}
           </p>
         )}
       </footer>

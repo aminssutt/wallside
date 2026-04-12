@@ -329,7 +329,7 @@ def has_strong_manual_context(
     if reliable_doc_count <= 0:
         return False
 
-    # Very short queries can still be strong with one high-scoring hit.
+    # Very short queries: one high-scoring hit is enough.
     if (
         query_token_count <= 2
         and reliable_doc_count >= 1
@@ -337,7 +337,17 @@ def has_strong_manual_context(
     ):
         return True
 
-    # For normal/long questions, require robust grounding before skipping web rescue.
+    # Single solid hit with real keyword overlap counts as strong grounding —
+    # previously we required >= 2 reliable docs, which wrongly rejected many
+    # legitimate answers and pushed them to the "generic web guidance" fallback.
+    if (
+        reliable_doc_count >= 1
+        and best_overlap_count >= 2
+        and top_rrf_score >= RETRIEVAL_HIGH_CONFIDENCE_RRF
+    ):
+        return True
+
+    # Multiple reliable docs with any decent overlap or RRF signal.
     if reliable_doc_count >= 2 and (
         best_overlap_count >= 2
         or top_rrf_score >= RETRIEVAL_HIGH_CONFIDENCE_RRF
@@ -610,7 +620,13 @@ def _duckduckgo_html_search(
 
 
 def trim_response(answer: str) -> str:
-    """Limit response size while keeping coherent sections."""
+    """Limit response size while keeping coherent sections.
+
+    Important: never cut mid-word. If the raw text is already within limits
+    we return it untouched (even if it ends mid-word — that's the LLM's
+    responsibility, not ours). When we DO need to trim, we prefer the last
+    sentence boundary, then line boundary, then word boundary.
+    """
     clean = (answer or "").replace("\r\n", "\n").strip()
     if not clean:
         return ""
@@ -635,7 +651,18 @@ def trim_response(answer: str) -> str:
     if kept:
         trimmed = " ".join(kept).strip()
     else:
-        trimmed = clean[:MAX_RESPONSE_CHARS].rsplit(" ", 1)[0].strip()
+        # Fallback: cut at a word boundary (never mid-word) and strip a
+        # dangling partial sentence that doesn't end cleanly.
+        truncated = clean[:MAX_RESPONSE_CHARS]
+        space_at = truncated.rfind(" ")
+        if space_at > 0:
+            truncated = truncated[:space_at]
+        # If we ended mid-sentence, walk back to the last hard stop so the
+        # user never sees "...puisse l'accep" again.
+        stop_match = re.search(r"[.!?…][^.!?…]*$", truncated)
+        if stop_match and stop_match.start() > 0:
+            truncated = truncated[: stop_match.start() + 1]
+        trimmed = truncated.strip()
 
     lines = trimmed.split("\n")
     if len(lines) > MAX_RESPONSE_LINES:
@@ -658,7 +685,12 @@ def _looks_unavailable_answer(text: str) -> bool:
 
 
 def _is_thin_or_incomplete_answer(text: str) -> bool:
-    """Heuristic guard against overly short or abruptly truncated answers."""
+    """Heuristic guard against overly short or abruptly truncated answers.
+
+    Kept lenient on purpose: a 2-sentence answer that cleanly ends is NOT
+    considered thin. We only flag truly short (< 120 chars) or mid-word
+    truncations (>= 80 chars without ending punctuation).
+    """
     clean = (text or "").strip()
     if not clean:
         return True
@@ -668,11 +700,13 @@ def _is_thin_or_incomplete_answer(text: str) -> bool:
         1 for line in lines if re.match(r"^(?:[-*]\s+|\d+[.)]\s+)", line)
     )
     sentence_count = len(re.findall(r"[.!?…](?:\s|$)", clean))
-    has_decent_structure = bullet_count >= 3 or sentence_count >= 3
+    has_decent_structure = bullet_count >= 2 or sentence_count >= 2
     ends_cleanly = bool(re.search(r"[.!?…)\]]\s*$", clean))
-    if len(clean) < 220 and not has_decent_structure:
+    # Truly short + structureless → thin
+    if len(clean) < 120 and not has_decent_structure:
         return True
-    if not ends_cleanly and len(clean) >= 60:
+    # Mid-word / mid-sentence truncation → thin
+    if not ends_cleanly and len(clean) >= 80:
         return True
     return False
 
@@ -1830,12 +1864,16 @@ REGLES STRICTES:
             fix_preamble = FIX_MODE_PROMPT.get(detected_lang, FIX_MODE_PROMPT["fr"])
             payload["system_instruction"] = fix_preamble + str(payload.get("system_instruction", ""))
 
-        max_output_tokens = min(
-            LLM_MAX_OUTPUT_TOKENS,
-            1900 if procedural_intent and manual_context_strong else 1200,
-        )
-        if not manual_context_strong:
-            max_output_tokens = min(max_output_tokens, 900)
+        # Generous token caps to avoid mid-sentence truncation. Gemini 2.5 Flash
+        # handles up to 8192 output tokens cheaply; for manual-grounded answers
+        # we want enough room to finish the thought.
+        if procedural_intent and manual_context_strong:
+            base_tokens = 2800
+        elif procedural_intent or manual_context_strong:
+            base_tokens = 2200
+        else:
+            base_tokens = 1800
+        max_output_tokens = min(LLM_MAX_OUTPUT_TOKENS, base_tokens)
         if isinstance(max_output_tokens_cap, int) and max_output_tokens_cap > 0:
             max_output_tokens = min(max_output_tokens, max_output_tokens_cap)
         llm_timeout_seconds = max(8, min(LLM_TIMEOUT_SECONDS, 30))
@@ -1872,41 +1910,18 @@ REGLES STRICTES:
                 video_block=str(payload.get("video_block", "")),
                 video_score=payload.get("video_score", 0),
             )
-            if _has_repetition_loop(answer):
-                answer, final_answer = self._finalize_answer(
-                    _build_generic_web_guidance(
-                        question,
-                        self.guide.name,
-                        str(payload.get("detected_lang", "fr")),
-                    ),
-                    sources_block=str(payload.get("sources_block", "")),
-                    video_block=str(payload.get("video_block", "")),
-                    video_score=payload.get("video_score", 0),
-                )
-            elif procedural_intent and (not manual_context_strong) and _is_thin_or_incomplete_answer(answer):
-                answer, final_answer = self._finalize_answer(
-                    _build_generic_web_guidance(
-                        question,
-                        self.guide.name,
-                        str(payload.get("detected_lang", "fr")),
-                    ),
-                    sources_block=str(payload.get("sources_block", "")),
-                    video_block=str(payload.get("video_block", "")),
-                    video_score=payload.get("video_score", 0),
-                )
+            sources_structured = payload.get("sources_structured") or []
+            has_manual_sources = any(
+                isinstance(src, dict) and str(src.get("kind", "")).lower() == "manual"
+                for src in sources_structured
+            )
             has_web_sources = any(
                 isinstance(src, dict) and str(src.get("kind", "")).lower() == "web"
-                for src in (payload.get("sources_structured") or [])
+                for src in sources_structured
             )
-            if _looks_unavailable_answer(answer) and (has_web_sources or not manual_context_strong):
-                answer, final_answer = self._finalize_answer(
-                    _build_generic_web_guidance(question, self.guide.name, str(payload.get("detected_lang", "fr"))),
-                    sources_block=str(payload.get("sources_block", "")),
-                    video_block=str(payload.get("video_block", "")),
-                    video_score=payload.get("video_score", 0),
-                )
-            elif _is_thin_or_incomplete_answer(answer) and (has_web_sources or not manual_context_strong):
-                answer, final_answer = self._finalize_answer(
+
+            def _swap_to_generic():
+                return self._finalize_answer(
                     _build_generic_web_guidance(
                         question,
                         self.guide.name,
@@ -1916,6 +1931,18 @@ REGLES STRICTES:
                     video_block=str(payload.get("video_block", "")),
                     video_score=payload.get("video_score", 0),
                 )
+
+            # Always replace repeating gibberish.
+            if _has_repetition_loop(answer):
+                answer, final_answer = _swap_to_generic()
+            # If the LLM managed to quote the manual (sources were found) we
+            # trust its output — even a short, direct answer is better than
+            # the boilerplate "voici une méthode générale…" fallback.
+            elif not has_manual_sources:
+                if _looks_unavailable_answer(answer):
+                    answer, final_answer = _swap_to_generic()
+                elif _is_thin_or_incomplete_answer(answer):
+                    answer, final_answer = _swap_to_generic()
             self._log_metrics(
                 "chat_metrics",
                 self._build_metrics(
@@ -2162,12 +2189,16 @@ REGLES STRICTES:
             fix_preamble = FIX_MODE_PROMPT.get(detected_lang, FIX_MODE_PROMPT["fr"])
             payload["system_instruction"] = fix_preamble + payload.get("system_instruction", "")
 
-        max_output_tokens = min(
-            LLM_MAX_OUTPUT_TOKENS,
-            1900 if fix_mode_active else 1200,
-        )
-        if not manual_context_strong:
-            max_output_tokens = min(max_output_tokens, 900)
+        # Streaming cap generous enough to finish structured answers. Avoids
+        # the mid-word truncation ("...puisse l'accep") seen in production
+        # when the LLM was capped at 900 tokens.
+        if fix_mode_active:
+            base_tokens = 2800
+        elif manual_context_strong or detect_fix_mode(question):
+            base_tokens = 2200
+        else:
+            base_tokens = 1800
+        max_output_tokens = min(LLM_MAX_OUTPUT_TOKENS, base_tokens)
         llm_timeout_seconds = max(12, min(LLM_TIMEOUT_SECONDS, 35))
 
         # Launch enrichment tasks in background while the LLM streams.
@@ -2227,31 +2258,31 @@ REGLES STRICTES:
             answer = trim_response(clean_model_output(raw_answer or ""))
             if not answer:
                 answer = "Je n'ai pas trouve de reponse exploitable dans le manuel."
-            procedural_intent = detect_fix_mode(question)
+
+            sources_structured_list = payload.get("sources_structured") or []
+            has_manual_sources = any(
+                isinstance(src, dict) and str(src.get("kind", "")).lower() == "manual"
+                for src in sources_structured_list
+            )
+
+            def _generic():
+                return _build_generic_web_guidance(
+                    question,
+                    self.guide.name,
+                    str(payload.get("detected_lang", "fr")),
+                )
+
+            # Replace only truly broken outputs: repeating gibberish is never
+            # acceptable. Thin / "unavailable" answers are only replaced when
+            # the LLM did NOT manage to cite any manual source — otherwise the
+            # manual grounding is worth more than generic boilerplate.
             if _has_repetition_loop(answer):
-                answer = _build_generic_web_guidance(
-                    question,
-                    self.guide.name,
-                    str(payload.get("detected_lang", "fr")),
-                )
-            elif procedural_intent and (not manual_context_strong) and _is_thin_or_incomplete_answer(answer):
-                answer = _build_generic_web_guidance(
-                    question,
-                    self.guide.name,
-                    str(payload.get("detected_lang", "fr")),
-                )
-            if _looks_unavailable_answer(answer) and (has_web_sources or not manual_context_strong):
-                answer = _build_generic_web_guidance(
-                    question,
-                    self.guide.name,
-                    str(payload.get("detected_lang", "fr")),
-                )
-            elif _is_thin_or_incomplete_answer(answer) and (has_web_sources or not manual_context_strong):
-                answer = _build_generic_web_guidance(
-                    question,
-                    self.guide.name,
-                    str(payload.get("detected_lang", "fr")),
-                )
+                answer = _generic()
+            elif not has_manual_sources and (
+                _looks_unavailable_answer(answer)
+                or _is_thin_or_incomplete_answer(answer)
+            ):
+                answer = _generic()
 
             history = payload.get("history")
             if isinstance(history, list):

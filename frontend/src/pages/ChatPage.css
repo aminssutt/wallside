@@ -1308,41 +1308,78 @@ button.bot-source-link:focus-visible,
 }
 
 /* ============================================================
-   Typing Indicator
+   Thinking Steps (Agent Pipeline Stepper)
    ============================================================ */
 
-.msg-typing {
+.thinking-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 20px;
+}
+
+.thinking-step {
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 16px 20px;
-  flex-wrap: wrap;
-}
-
-.msg-typing span {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--accent);
-  animation: typingDot 1.4s infinite ease-in-out;
-}
-
-.msg-typing span:nth-child(2) {
-  animation-delay: 0.15s;
-}
-
-.msg-typing span:nth-child(3) {
-  animation-delay: 0.3s;
-}
-
-.typing-status {
+  gap: 12px;
   font-family: var(--font-mono);
-  font-size: 0.62rem;
-  color: var(--accent);
+  font-size: 0.72rem;
   letter-spacing: 0.04em;
-  margin: 6px 0 0 0;
-  animation: statusFadeIn 0.3s ease;
-  opacity: 0.8;
+  line-height: 1;
+  animation: stepSlideIn 0.32s ease-out both;
+}
+
+.thinking-step--pending {
+  color: rgba(240, 237, 230, 0.25);
+}
+
+.thinking-step--active {
+  color: var(--accent);
+}
+
+.thinking-step--done {
+  color: rgba(240, 237, 230, 0.5);
+}
+
+.thinking-step-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  transition: background 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease, opacity 0.35s ease;
+}
+
+.thinking-step--pending .thinking-step-dot {
+  background: transparent;
+  border: 1.5px solid rgba(240, 237, 230, 0.18);
+}
+
+.thinking-step--active .thinking-step-dot {
+  background: var(--accent);
+  border: 1.5px solid var(--accent);
+  box-shadow: 0 0 10px rgba(200, 168, 78, 0.45), 0 0 3px rgba(200, 168, 78, 0.25);
+  animation: stepPulse 1.6s infinite ease-in-out;
+}
+
+.thinking-step--done .thinking-step-dot {
+  background: var(--accent-dark);
+  border: 1.5px solid var(--accent-dark);
+  opacity: 0.55;
+}
+
+.thinking-step-label {
+  transition: color 0.35s ease;
+}
+
+@keyframes stepPulse {
+  0%, 100% { opacity: 0.65; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.25); }
+}
+
+@keyframes stepSlideIn {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: translateX(0); }
 }
 
 /* ============================================================
@@ -1368,6 +1405,43 @@ button.bot-source-link:focus-visible,
   letter-spacing: 0.04em;
   opacity: 0.85;
   animation: statusFadeIn 0.24s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chat-runtime-status::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px rgba(200, 168, 78, 0.6);
+  animation: stepPulse 1.4s infinite ease-in-out;
+  flex-shrink: 0;
+}
+
+/* Blinking caret that trails the last streamed line */
+@keyframes streamCursorBlink {
+  0%, 45% { opacity: 1; }
+  55%, 100% { opacity: 0; }
+}
+
+.stream-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: -0.15em;
+  background: var(--accent);
+  border-radius: 1px;
+  animation: streamCursorBlink 1s infinite steps(1, end);
+  box-shadow: 0 0 4px rgba(200, 168, 78, 0.4);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stream-cursor { animation: none; opacity: 0.7; }
+  .chat-runtime-status::before { animation: none; }
 }
 
 /* --- Prompt Bar (inspired by 21st.dev Prompt Input) --- */
@@ -1916,7 +1990,11 @@ button.bot-source-link:focus-visible,
    ============================================================ */
 
 @media (prefers-reduced-motion: reduce) {
-  .msg-typing span {
+  .thinking-step-dot,
+  .thinking-step--active .thinking-step-dot {
+    animation: none;
+  }
+  .thinking-step {
     animation: none;
   }
   .loader-ring {

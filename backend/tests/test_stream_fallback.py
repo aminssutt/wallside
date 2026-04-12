@@ -162,6 +162,42 @@ def test_stream_end_passes_structured_sources(monkeypatch, client):
     assert end_payloads[0]["sources_structured"][1]["url"] == "https://www.bmw.com/en/index.html"
 
 
+def test_stream_does_not_duplicate_when_stream_and_fallback_diverge(monkeypatch, client):
+    """Regression: when the stream errors after producing substantive text and
+    the sync fallback produces divergent wording, we must NOT splice the fallback
+    content on top of the stream — that caused visible duplication in production.
+    """
+
+    long_stream_text = (
+        "Objectif : Remplacer les plaquettes de frein.\n"
+        "Etapes : Le manuel ne fournit pas de procedure detaillee."
+    )
+    long_fallback_text = (
+        "Objectif : Changer les plaquettes de frein.\n"
+        "Etapes : Consultez un atelier qualifie pour cette operation."
+    )
+
+    class DummyChatbot:
+        def chat_stream(self, question, lang=None, session_id="default"):
+            yield {"type": "chunk", "text": long_stream_text, "message_id": "mid-x"}
+            raise TimeoutError("stream timeout")
+
+        def chat(self, question, lang=None, session_id="default", **kwargs):
+            return long_fallback_text
+
+    monkeypatch.setattr(api, "get_guide_chatbot", lambda slug: DummyChatbot())
+
+    events = _post_stream(client)
+    chunk_payloads = [payload for name, payload in events if name == "chunk"]
+    end_payloads = [payload for name, payload in events if name == "end"]
+
+    # The divergent fallback text must NEVER be appended as a chunk.
+    assert len(chunk_payloads) == 1
+    assert chunk_payloads[0]["text"] == long_stream_text
+    # The final `end` response should match what was actually streamed.
+    assert end_payloads[0]["response"] == long_stream_text
+
+
 def test_stream_still_ends_when_stream_and_sync_fallback_both_fail(monkeypatch, client):
     class DummyChatbot:
         def chat_stream(self, question, lang=None, session_id="default"):
