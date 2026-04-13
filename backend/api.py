@@ -329,7 +329,7 @@ def chat(slug):
         log.error("Chat error for guide %s: %s", slug, e)
         return jsonify({
             "success": False,
-            "error": "Une erreur interne est survenue. Veuillez reessayer."
+            "error": "Une erreur interne est survenue. Veuillez réessayer."
         }), 500
 
 
@@ -380,7 +380,7 @@ def chat_stream(slug):
         log.error("Chat stream init error for guide %s: %s", slug, e)
         return jsonify({
             "success": False,
-            "error": "Une erreur interne est survenue. Veuillez reessayer."
+            "error": "Une erreur interne est survenue. Veuillez réessayer."
         }), 500
 
     @stream_with_context
@@ -465,7 +465,7 @@ def chat_stream(slug):
                             "success": True,
                             "vehicle_name": guide.name,
                             "message_id": last_message_id,
-                            "response": "La reponse a pris trop de temps. Reessayez dans un instant.",
+                            "response": "La réponse a pris trop de temps. Réessayez dans un instant.",
                         })
                         ended = True
                         break
@@ -488,7 +488,7 @@ def chat_stream(slug):
                 if kind == "fallback_error":
                     fallback_completed = True
                     log.error("Chat stream sync fallback failed for guide %s: %s", slug, payload)
-                    fallback_response = "Une erreur interne est survenue. Veuillez reessayer."
+                    fallback_response = "Une erreur interne est survenue. Veuillez réessayer."
                     yield _sse_event("end", {
                         "success": True,
                         "vehicle_name": guide.name,
@@ -502,7 +502,7 @@ def chat_stream(slug):
                     fallback_completed = True
                     fallback_response = payload
                     if not isinstance(fallback_response, str) or not fallback_response.strip():
-                        fallback_response = "Une erreur interne est survenue. Veuillez reessayer."
+                        fallback_response = "Une erreur interne est survenue. Veuillez réessayer."
                     fallback_response = fallback_response.strip()
 
                     streamed_so_far = "".join(streamed_parts)
@@ -601,14 +601,15 @@ def chat_stream(slug):
             yield _sse_event("end", {
                 "success": True,
                 "vehicle_name": guide.name,
-                "response": "Une erreur interne est survenue. Veuillez reessayer.",
+                "response": "Une erreur interne est survenue. Veuillez réessayer.",
             })
 
-    response = Response(event_stream(), mimetype="text/event-stream")
+    response = Response(event_stream(), mimetype="text/event-stream; charset=utf-8")
     response.headers["Content-Type"] = "text/event-stream; charset=utf-8"
     response.headers["Cache-Control"] = "no-cache, no-transform"
     response.headers["Connection"] = "keep-alive"
     response.headers["X-Accel-Buffering"] = "no"
+    response.headers["Content-Encoding"] = "identity"
     return response
 
 

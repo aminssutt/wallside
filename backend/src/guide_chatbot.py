@@ -82,18 +82,18 @@ def detect_language(text: str) -> str:
 
 
 LANG_INSTRUCTIONS = {
-    "fr": "Reponds en francais.",
+    "fr": "Réponds en français avec une orthographe et une grammaire impeccables. Utilise systématiquement les accents (é, è, ê, à, â, î, ô, ù, û, ç).",
     "en": "Answer in English.",
     "ko": "\ud55c\uad6d\uc5b4\ub85c \ub2f5\ubcc0\ud558\uc138\uc694.",
 }
 
 LANG_OFF_TOPIC = {
     "fr": (
-        "Question hors sujet:\n"
-        "Je suis specialise pour le vehicule {vehicle}.\n\n"
-        "Exemples utiles:\n"
-        "- Comment fonctionne le systeme de freinage ?\n"
-        "- Quelle est la pression recommandee des pneus ?\n"
+        "Question hors sujet :\n"
+        "Je suis spécialisé pour le véhicule {vehicle}.\n\n"
+        "Exemples utiles :\n"
+        "- Comment fonctionne le système de freinage ?\n"
+        "- Quelle est la pression recommandée des pneus ?\n"
         "- Que signifie le voyant moteur ?"
     ),
     "en": (
@@ -368,13 +368,13 @@ def detect_fix_mode(question: str) -> bool:
 
 FIX_MODE_PROMPT = {
     "fr": (
-        "MODE FIX (PROCEDURE):\n"
-        "Structure ta reponse ainsi:\n"
-        "- **Objectif**: une phrase\n"
-        "- **Difficulte**: facile / moyen / avance\n"
-        "- **Outils**: liste courte si applicable\n"
-        "- **Etapes**: liste numerotee detaillee\n"
-        "- **Attention**: 1-2 points de securite essentiels SEULEMENT si danger reel (pas de disclaimers generiques)\n\n"
+        "MODE FIX (PROCÉDURE) :\n"
+        "Structure ta réponse ainsi :\n"
+        "- **Objectif** : une phrase\n"
+        "- **Difficulté** : facile / moyen / avancé\n"
+        "- **Outils** : liste courte si applicable\n"
+        "- **Étapes** : liste numérotée détaillée\n"
+        "- **Attention** : 1-2 points de sécurité essentiels SEULEMENT si danger réel (pas de disclaimers génériques)\n\n"
     ),
     "en": (
         "FIX MODE (PROCEDURE):\n"
@@ -431,9 +431,9 @@ def is_language_capability_question(question: str) -> bool:
 
 LANG_QUESTION_RESPONSE = {
     "fr": (
-        "Oui, je peux repondre en francais, anglais et coreen !\n"
-        "Pour changer la langue, utilisez le bouton de selection de langue "
-        "en haut a droite du chat."
+        "Oui, je peux répondre en français, anglais et coréen !\n"
+        "Pour changer la langue, utilisez le bouton de sélection de langue "
+        "en haut à droite du chat."
     ),
     "en": (
         "Yes, I can respond in French, English and Korean!\n"
@@ -728,51 +728,51 @@ def _has_repetition_loop(text: str) -> bool:
 def _build_generic_web_guidance(question: str, vehicle_name: str, lang: str = "fr") -> str:
     q = (question or "").lower()
     fr_default = (
-        f"Le manuel {vehicle_name} ne couvre pas ce point en detail. "
-        "Voici une methode generale applicable sur la plupart des vehicules modernes :\n"
-        "1. Identifiez la commande concernee sur le volant ou le menu vehicule.\n"
-        "2. Activez la fonction, puis verifiez qu'un indicateur visuel apparait au tableau de bord.\n"
-        "3. Testez a faible vitesse dans un environnement securise.\n"
-        "4. Ajustez les parametres progressivement et confirmez le comportement attendu.\n"
-        "5. Si un message d'erreur apparait, coupez puis redemarrez la fonction et verifiez les preconditions."
+        f"Le manuel {vehicle_name} ne couvre pas ce point en détail. "
+        "Voici une méthode générale applicable sur la plupart des véhicules modernes :\n"
+        "1. Identifiez la commande concernée sur le volant ou le menu véhicule.\n"
+        "2. Activez la fonction, puis vérifiez qu'un indicateur visuel apparaît au tableau de bord.\n"
+        "3. Testez à faible vitesse dans un environnement sécurisé.\n"
+        "4. Ajustez les paramètres progressivement et confirmez le comportement attendu.\n"
+        "5. Si un message d'erreur apparaît, coupez puis redémarrez la fonction et vérifiez les préconditions."
     )
 
     if lang != "fr":
         return fr_default
 
-    if any(term in q for term in ("regulateur", "cruise", "vitesse")):
+    if any(term in q for term in ("regulateur", "régulateur", "cruise", "vitesse")):
         return (
-            f"Le manuel {vehicle_name} ne detaille pas clairement le regulateur de vitesse, "
-            "mais voici une procedure generale utile sur la plupart des vehicules recentes :\n"
-            "1. Sur route degagee, accelerez au-dessus de la vitesse minimale d'activation.\n"
-            "2. Activez le regulateur via la commande du volant (souvent touche de mode ou symbole regulateur).\n"
-            "3. Appuyez sur `SET` pour memoriser la vitesse actuelle.\n"
+            f"Le manuel {vehicle_name} ne détaille pas clairement le régulateur de vitesse, "
+            "mais voici une procédure générale utile sur la plupart des véhicules récents :\n"
+            "1. Sur route dégagée, accélérez au-dessus de la vitesse minimale d'activation.\n"
+            "2. Activez le régulateur via la commande du volant (souvent touche de mode ou symbole régulateur).\n"
+            "3. Appuyez sur `SET` pour mémoriser la vitesse actuelle.\n"
             "4. Ajustez ensuite avec `+/-` par petits paliers.\n"
-            "5. Utilisez `RES` pour reprendre la derniere vitesse memorisee apres un freinage.\n"
-            "6. Desactivez via frein, embrayage (boite manuelle) ou bouton OFF selon l'equipement.\n"
-            "7. Verifiez l'icone de regulateur au tableau de bord pour confirmer l'etat actif."
+            "5. Utilisez `RES` pour reprendre la dernière vitesse mémorisée après un freinage.\n"
+            "6. Désactivez via frein, embrayage (boîte manuelle) ou bouton OFF selon l'équipement.\n"
+            "7. Vérifiez l'icône de régulateur au tableau de bord pour confirmer l'état actif."
         )
 
     if any(term in q for term in ("voyant", "tableau de bord", "warning light")):
         return (
             f"Le manuel {vehicle_name} est incomplet sur ce point. "
-            "Repere rapide pour interpreter les voyants :\n"
-            "1. Rouge: arret recommande immediatement (frein, pression huile, surchauffe).\n"
-            "2. Orange/jaune: anomalie a diagnostiquer rapidement (moteur, ABS, pression pneus, entretien).\n"
-            "3. Vert/bleu: information de fonctionnement (feux, regulateur, aides actives).\n"
-            "4. Si un voyant rouge reste allume en roulant, immobilisez le vehicule des que possible en securite.\n"
+            "Repère rapide pour interpréter les voyants :\n"
+            "1. Rouge : arrêt recommandé immédiatement (frein, pression huile, surchauffe).\n"
+            "2. Orange/jaune : anomalie à diagnostiquer rapidement (moteur, ABS, pression pneus, entretien).\n"
+            "3. Vert/bleu : information de fonctionnement (feux, régulateur, aides actives).\n"
+            "4. Si un voyant rouge reste allumé en roulant, immobilisez le véhicule dès que possible en sécurité.\n"
             "5. Si voyant orange persistant, planifiez un diagnostic rapidement."
         )
 
     if any(term in q for term in ("entretien", "maintenance", "service")):
         return (
-            f"Le manuel {vehicle_name} ne detaille pas l'entretien de base sur cet extrait. "
-            "Checklist pratique (generale) :\n"
-            "1. Pression pneus a froid + inspection visuelle de l'usure.\n"
+            f"Le manuel {vehicle_name} ne détaille pas l'entretien de base sur cet extrait. "
+            "Checklist pratique (générale) :\n"
+            "1. Pression pneus à froid + inspection visuelle de l'usure.\n"
             "2. Niveau huile moteur, liquide de refroidissement et lave-glace.\n"
-            "3. Controle visuel des freins (bruit, vibration, course pedale anormale).\n"
-            "4. Test eclairage complet (codes, phares, clignotants, feux stop).\n"
-            "5. Verification balais d'essuie-glace et etat batterie.\n"
+            "3. Contrôle visuel des freins (bruit, vibration, course pédale anormale).\n"
+            "4. Test éclairage complet (codes, phares, clignotants, feux stop).\n"
+            "5. Vérification balais d'essuie-glace et état batterie.\n"
             "6. Passage valise/OBD si voyant ou alerte service actif."
         )
 
@@ -1279,7 +1279,7 @@ def _safe_metrics_json(metrics: Dict[str, Any]) -> str:
 def format_context(documents: List[Document]) -> str:
     """Format retrieved docs for prompt context."""
     if not documents:
-        return "Aucune information specifique trouvee dans les documents."
+        return "Aucune information spécifique trouvée dans les documents."
 
     parts = []
     for doc in documents:
@@ -1367,17 +1367,18 @@ class GuideChatbot:
         lang_instruction = LANG_INSTRUCTIONS.get(detected_lang, LANG_INSTRUCTIONS["fr"])
         history = self._get_session_history(session_id)
 
-        system_instruction = f"""Tu es un assistant technique expert et precis, specialise pour le vehicule {self.guide.name}.
+        system_instruction = f"""Tu es un assistant technique expert et précis, spécialisé pour le véhicule {self.guide.name}.
 
-REGLES STRICTES:
+RÈGLES STRICTES :
 1) {lang_instruction}
 2) Base-toi sur les informations disponibles, sans invention.
-3) Si les details exacts manquent, fournis une guidance pratique, claire et concise.
-4) Utilise des listes claires. Pas de section Sources dans le texte."""
+3) Si les détails exacts manquent, fournis une guidance pratique, claire et concise.
+4) Utilise des listes claires. Pas de section Sources dans le texte.
+5) Orthographe, grammaire, ponctuation et accents impeccables (é, è, ê, à, ç, ô, etc.)."""
 
         user_content = (
-            "Aucun passage pertinent trouve dans le manuel du vehicule pour cette question."
-            f"\n\nQuestion de l'utilisateur: {question}"
+            "Aucun passage pertinent trouvé dans le manuel du véhicule pour cette question."
+            f"\n\nQuestion de l'utilisateur : {question}"
         )
 
         return {
@@ -1557,7 +1558,7 @@ REGLES STRICTES:
             is_thanks = bool(re.search(r"(?:merci|thanks?|thx|thank you)", question, re.IGNORECASE))
             if is_closure or is_thanks:
                 closures = {
-                    "fr": f"Avec plaisir ! N'hesitez pas si vous avez d'autres questions sur le **{self.guide.name}**.",
+                    "fr": f"Avec plaisir ! N'hésitez pas si vous avez d'autres questions sur le **{self.guide.name}**.",
                     "en": f"You're welcome! Feel free to ask if you have any other questions about the **{self.guide.name}**.",
                     "ko": f"\ucc9c\ub9cc\uc5d0\uc694! **{self.guide.name}**\uc5d0 \ub300\ud574 \ub2e4\ub978 \uad81\uae08\ud55c \uc810\uc774 \uc788\uc73c\uc2dc\uba74 \uc5b8\uc81c\ub4e0 \ubb3c\uc5b4\ubcf4\uc138\uc694.",
                 }
@@ -1566,7 +1567,7 @@ REGLES STRICTES:
                     "is_conversational": True,
                 }
             greetings = {
-                "fr": f"Bonjour ! Je suis votre assistant specialise pour le **{self.guide.name}**. Posez-moi vos questions techniques sur ce vehicule.",
+                "fr": f"Bonjour ! Je suis votre assistant spécialisé pour le **{self.guide.name}**. Posez-moi vos questions techniques sur ce véhicule.",
                 "en": f"Hello! I'm your specialist assistant for the **{self.guide.name}**. Ask me any technical question about this vehicle.",
                 "ko": f"\uc548\ub155\ud558\uc138\uc694! **{self.guide.name}** \uc804\uc6a9 \uc5b4\uc2dc\uc2a4\ud134\ud2b8\uc785\ub2c8\ub2e4. \ucc28\ub7c9\uc5d0 \ub300\ud55c \uae30\uc220\uc801 \uc9c8\ubb38\uc744 \ud574\uc8fc\uc138\uc694.",
             }
@@ -1674,38 +1675,38 @@ REGLES STRICTES:
 
         # --- System instruction (separated from user content for Gemini) ---
         fix_mode_block = FIX_MODE_PROMPT.get(lang, FIX_MODE_PROMPT["fr"]) if fix_mode else ""
-        system_instruction = f"""{fix_mode_block}Tu es un assistant technique expert et precis, specialise pour le vehicule {self.guide.name}.
+        system_instruction = f"""{fix_mode_block}Tu es un assistant technique expert et précis, spécialisé pour le véhicule {self.guide.name}.
 
-REGLES STRICTES:
+RÈGLES STRICTES :
 1) {lang_instruction}
-2) Base-toi UNIQUEMENT sur le contexte fourni (manuel du vehicule et web).
-3) JAMAIS d'invention: si une information (valeur technique, procedure, specification) n'est PAS dans le contexte manuel ET web fourni, dis-le clairement.
-3b) Si le manuel est incomplet mais que le contexte web contient des informations pertinentes, fournis une reponse utile basee sur ces informations web au lieu d'une simple phrase "information non disponible".
-3c) Si le contexte web est generaliste mais pertinent, fournis tout de meme des etapes pratiques et applicables, en precisant que ce sont des recommandations generales.
-4) Ne JAMAIS inventer de valeurs chiffrees (couples de serrage, pressions, capacites, intervalles) qui ne sont pas explicitement dans le contexte.
-5) Le contexte web est un complement. En cas de conflit avec le manuel, le manuel prime TOUJOURS.
-6) Reponds de facon complete mais concise:
-   - question explicative: 4 a 8 points clairs, puis un mini resume (vise ~220 mots max)
-   - procedure: 6 a 10 etapes concretes (vise ~320 mots max)
-   Evite les longueurs inutiles et les repetitions.
-7) Utilise un formatage clair et structure: listes numerotees pour les etapes, listes a puces pour les points cles, **gras** pour les termes importants. Pas de blocs de code (```).
-8) N'ajoute PAS de section "Sources" (elle sera ajoutee automatiquement).
-9) Orthographe, grammaire et ponctuation impeccables. Phrases claires et naturelles.
-10) Personnalise chaque reponse pour le {self.guide.name}: mentionne le nom du vehicule quand c'est pertinent.
-11) Ta reponse doit etre une explication textuelle complete et autonome. Ne mentionne AUCUN lien, URL, ou video dans ta reponse -- ils seront ajoutes automatiquement apres.
-12) Pas de disclaimers generiques du type "consultez un professionnel", "faites appel a un mecanicien", "verifiez aupres du constructeur" sauf si le danger est reel et immediat. Sois direct et utile."""
+2) Base-toi UNIQUEMENT sur le contexte fourni (manuel du véhicule et web).
+3) JAMAIS d'invention : si une information (valeur technique, procédure, spécification) n'est PAS dans le contexte manuel ET web fourni, dis-le clairement.
+3b) Si le manuel est incomplet mais que le contexte web contient des informations pertinentes, fournis une réponse utile basée sur ces informations web au lieu d'une simple phrase « information non disponible ».
+3c) Si le contexte web est généraliste mais pertinent, fournis tout de même des étapes pratiques et applicables, en précisant que ce sont des recommandations générales.
+4) Ne JAMAIS inventer de valeurs chiffrées (couples de serrage, pressions, capacités, intervalles) qui ne sont pas explicitement dans le contexte.
+5) Le contexte web est un complément. En cas de conflit avec le manuel, le manuel prime TOUJOURS.
+6) Réponds de façon complète mais concise :
+   - question explicative : 4 à 8 points clairs, puis un mini résumé (vise ~220 mots max)
+   - procédure : 6 à 10 étapes concrètes (vise ~320 mots max)
+   Évite les longueurs inutiles et les répétitions.
+7) Utilise un formatage clair et structuré : listes numérotées pour les étapes, listes à puces pour les points clés, **gras** pour les termes importants. Pas de blocs de code (```).
+8) N'ajoute PAS de section « Sources » (elle sera ajoutée automatiquement).
+9) Orthographe, grammaire, ponctuation et accents impeccables. Utilise systématiquement les accents français (é, è, ê, à, â, î, ô, ù, û, ç). Phrases claires et naturelles.
+10) Personnalise chaque réponse pour le {self.guide.name} : mentionne le nom du véhicule quand c'est pertinent.
+11) Ta réponse doit être une explication textuelle complète et autonome. Ne mentionne AUCUN lien, URL, ou vidéo dans ta réponse -- ils seront ajoutés automatiquement après.
+12) Pas de disclaimers génériques du type « consultez un professionnel », « faites appel à un mécanicien », « vérifiez auprès du constructeur » sauf si le danger est réel et immédiat. Sois direct et utile."""
 
         # --- User content ---
         user_parts = []
         if history_block:
-            user_parts.append(f"Historique recent de la conversation:\n{history_block}")
+            user_parts.append(f"Historique récent de la conversation :\n{history_block}")
         if context:
-            user_parts.append(f"Contexte du manuel du vehicule:\n{context}")
+            user_parts.append(f"Contexte du manuel du véhicule :\n{context}")
         else:
-            user_parts.append("Aucun passage pertinent trouve dans le manuel du vehicule pour cette question.")
+            user_parts.append("Aucun passage pertinent trouvé dans le manuel du véhicule pour cette question.")
         if web_context:
             user_parts.append(f"<web_enrichment>\n{web_context}\n</web_enrichment>")
-        user_parts.append(f"Question de l'utilisateur: {question}")
+        user_parts.append(f"Question de l'utilisateur : {question}")
 
         user_content = "\n\n---\n\n".join(user_parts)
         return {
@@ -1771,7 +1772,7 @@ REGLES STRICTES:
         clean_answer = clean_model_output((raw_answer or "").strip())
         answer = trim_response(clean_answer)
         if not answer:
-            answer = "Je n'ai pas trouve de reponse exploitable dans le manuel."
+            answer = "Je n'ai pas trouvé de réponse exploitable dans le manuel."
 
         try:
             parsed_video_score = int(video_score)
@@ -1853,10 +1854,10 @@ REGLES STRICTES:
         procedural_intent = detect_fix_mode(question)
         if not manual_context_strong:
             concise_preamble = (
-                "STYLE DE REPONSE:\n"
-                "- Priorise une reponse utile et actionnable en 4 a 7 points max.\n"
-                "- Limite les details non essentiels et evite les repetitions.\n"
-                "- Vise une reponse courte a moyenne (environ 180 a 280 mots).\n\n"
+                "STYLE DE RÉPONSE :\n"
+                "- Priorise une réponse utile et actionnable en 4 à 7 points max.\n"
+                "- Limite les détails non essentiels et évite les répétitions.\n"
+                "- Vise une réponse courte à moyenne (environ 180 à 280 mots).\n\n"
             )
             payload["system_instruction"] = concise_preamble + str(payload.get("system_instruction", ""))
         elif procedural_intent:
@@ -1965,7 +1966,7 @@ REGLES STRICTES:
 
         except Exception as exc:
             log.error("LLM generation failed for %s: %s", self.guide.slug, exc)
-            return "Impossible de generer une reponse. Veuillez reessayer."
+            return "Impossible de générer une réponse. Veuillez réessayer."
 
     def chat_stream(
         self,
@@ -2175,10 +2176,10 @@ REGLES STRICTES:
         # Keep responses concise when manual grounding is weak and web is used as fallback.
         if not manual_context_strong:
             concise_preamble = (
-                "STYLE DE REPONSE:\n"
-                "- Priorise une reponse utile et actionnable en 4 a 7 points max.\n"
-                "- Limite les details non essentiels et evite les repetitions.\n"
-                "- Vise une reponse courte a moyenne (environ 180 a 280 mots).\n\n"
+                "STYLE DE RÉPONSE :\n"
+                "- Priorise une réponse utile et actionnable en 4 à 7 points max.\n"
+                "- Limite les détails non essentiels et évite les répétitions.\n"
+                "- Vise une réponse courte à moyenne (environ 180 à 280 mots).\n\n"
             )
             payload["system_instruction"] = concise_preamble + payload.get("system_instruction", "")
 
@@ -2253,11 +2254,11 @@ REGLES STRICTES:
 
             raw_answer = "".join(raw_chunks).strip()
             if not raw_answer and not raw_chunks:
-                yield {"type": "chunk", "text": "Je n'ai pas trouve de reponse exploitable dans le manuel.", "message_id": message_id}
+                yield {"type": "chunk", "text": "Je n'ai pas trouvé de réponse exploitable dans le manuel.", "message_id": message_id}
 
             answer = trim_response(clean_model_output(raw_answer or ""))
             if not answer:
-                answer = "Je n'ai pas trouve de reponse exploitable dans le manuel."
+                answer = "Je n'ai pas trouvé de réponse exploitable dans le manuel."
 
             sources_structured_list = payload.get("sources_structured") or []
             has_manual_sources = any(
@@ -2272,17 +2273,24 @@ REGLES STRICTES:
                     str(payload.get("detected_lang", "fr")),
                 )
 
-            # Replace only truly broken outputs: repeating gibberish is never
-            # acceptable. Thin / "unavailable" answers are only replaced when
-            # the LLM did NOT manage to cite any manual source — otherwise the
-            # manual grounding is worth more than generic boilerplate.
-            if _has_repetition_loop(answer):
-                answer = _generic()
-            elif not has_manual_sources and (
-                _looks_unavailable_answer(answer)
-                or _is_thin_or_incomplete_answer(answer)
-            ):
-                answer = _generic()
+            # Replace only truly broken outputs AND only when nothing has been
+            # streamed yet. Once chunks have reached the UI, swapping `answer`
+            # for generic guidance causes a visible mid-stream "switch" where
+            # the displayed text is replaced after the fact. We accept a
+            # slightly thin answer over that jarring rewrite.
+            streamed_anything = bool(raw_chunks)
+            if not streamed_anything:
+                if _has_repetition_loop(answer):
+                    answer = _generic()
+                elif not has_manual_sources and (
+                    _looks_unavailable_answer(answer)
+                    or _is_thin_or_incomplete_answer(answer)
+                ):
+                    answer = _generic()
+            elif _has_repetition_loop(answer):
+                # Pure gibberish loops are still unacceptable; trim instead of
+                # replacing so the visible prefix stays consistent.
+                answer = trim_response(answer)
 
             history = payload.get("history")
             if isinstance(history, list):

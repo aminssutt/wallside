@@ -218,5 +218,5 @@ def test_stream_still_ends_when_stream_and_sync_fallback_both_fail(monkeypatch, 
         "success": True,
         "vehicle_name": "Guide Test",
         "message_id": "",
-        "response": "Une erreur interne est survenue. Veuillez reessayer.",
+        "response": "Une erreur interne est survenue. Veuillez réessayer.",
     }]
