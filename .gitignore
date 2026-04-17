@@ -48,6 +48,8 @@ htmlcov/
 vector_store/
 *.faiss
 *.pkl
+.ruff_cache/
+.mypy_cache/
 
 # Keep pre-indexed deploy guides tracked
 !backend/data/guides/**/vector_store/
@@ -90,3 +92,23 @@ auris-deploy*.tgz
 *.bak
 *.tmp
 *.temp
+
+# ================================
+# Dev tooling artifacts (local only)
+# ================================
+.graphify_python
+.graphify_uncached.txt
+.graphifyignore
+graphify-out/
+.playwright-mcp/
+audit-screenshots/
+.mcp.json
+
+# Accidental curl / script output at repo root
+/[0-9]
+/[0-9][0-9]
+/[0-9][0-9][0-9]
+backend/[0-9]
+backend/[0-9][0-9]
+backend/[0-9][0-9][0-9]
+backend/DuckDuckGo
