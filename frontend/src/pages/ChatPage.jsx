@@ -1867,16 +1867,28 @@ function ChatPage() {
         }
         if (data && typeof data === 'object') {
           const finalResponseText = String(data.response || '').trim()
-          const parsedFinal = extractResponseArtifacts({ response: finalResponseText }, {
-            slug: guide?.slug || '',
-            name: guide?.name || '',
-          })
+          // Pass the full end payload so sources_structured and video are
+          // preserved — previously we only forwarded the response text and
+          // every source / YouTube card was silently dropped.
+          const parsedFinal = extractResponseArtifacts(
+            {
+              response: finalResponseText,
+              sources_structured: data.sources_structured,
+              sources: data.sources,
+              video: data.video,
+              confidence: data.confidence,
+              metrics: data.metrics,
+            },
+            {
+              slug: guide?.slug || '',
+              name: guide?.name || '',
+            },
+          )
           pendingStreamArtifactsRef.current = {
             ...pendingStreamArtifactsRef.current,
-            confidence: String(data.confidence || ''),
-            metrics: data.metrics && typeof data.metrics === 'object'
-              ? data.metrics
-              : pendingStreamArtifactsRef.current.metrics,
+            confidence: parsedFinal.confidence || String(data.confidence || ''),
+            metrics: parsedFinal.metrics
+              || (data.metrics && typeof data.metrics === 'object' ? data.metrics : pendingStreamArtifactsRef.current.metrics),
             finalText: parsedFinal.text || finalResponseText || pendingStreamArtifactsRef.current.finalText,
             video: pendingStreamArtifactsRef.current.video?.url
               ? pendingStreamArtifactsRef.current.video
