@@ -9,7 +9,7 @@ from __future__ import annotations
 import os
 
 
-def _env_int(name: str, default: int, *, minimum: int = 1) -> int:
+def _env_int(name: str, default: int, *, minimum: int = 0) -> int:
     raw = os.getenv(name, str(default)).strip()
     try:
         value = int(raw)
@@ -29,12 +29,15 @@ worker_class = os.getenv("GUNICORN_WORKER_CLASS", "gthread").strip() or "gthread
 workers = _env_int("GUNICORN_WORKERS", 1, minimum=1)
 threads = _env_int("GUNICORN_THREADS", 8, minimum=1) if worker_class == "gthread" else 1
 
-timeout = _env_int("GUNICORN_TIMEOUT", 120, minimum=30)
-graceful_timeout = _env_int("GUNICORN_GRACEFUL_TIMEOUT", 30, minimum=10)
+timeout = _env_int("GUNICORN_TIMEOUT", 180, minimum=30)
+graceful_timeout = _env_int("GUNICORN_GRACEFUL_TIMEOUT", 45, minimum=10)
 keepalive = _env_int("GUNICORN_KEEPALIVE", 10, minimum=1)
 
-max_requests = _env_int("GUNICORN_MAX_REQUESTS", 400, minimum=50)
-max_requests_jitter = _env_int("GUNICORN_MAX_REQUESTS_JITTER", 80, minimum=0)
+# Disable worker recycling by default so long SSE streams are never killed
+# mid-response when a worker happens to hit the request ceiling. Ops can
+# still opt back in via env var if memory pressure demands it.
+max_requests = _env_int("GUNICORN_MAX_REQUESTS", 0, minimum=0)
+max_requests_jitter = _env_int("GUNICORN_MAX_REQUESTS_JITTER", 0, minimum=0)
 
 # Keep preload disabled by default to limit memory spikes with FAISS + per-worker state.
 preload_app = _env_bool("GUNICORN_PRELOAD", False)

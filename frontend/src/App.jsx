@@ -9,6 +9,76 @@ const GuidesPage = lazy(() => import('./pages/GuidesPage'))
 const ChatPage = lazy(() => import('./pages/ChatPage'))
 const LegalPage = lazy(() => import('./pages/LegalPage'))
 
+function GarageComingSoon() {
+  const lang = (typeof window !== 'undefined' && window.localStorage.getItem('cc_lang')) || 'fr'
+  const copy = {
+    fr: {
+      badge: 'Auris · Garage',
+      title: 'Bientôt disponible',
+      desc: "L'espace garagistes est en cours de finalisation. Revenez très bientôt.",
+      back: "Retour à l'accueil",
+    },
+    en: {
+      badge: 'Auris · Garage',
+      title: 'Coming soon',
+      desc: 'The workshop dashboard is being finalized. Check back shortly.',
+      back: 'Back to home',
+    },
+    ko: {
+      badge: 'Auris · Garage',
+      title: '\uACE7 \uACF5\uAC1C',
+      desc: '\uC815\uBE44\uC18C \uD3EC\uD138\uC744 \uC900\uBE44 \uC911\uC785\uB2C8\uB2E4.',
+      back: '\uD648\uC73C\uB85C',
+    },
+  }
+  const t = copy[lang] || copy.fr
+  return (
+    <div
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        textAlign: 'center',
+        padding: 24,
+        color: '#fff',
+        fontFamily: 'system-ui, -apple-system, sans-serif',
+        background: 'linear-gradient(180deg, #0a0a0a 0%, #121418 100%)',
+      }}
+    >
+      <span
+        style={{
+          textTransform: 'uppercase',
+          letterSpacing: '0.2em',
+          fontSize: 12,
+          opacity: 0.55,
+          marginBottom: 18,
+        }}
+      >
+        {t.badge}
+      </span>
+      <h1 style={{ fontSize: 36, fontWeight: 600, margin: 0, marginBottom: 12 }}>{t.title}</h1>
+      <p style={{ maxWidth: 480, color: 'rgba(255,255,255,0.65)', lineHeight: 1.5, margin: 0, marginBottom: 28 }}>
+        {t.desc}
+      </p>
+      <a
+        href="/"
+        style={{
+          padding: '10px 22px',
+          borderRadius: 999,
+          border: '1px solid rgba(255,255,255,0.2)',
+          color: '#fff',
+          textDecoration: 'none',
+          fontSize: 14,
+        }}
+      >
+        {t.back}
+      </a>
+    </div>
+  )
+}
+
 function LoadingSpinner() {
   return (
     <div
@@ -112,6 +182,8 @@ function AnimatedRoutes() {
           <Route path="/guides" element={<GuidesPage />} />
           <Route path="/chat/:slug" element={<ChatPage />} />
           <Route path="/legal" element={<LegalPage />} />
+          <Route path="/garage" element={<GarageComingSoon />} />
+          <Route path="/garage/beta" element={<GarageComingSoon />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>

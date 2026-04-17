@@ -9,6 +9,7 @@ import queue
 import re
 import sys
 import time
+import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
 from threading import Lock, Thread
@@ -224,7 +225,6 @@ def get_guide(slug):
 
 def _normalize_pdf_name(name: str) -> str:
     """Normalize PDF name for fuzzy matching (strip accents, lowercase, collapse separators)."""
-    import unicodedata
     nfkd = unicodedata.normalize("NFKD", name.lower())
     clean = "".join(c for c in nfkd if not unicodedata.combining(c))
     return re.sub(r"[-_\s]+", " ", clean).strip()
@@ -274,46 +274,64 @@ def serve_guide_pdf(slug, filename=None):
 # CHAT ENDPOINTS
 # ============================================
 
-@app.route('/api/guides/<slug>/chat', methods=['POST'])
-@limiter.limit("15 per minute")
-def chat(slug):
-    """Chat with a specific guide's chatbot."""
+_SESSION_ID_RE = re.compile(r'^[a-zA-Z0-9_-]+$')
+
+
+def _parse_chat_request(slug: str):
+    """Validate slug + JSON body shared by /chat and /chat/stream.
+
+    Returns (parsed, error_response). On success parsed is a dict with
+    {guide, question, lang, session_id} and error_response is None.
+    On failure parsed is None and error_response is a (flask_response, status)
+    tuple the endpoint returns directly.
+    """
     if not _SLUG_RE.match(slug):
-        return jsonify({"success": False, "error": "Invalid slug"}), 400
+        return None, (jsonify({"success": False, "error": "Invalid slug"}), 400)
+
     guide = guide_manager.get_guide(slug)
     if not guide or not guide.is_indexed:
-        return jsonify({
-            "success": False,
-            "error": "Guide introuvable"
-        }), 404
+        return None, (jsonify({"success": False, "error": "Guide introuvable"}), 404)
 
-    data = request.get_json()
+    data = request.get_json(silent=True)
     if not data or 'message' not in data:
-        return jsonify({
-            "success": False,
-            "error": "Message requis"
-        }), 400
+        return None, (jsonify({"success": False, "error": "Message requis"}), 400)
 
-    question = data['message'].strip()
+    question = str(data.get('message', '')).strip()
     if not question:
-        return jsonify({
-            "success": False,
-            "error": "Message vide"
-        }), 400
-
+        return None, (jsonify({"success": False, "error": "Message vide"}), 400)
     if len(question) > MAX_MESSAGE_LENGTH:
-        return jsonify({
+        return None, (jsonify({
             "success": False,
-            "error": f"Message trop long (max {MAX_MESSAGE_LENGTH} caracteres)"
-        }), 400
+            "error": f"Message trop long (max {MAX_MESSAGE_LENGTH} caracteres)",
+        }), 400)
 
     lang = data.get('lang') or None
     if lang and lang not in ('fr', 'en', 'ko'):
         lang = None
 
     session_id = data.get('session_id') or "default"
-    if len(session_id) > 64 or not re.match(r'^[a-zA-Z0-9_-]+$', session_id):
+    if len(session_id) > 64 or not _SESSION_ID_RE.match(session_id):
         session_id = "default"
+
+    return {
+        "guide": guide,
+        "question": question,
+        "lang": lang,
+        "session_id": session_id,
+    }, None
+
+
+@app.route('/api/guides/<slug>/chat', methods=['POST'])
+@limiter.limit("15 per minute")
+def chat(slug):
+    """Chat with a specific guide's chatbot."""
+    parsed, err = _parse_chat_request(slug)
+    if err is not None:
+        return err
+    guide = parsed["guide"]
+    question = parsed["question"]
+    lang = parsed["lang"]
+    session_id = parsed["session_id"]
 
     try:
         chatbot = get_guide_chatbot(slug)
@@ -337,42 +355,13 @@ def chat(slug):
 @limiter.limit("15 per minute")
 def chat_stream(slug):
     """Stream chat tokens from a specific guide chatbot using SSE."""
-    if not _SLUG_RE.match(slug):
-        return jsonify({"success": False, "error": "Invalid slug"}), 400
-    guide = guide_manager.get_guide(slug)
-    if not guide or not guide.is_indexed:
-        return jsonify({
-            "success": False,
-            "error": "Guide introuvable"
-        }), 404
-
-    data = request.get_json()
-    if not data or 'message' not in data:
-        return jsonify({
-            "success": False,
-            "error": "Message requis"
-        }), 400
-
-    question = data['message'].strip()
-    if not question:
-        return jsonify({
-            "success": False,
-            "error": "Message vide"
-        }), 400
-
-    if len(question) > MAX_MESSAGE_LENGTH:
-        return jsonify({
-            "success": False,
-            "error": f"Message trop long (max {MAX_MESSAGE_LENGTH} caracteres)"
-        }), 400
-
-    lang = data.get('lang') or None
-    if lang and lang not in ('fr', 'en', 'ko'):
-        lang = None
-
-    session_id = data.get('session_id') or "default"
-    if len(session_id) > 64 or not re.match(r'^[a-zA-Z0-9_-]+$', session_id):
-        session_id = "default"
+    parsed, err = _parse_chat_request(slug)
+    if err is not None:
+        return err
+    guide = parsed["guide"]
+    question = parsed["question"]
+    lang = parsed["lang"]
+    session_id = parsed["session_id"]
 
     try:
         chatbot = get_guide_chatbot(slug)
@@ -395,7 +384,11 @@ def chat_stream(slug):
         fallback_started_at = 0.0
         request_started_at = time.monotonic()
         first_chunk_received = False
-        stream_poll_timeout = max(1.0, min(3.0, STREAM_HEARTBEAT_SECONDS))
+        # Poll faster than STREAM_HEARTBEAT_SECONDS so chunks don't sit in the
+        # queue while the reader naps. The ping comment is decoupled below.
+        stream_poll_timeout = 0.2
+        ping_interval = max(5.0, min(STREAM_HEARTBEAT_SECONDS, 20.0))
+        last_ping_at = time.monotonic()
         stream_stall_timeout = 18.0
         fallback_deadline = 14.0
 
@@ -409,14 +402,16 @@ def chat_stream(slug):
 
             def _run_fallback():
                 try:
+                    # Inherit the original query's routing (web vs manual) instead
+                    # of hardcoding manual_only — otherwise users asking
+                    # recall/price/regulation questions get a manual-only answer
+                    # that diverges from what the stream would have produced.
                     fallback_response = chatbot.chat(
                         question,
                         lang=lang,
                         session_id=session_id,
-                        mode_override="manual_only",
-                        allow_web_enrichment=False,
                         llm_timeout_cap_seconds=12,
-                        max_output_tokens_cap=1600,
+                        max_output_tokens_cap=2000,
                     )
                     event_queue.put(("fallback_result", fallback_response))
                 except Exception as fallback_exc:
@@ -446,8 +441,10 @@ def chat_stream(slug):
                 try:
                     kind, payload = event_queue.get(timeout=stream_poll_timeout)
                 except queue.Empty:
-                    yield _sse_comment("ping")
                     now = time.monotonic()
+                    if (now - last_ping_at) >= ping_interval:
+                        yield _sse_comment("ping")
+                        last_ping_at = now
                     if (
                         not ended
                         and not fallback_started
@@ -461,6 +458,10 @@ def chat_stream(slug):
                         and fallback_started_at > 0.0
                         and (now - fallback_started_at) >= fallback_deadline
                     ):
+                        # Mark fallback as terminated BEFORE yielding so a late
+                        # fallback_result landing in the queue is ignored
+                        # instead of emitting a second end event.
+                        fallback_completed = True
                         yield _sse_event("end", {
                             "success": True,
                             "vehicle_name": guide.name,
@@ -499,6 +500,12 @@ def chat_stream(slug):
                     break
 
                 if kind == "fallback_result":
+                    if ended or fallback_completed:
+                        # Deadline timer or natural stream end already closed
+                        # the response — drop the late result instead of
+                        # emitting a second end event.
+                        log.debug("Ignoring late fallback_result for guide %s", slug)
+                        break
                     fallback_completed = True
                     fallback_response = payload
                     if not isinstance(fallback_response, str) or not fallback_response.strip():
@@ -526,8 +533,14 @@ def chat_stream(slug):
                             # already streamed; do not splice new content.
                             final_response = streamed_so_far or fallback_response
                     else:
-                        # No chunks streamed yet — let the frontend render the
-                        # full fallback via appendFinalBotResponse.
+                        # No chunks streamed yet — emit the fallback as a
+                        # single chunk so the UI runs its typing animation
+                        # instead of popping the whole answer in on `end`.
+                        yield _sse_event("chunk", {
+                            "text": fallback_response,
+                            "message_id": last_message_id,
+                        })
+                        streamed_parts.append(fallback_response)
                         final_response = fallback_response
 
                     yield _sse_event("end", {
@@ -551,6 +564,8 @@ def chat_stream(slug):
                         streamed_parts.append(chunk_text)
                         yield _sse_event("chunk", {"text": chunk_text, "message_id": mid})
                 elif event_type == "end":
+                    if ended:
+                        continue
                     end_payload = {
                         "success": True,
                         "vehicle_name": guide.name,
@@ -571,6 +586,10 @@ def chat_stream(slug):
                         end_payload["video"] = event["video"]
                     yield _sse_event("end", end_payload)
                     ended = True
+                    # Cancel any still-running fallback timer since the stream
+                    # landed cleanly — prevents the deadline from firing a
+                    # second end event after the real one was emitted.
+                    fallback_completed = True
                 elif event_type == "status":
                     yield _sse_event("status", {"step": event.get("step", ""), "message_id": mid})
                 elif event_type == "sources_start":
@@ -777,6 +796,17 @@ def save_premium_waitlist_email():
             "success": False,
             "error": "waitlist_write_failed",
         }), 500
+
+
+# ============================================
+# GARAGE BETA (experimental, additive)
+# ============================================
+try:
+    from garage_endpoints import register_garage_routes
+    register_garage_routes(app, limiter)
+    log.info("Garage Beta routes registered")
+except Exception as _garage_exc:  # never block legacy routes
+    log.warning("Garage Beta routes not loaded: %s", _garage_exc)
 
 
 # ============================================
