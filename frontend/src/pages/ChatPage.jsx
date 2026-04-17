@@ -845,7 +845,14 @@ const shouldPreferFinalResponse = (currentText, finalText) => {
   const finalValue = String(finalText || '').trim()
   if (!finalValue) return false
   if (!current) return true
-  if (finalValue.length >= current.length + 40) return true
+  if (current === finalValue) return false
+  // If what we already rendered is a clean prefix of the final text, the
+  // drain queue just hasn't caught up yet — do NOT swap, let the remaining
+  // slices arrive on their own. Swapping here caused the visible flicker
+  // where the bot message jumped to the full answer mid-typing.
+  if (finalValue.startsWith(current)) return false
+  // Only swap when the streamed text clearly diverged from the final and
+  // the streamed text looks abruptly truncated (mid-sentence / mid-word).
   if (looksAbruptlyTruncated(current) && finalValue.length >= current.length) return true
   return false
 }
@@ -865,16 +872,22 @@ const sliceStreamChunkForDisplay = (chunkText) => {
 }
 
 const pickStreamDrainProfile = (queueLength) => {
+  // Keep the interval steady so the typing rhythm stays uniform. The previous
+  // implementation flipped the interval per tick based on queue length, which
+  // made the animation visibly accelerate and decelerate ("skipping"). Only
+  // scale slicesPerTick when the queue backs up so we still catch up without
+  // changing the cadence.
+  const intervalMs = STREAM_DRAIN_IDLE_MS
+  if (queueLength > 240) {
+    return { intervalMs, slicesPerTick: 6 }
+  }
   if (queueLength > 120) {
-    return { intervalMs: STREAM_DRAIN_BUSY_MS, slicesPerTick: 2 }
+    return { intervalMs, slicesPerTick: 4 }
   }
-  if (queueLength > 60) {
-    return { intervalMs: 26, slicesPerTick: 2 }
+  if (queueLength > 48) {
+    return { intervalMs, slicesPerTick: 2 }
   }
-  if (queueLength > 24) {
-    return { intervalMs: 28, slicesPerTick: 1 }
-  }
-  return { intervalMs: STREAM_DRAIN_IDLE_MS, slicesPerTick: 1 }
+  return { intervalMs, slicesPerTick: 1 }
 }
 
 const SOURCE_I18N = {
@@ -1260,7 +1273,6 @@ function ChatPage() {
   const [showScrollBtn, setShowScrollBtn] = useState(false)
   const chatContainerRef = useRef(null)
   const langDropdownRef = useRef(null)
-  const tokenFlushTimerRef = useRef(null)
   const inputRef = useRef(null)
   const displayQueueRef = useRef([])
   const drainTimerRef = useRef(null)
@@ -1350,20 +1362,34 @@ function ChatPage() {
   }, [])
 
   /* -- auto-scroll only if user is near bottom ------------------------- */
+  const lastAutoScrollAtRef = useRef(0)
+  const autoScrollFrameRef = useRef(null)
   useEffect(() => {
     if (userScrolledUpRef.current) return
-    const frame = requestAnimationFrame(() => {
-      if (chatContainerRef.current) {
-        isAutoScrollingRef.current = true
-        chatContainerRef.current.scrollTo({
-          top: chatContainerRef.current.scrollHeight,
-          behavior: isStreaming ? 'auto' : 'smooth',
-        })
-        // Reset flag after the scroll event fires
-        requestAnimationFrame(() => { isAutoScrollingRef.current = false })
-      }
-    })
-    return () => cancelAnimationFrame(frame)
+    // Throttle mid-stream scroll updates so we don't thrash layout on every
+    // drain tick (drainTick fires every ~30ms). Non-streaming updates still
+    // scroll immediately.
+    const now = performance.now()
+    const minIntervalMs = isStreaming ? 90 : 0
+    const elapsed = now - lastAutoScrollAtRef.current
+    const delay = elapsed >= minIntervalMs ? 0 : minIntervalMs - elapsed
+    const timer = window.setTimeout(() => {
+      autoScrollFrameRef.current = requestAnimationFrame(() => {
+        if (chatContainerRef.current) {
+          isAutoScrollingRef.current = true
+          lastAutoScrollAtRef.current = performance.now()
+          chatContainerRef.current.scrollTo({
+            top: chatContainerRef.current.scrollHeight,
+            behavior: isStreaming ? 'auto' : 'smooth',
+          })
+          requestAnimationFrame(() => { isAutoScrollingRef.current = false })
+        }
+      })
+    }, delay)
+    return () => {
+      window.clearTimeout(timer)
+      if (autoScrollFrameRef.current) cancelAnimationFrame(autoScrollFrameRef.current)
+    }
   }, [messages, isLoading, isStreaming])
 
   /* -- reset scroll flag when user sends a new message ----------------- */
@@ -1474,9 +1500,6 @@ function ChatPage() {
 
   useEffect(() => {
     return () => {
-      if (tokenFlushTimerRef.current) {
-        window.clearInterval(tokenFlushTimerRef.current)
-      }
       if (drainTimerRef.current !== null) {
         window.clearTimeout(drainTimerRef.current)
       }
@@ -1503,11 +1526,14 @@ function ChatPage() {
     }
     artifactMergeTimerRef.current = window.setTimeout(() => {
       artifactMergeTimerRef.current = null
-      mergeBufferedArtifactsIntoLastBot()
-    }, 90)
+      // Mid-stream merges only update sidecar artifacts (sources, video,
+      // metrics, confidence). The main content is NEVER swapped while the
+      // drain queue is still flushing — that was the visible flicker.
+      mergeBufferedArtifactsIntoLastBot({ allowContentSwap: false })
+    }, 120)
   }
 
-  const mergeBufferedArtifactsIntoLastBot = () => {
+  const mergeBufferedArtifactsIntoLastBot = ({ allowContentSwap = false } = {}) => {
     const pendingArtifacts = pendingStreamArtifactsRef.current
     const hasArtifacts = Boolean(
       pendingArtifacts.finalText
@@ -1531,7 +1557,7 @@ function ChatPage() {
 
       updated[updated.length - 1] = {
         ...lastMessage,
-        ...(shouldPreferFinalResponse(lastMessage.content, pendingArtifacts.finalText)
+        ...(allowContentSwap && shouldPreferFinalResponse(lastMessage.content, pendingArtifacts.finalText)
           ? { content: pendingArtifacts.finalText }
           : {}),
         ...(pendingArtifacts.confidence ? { confidence: pendingArtifacts.confidence } : {}),
@@ -1562,7 +1588,9 @@ function ChatPage() {
       window.clearTimeout(artifactMergeTimerRef.current)
       artifactMergeTimerRef.current = null
     }
-    mergeBufferedArtifactsIntoLastBot()
+    // Drain is fully flushed here, so it's safe to reconcile the streamed
+    // text against the final response (only swaps on true divergence).
+    mergeBufferedArtifactsIntoLastBot({ allowContentSwap: true })
     resetPendingStreamArtifacts()
     displayQueueRef.current = []
     streamDoneRef.current = false
@@ -1613,10 +1641,6 @@ function ChatPage() {
 
     cancelDrain()
     displayQueueRef.current = []
-    if (tokenFlushTimerRef.current) {
-      window.clearInterval(tokenFlushTimerRef.current)
-      tokenFlushTimerRef.current = null
-    }
 
     setMessages((previous) => {
       const nextBotMessage = {
@@ -2177,10 +2201,6 @@ function ChatPage() {
       abortReasonRef.current = 'manual_stop'
       abortControllerRef.current.abort()
       abortControllerRef.current = null
-    }
-    if (tokenFlushTimerRef.current) {
-      window.clearInterval(tokenFlushTimerRef.current)
-      tokenFlushTimerRef.current = null
     }
     if (artifactMergeTimerRef.current !== null) {
       window.clearTimeout(artifactMergeTimerRef.current)

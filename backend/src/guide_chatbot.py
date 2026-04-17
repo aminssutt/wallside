@@ -493,6 +493,12 @@ _FIX_MODE_PATTERNS = re.compile(
 
 YOUTUBE_MIN_RELEVANCE_SCORE = 4
 
+_DEFAULT_USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/123.0.0.0 Safari/537.36"
+)
+
 
 def _extract_youtube_id(url: str) -> str:
     match = YOUTUBE_ID_REGEX.search(url or "")
@@ -510,16 +516,7 @@ def _youtube_html_search(
 ) -> List[Dict[str, str]]:
     """Fallback search from YouTube public results page (no API key)."""
     search_url = f"https://www.youtube.com/results?search_query={quote_plus(query)}"
-    req = Request(
-        search_url,
-        headers={
-            "User-Agent": (
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/123.0.0.0 Safari/537.36"
-            )
-        },
-    )
+    req = Request(search_url, headers={"User-Agent": _DEFAULT_USER_AGENT})
 
     try:
         with urlopen(req, timeout=max(1.0, float(timeout_seconds))) as response:
@@ -553,16 +550,7 @@ def _duckduckgo_html_search(
 ) -> List[Dict[str, str]]:
     """Fallback web search by scraping DuckDuckGo HTML results."""
     search_url = f"https://duckduckgo.com/html/?q={quote_plus(query)}"
-    req = Request(
-        search_url,
-        headers={
-            "User-Agent": (
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/123.0.0.0 Safari/537.36"
-            )
-        },
-    )
+    req = Request(search_url, headers={"User-Agent": _DEFAULT_USER_AGENT})
 
     try:
         with urlopen(req, timeout=max(1.0, float(timeout_seconds))) as response:
@@ -672,11 +660,19 @@ def trim_response(answer: str) -> str:
 
 
 _UNAVAILABLE_RESPONSE_RE = re.compile(
-    r"(?is)\b("
-    r"pas\s+disponible|ne\s+sont\s+pas\s+disponibles|"
-    r"not\s+available|no\s+information|aucun\s+passage\s+pertinent|"
-    r"je n.ai pas trouve|impossible de trouver"
-    r")\b"
+    r"(?is)"
+    r"(?:"
+    r"pas\s+disponible|ne\s+sont\s+pas\s+disponibles|non\s+disponible"
+    r"|not\s+available|no\s+information|aucun\s+passage\s+pertinent"
+    r"|je\s+n[e']?\s*ai\s+pas\s+(?:trouv[eé]|d['\s]information)"
+    r"|impossible\s+de\s+trouver"
+    r"|je\s+ne\s+(?:peux|sais|trouve)\s+pas"
+    r"|je\s+suis\s+d[eé]sol[eé]|d[eé]sol[eé][,.\s]"
+    r"|le\s+manuel\s+ne\s+(?:contient|mentionne|pr[eé]cise|d[eé]crit|indique|fournit|couvre)\s+pas"
+    r"|aucune\s+information|information\s+non\s+disponible"
+    r"|je\s+n[e']?\s*ai\s+aucune\s+information"
+    r"|this\s+manual\s+does\s+not|i\s+(?:cannot|can['\s]*t|don['\s]*t|do\s+not)\s+(?:find|know|have)"
+    r")"
 )
 
 
@@ -1270,6 +1266,20 @@ def _extract_usage_metrics(obj: Any) -> Dict[str, int]:
         if isinstance(value, int):
             metrics[field] = value
     return metrics
+
+
+def _extract_finish_reason(obj: Any) -> str:
+    """Pull the finish reason (STOP / MAX_TOKENS / SAFETY / ...) from a Gemini chunk."""
+    candidates = getattr(obj, "candidates", None) or []
+    for candidate in candidates:
+        reason = getattr(candidate, "finish_reason", None)
+        if reason is None:
+            continue
+        # SDK may return an enum or a string; normalize to its NAME attribute.
+        reason_str = getattr(reason, "name", None) or str(reason)
+        if reason_str:
+            return reason_str
+    return ""
 
 
 def _safe_metrics_json(metrics: Dict[str, Any]) -> str:
@@ -1869,11 +1879,11 @@ RÈGLES STRICTES :
         # handles up to 8192 output tokens cheaply; for manual-grounded answers
         # we want enough room to finish the thought.
         if procedural_intent and manual_context_strong:
-            base_tokens = 2800
+            base_tokens = 6000
         elif procedural_intent or manual_context_strong:
-            base_tokens = 2200
+            base_tokens = 4500
         else:
-            base_tokens = 1800
+            base_tokens = 3500
         max_output_tokens = min(LLM_MAX_OUTPUT_TOKENS, base_tokens)
         if isinstance(max_output_tokens_cap, int) and max_output_tokens_cap > 0:
             max_output_tokens = min(max_output_tokens, max_output_tokens_cap)
@@ -2190,15 +2200,14 @@ RÈGLES STRICTES :
             fix_preamble = FIX_MODE_PROMPT.get(detected_lang, FIX_MODE_PROMPT["fr"])
             payload["system_instruction"] = fix_preamble + payload.get("system_instruction", "")
 
-        # Streaming cap generous enough to finish structured answers. Avoids
-        # the mid-word truncation ("...puisse l'accep") seen in production
-        # when the LLM was capped at 900 tokens.
+        # Caps set at 3500-6000 tokens: Gemini 2.5 Flash handles 8192 cheaply
+        # and anything lower truncated long procedural answers mid-sentence.
         if fix_mode_active:
-            base_tokens = 2800
+            base_tokens = 6000
         elif manual_context_strong or detect_fix_mode(question):
-            base_tokens = 2200
+            base_tokens = 4500
         else:
-            base_tokens = 1800
+            base_tokens = 3500
         max_output_tokens = min(LLM_MAX_OUTPUT_TOKENS, base_tokens)
         llm_timeout_seconds = max(12, min(LLM_TIMEOUT_SECONDS, 35))
 
@@ -2240,10 +2249,14 @@ RÈGLES STRICTES :
             )
 
             raw_chunks: List[str] = []
+            finish_reason = ""
             for chunk in stream:
                 chunk_usage = _extract_usage_metrics(chunk)
                 if chunk_usage:
                     usage_metrics = chunk_usage
+                chunk_reason = _extract_finish_reason(chunk)
+                if chunk_reason:
+                    finish_reason = chunk_reason
                 chunk_text = self._extract_stream_chunk_text(chunk)
                 if not chunk_text:
                     continue
@@ -2252,131 +2265,115 @@ RÈGLES STRICTES :
                 raw_chunks.append(chunk_text)
                 yield {"type": "chunk", "text": chunk_text, "message_id": message_id}
 
-            raw_answer = "".join(raw_chunks).strip()
-            if not raw_answer and not raw_chunks:
-                yield {"type": "chunk", "text": "Je n'ai pas trouvé de réponse exploitable dans le manuel.", "message_id": message_id}
+            streamed_text = "".join(raw_chunks)
+            if finish_reason and finish_reason.upper() == "MAX_TOKENS":
+                log.warning(
+                    "LLM stream hit MAX_TOKENS for %s (cap=%d, chars=%d) — answer may be truncated",
+                    self.guide.slug,
+                    max_output_tokens,
+                    len(streamed_text),
+                )
 
-            answer = trim_response(clean_model_output(raw_answer or ""))
-            if not answer:
-                answer = "Je n'ai pas trouvé de réponse exploitable dans le manuel."
+            # The text the client already saw IS the response. We must not
+            # re-trim or re-clean it for `end.response` — doing so produced
+            # a shorter/different payload than what was streamed and made the
+            # UI visibly "rewind" the last few characters. Use cleaning only
+            # for the quality heuristics below and for history/metrics.
+            cleaned_text = clean_model_output(streamed_text)
 
-            sources_structured_list = payload.get("sources_structured") or []
-            has_manual_sources = any(
-                isinstance(src, dict) and str(src.get("kind", "")).lower() == "manual"
-                for src in sources_structured_list
-            )
-
-            def _generic():
-                return _build_generic_web_guidance(
+            if not raw_chunks:
+                # Nothing streamed at all — emit one chunk with generic
+                # guidance so the UI has something to render, then ship the
+                # same text as the end response.
+                generic_text = _build_generic_web_guidance(
+                    question,
+                    self.guide.name,
+                    str(payload.get("detected_lang", "fr")),
+                )
+                yield {"type": "chunk", "text": generic_text, "message_id": message_id}
+                streamed_text = generic_text
+                cleaned_text = clean_model_output(generic_text)
+            elif _has_repetition_loop(cleaned_text):
+                # Gibberish loops are unacceptable but we cannot retroactively
+                # replace what the user already saw. Log + keep session
+                # history clean so the next turn doesn't re-learn the loop.
+                log.warning("Detected repetition loop in streamed answer for %s", self.guide.slug)
+                cleaned_text = _build_generic_web_guidance(
                     question,
                     self.guide.name,
                     str(payload.get("detected_lang", "fr")),
                 )
 
-            # Replace only truly broken outputs AND only when nothing has been
-            # streamed yet. Once chunks have reached the UI, swapping `answer`
-            # for generic guidance causes a visible mid-stream "switch" where
-            # the displayed text is replaced after the fact. We accept a
-            # slightly thin answer over that jarring rewrite.
-            streamed_anything = bool(raw_chunks)
-            if not streamed_anything:
-                if _has_repetition_loop(answer):
-                    answer = _generic()
-                elif not has_manual_sources and (
-                    _looks_unavailable_answer(answer)
-                    or _is_thin_or_incomplete_answer(answer)
-                ):
-                    answer = _generic()
-            elif _has_repetition_loop(answer):
-                # Pure gibberish loops are still unacceptable; trim instead of
-                # replacing so the visible prefix stays consistent.
-                answer = trim_response(answer)
+            final_response = streamed_text
+            history_answer = cleaned_text or streamed_text
+
+            sources = list(payload.get("sources_structured") or [])
+
+            # Collect async web sources (mode C) — wait briefly so they make
+            # it into the atomic end event instead of arriving afterwards.
+            if web_future is not None:
+                try:
+                    web_results = web_future.result(timeout=1.0)
+                    if web_results:
+                        for ws in build_sources_structured([], web_results=web_results):
+                            sources.append(ws)
+                except Exception:
+                    pass
+
+            # Resolve YouTube suggestion into the same end event so the UI
+            # never sees a mid-render swap between plain text and video card.
+            video_payload: Optional[Dict[str, str]] = None
+            if video_future is not None:
+                try:
+                    video = video_future.result(timeout=1.5) or {}
+                except Exception:
+                    video = {}
+                if video:
+                    try:
+                        video_score = int(str(video.get("score", "0") or "0"))
+                    except Exception:
+                        video_score = 0
+                    if video_score >= YOUTUBE_MIN_RELEVANCE_SCORE:
+                        video_id = _extract_youtube_id(video.get("url", ""))
+                        if video_id:
+                            video_payload = {
+                                "title": str(video.get("title", "YouTube")),
+                                "url": str(video.get("url", "")),
+                                "thumbnail": f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg",
+                            }
 
             history = payload.get("history")
             if isinstance(history, list):
                 history.append({"role": "user", "content": question})
-                history.append({"role": "assistant", "content": answer})
+                history.append({"role": "assistant", "content": history_answer})
                 self._trim_session_history(session_id)
 
-            # --- end: text is done, send clean answer ---
-            yield {
+            metrics = self._build_metrics(
+                question=question,
+                payload=payload,
+                answer=history_answer,
+                total_latency_ms=(time.perf_counter() - started_at) * 1000.0,
+                ttft_ms=((first_chunk_at - started_at) * 1000.0) if first_chunk_at else None,
+                usage_metrics=usage_metrics,
+            )
+
+            end_payload: Dict[str, Any] = {
                 "type": "end",
-                "response": answer,
+                "response": final_response,
                 "message_id": message_id,
                 "confidence": confidence_level,
                 "fix_mode": fix_mode_active,
-                "sources_structured": list(payload.get("sources_structured") or []),
-                "metrics": self._build_metrics(
-                    question=question,
-                    payload=payload,
-                    answer=answer,
-                    total_latency_ms=(time.perf_counter() - started_at) * 1000.0,
-                    ttft_ms=((first_chunk_at - started_at) * 1000.0) if first_chunk_at else None,
-                    usage_metrics=usage_metrics,
-                ),
+                "sources_structured": sources,
+                "metrics": metrics,
             }
-            self._log_metrics(
-                "chat_stream_metrics",
-                self._build_metrics(
-                    question=question,
-                    payload=payload,
-                    answer=answer,
-                    total_latency_ms=(time.perf_counter() - started_at) * 1000.0,
-                    ttft_ms=((first_chunk_at - started_at) * 1000.0) if first_chunk_at else None,
-                    usage_metrics=usage_metrics,
-                ),
-            )
+            if video_payload is not None:
+                end_payload["video"] = video_payload
+            yield end_payload
+            self._log_metrics("chat_stream_metrics", metrics)
 
         except Exception as exc:
             log.error("LLM streaming failed for %s: %s", self.guide.slug, exc)
             raise
-
-        # --- Stream sources one by one ---
-        sources = list(payload.get("sources_structured") or [])
-
-        # Collect async web sources (mode C) — already running in background
-        if web_future is not None:
-            try:
-                if web_future.done():
-                    web_results = web_future.result()
-                    if web_results:
-                        for ws in build_sources_structured([], web_results=web_results):
-                            sources.append(ws)
-            except Exception:
-                pass
-
-        if sources:
-            yield {"type": "sources_start", "message_id": message_id}
-            for src in sources:
-                yield {"type": "source_item", "message_id": message_id, "source": src}
-            yield {"type": "sources_end", "message_id": message_id}
-
-        # --- Post-stream YouTube search ---
-        try:
-            video: Dict[str, str] = {}
-            if video_future is not None:
-                if video_future.done():
-                    video = video_future.result()
-
-            if video:
-                try:
-                    score = int(str(video.get("score", "0") or "0"))
-                except Exception:
-                    score = 0
-                if score >= YOUTUBE_MIN_RELEVANCE_SCORE:
-                    video_id = _extract_youtube_id(video.get("url", ""))
-                    yield {
-                        "type": "video_result",
-                        "message_id": message_id,
-                        "title": video.get("title", "YouTube"),
-                        "url": video.get("url", ""),
-                        "thumbnail": f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg" if video_id else "",
-                    }
-                    return
-            yield {"type": "video_none", "message_id": message_id}
-        except Exception as exc:
-            log.warning("Post-stream video search failed: %s", exc)
-            yield {"type": "video_none", "message_id": message_id}
 
     def get_history(self, session_id: str = "default") -> list:
         return self._get_session_history(session_id)

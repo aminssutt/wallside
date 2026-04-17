@@ -69,8 +69,6 @@ frontend/build/
 .vscode/
 .idea/
 .claude/
-.claude-flow/
-.swarm/
 *.swp
 *.swo
 
