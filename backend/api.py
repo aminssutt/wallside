@@ -13,6 +13,7 @@ import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
 from threading import Lock, Thread
+from typing import List, Optional
 
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -223,9 +224,16 @@ def get_guide(slug):
             "error": "Guide introuvable"
         }), 404
 
+    guide_payload = guide.to_dict()
+    # Tell the frontend whether /api/guides/<slug>/pdf will actually serve a
+    # file. Lots of historical guides are indexed (FAISS + BM25 present) but
+    # their source PDF was never copied into car data/, and a dead "Preview"
+    # button is worse than no button.
+    guide_payload["pdf_available"] = _find_guide_pdf(slug) is not None
+
     return jsonify({
         "success": True,
-        "guide": guide.to_dict(),
+        "guide": guide_payload,
     })
 
 
@@ -236,22 +244,21 @@ def _normalize_pdf_name(name: str) -> str:
     return re.sub(r"[-_\s]+", " ", clean).strip()
 
 
-@app.route('/api/guides/<slug>/pdf', methods=['GET'])
-@app.route('/api/guides/<slug>/pdf/<path:filename>', methods=['GET'])
-def serve_guide_pdf(slug, filename=None):
-    """Serve a guide's source PDF. Tries filename first, then fuzzy matches by guide name."""
-    if not _SLUG_RE.match(slug):
-        return jsonify({"error": "Invalid request"}), 400
+def _find_guide_pdf(slug: str, filename: Optional[str] = None) -> Optional[Path]:
+    """Best-effort fuzzy lookup of the source PDF for a guide.
 
+    Returns the resolved ``Path`` when a match is found inside any of the
+    configured ``PDF_DIRS``, otherwise ``None``. Shared by ``serve_guide_pdf``
+    and ``get_guide`` so the metadata endpoint can tell the frontend whether
+    a PDF preview is actually available.
+    """
     guide = guide_manager.get_guide(slug)
     guide_name = guide.name if guide else slug.replace("-", " ")
 
-    # Build search targets: explicit filename + guide name fallback
-    targets = []
-    if filename and '..' not in filename:
+    targets: List[str] = []
+    if filename and ".." not in filename:
         targets.append(_normalize_pdf_name(filename))
     targets.append(_normalize_pdf_name(guide_name))
-    # Also try slug-based matching
     slug_normalized = slug.replace("-", " ")
 
     for pdf_dir in PDF_DIRS:
@@ -263,16 +270,34 @@ def serve_guide_pdf(slug, filename=None):
             except ValueError:
                 continue
             norm_name = _normalize_pdf_name(pdf_path.stem)
-            for t in targets:
-                if norm_name == _normalize_pdf_name(Path(t).stem) or t in norm_name or norm_name in t:
-                    resp = send_from_directory(str(pdf_path.parent), pdf_path.name, mimetype='application/pdf')
-                    resp.headers["X-Frame-Options"] = "SAMEORIGIN"
-                    return resp
+            for target in targets:
+                if (
+                    norm_name == _normalize_pdf_name(Path(target).stem)
+                    or target in norm_name
+                    or norm_name in target
+                ):
+                    return pdf_path
             if slug_normalized in norm_name or norm_name in slug_normalized:
-                resp = send_from_directory(str(pdf_path.parent), pdf_path.name, mimetype='application/pdf')
-                resp.headers["X-Frame-Options"] = "SAMEORIGIN"
-                return resp
-    return jsonify({"error": "PDF not found"}), 404
+                return pdf_path
+    return None
+
+
+@app.route('/api/guides/<slug>/pdf', methods=['GET'])
+@app.route('/api/guides/<slug>/pdf/<path:filename>', methods=['GET'])
+def serve_guide_pdf(slug, filename=None):
+    """Serve a guide's source PDF. Tries filename first, then fuzzy matches by guide name."""
+    if not _SLUG_RE.match(slug):
+        return jsonify({"error": "Invalid request"}), 400
+
+    pdf_path = _find_guide_pdf(slug, filename=filename)
+    if pdf_path is None:
+        return jsonify({"error": "PDF not found"}), 404
+
+    resp = send_from_directory(
+        str(pdf_path.parent), pdf_path.name, mimetype="application/pdf"
+    )
+    resp.headers["X-Frame-Options"] = "SAMEORIGIN"
+    return resp
 
 
 
