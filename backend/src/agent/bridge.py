@@ -90,13 +90,29 @@ def _dict_to_citation(data: Dict) -> Optional[Citation]:
         return None
 
 
-def _status_step(agent_step: str) -> str:
-    """Map internal agent steps to the names the frontend already renders."""
-    return {
-        "planning": "agent_planning",
-        "searching": "agent_searching",
-        "generating": "generating",
-    }.get(agent_step, agent_step or "")
+def _tool_status_steps(tool_calls: List) -> List[str]:
+    """Translate planner tool calls to the legacy status labels the
+    ChatPage already renders (``manual_search``, ``web_search``,
+    ``deep_web_search``). Unknown tools are silently ignored.
+    """
+    steps: List[str] = []
+    seen: set = set()
+    for call in tool_calls or []:
+        name = ""
+        if isinstance(call, dict):
+            name = str(call.get("name", ""))
+        else:
+            name = str(getattr(call, "name", ""))
+        mapping = {
+            "search_manual": "manual_search",
+            "search_web": "web_search",
+            "search_youtube": "web_search",
+        }
+        step = mapping.get(name)
+        if step and step not in seen:
+            seen.add(step)
+            steps.append(step)
+    return steps
 
 
 def stream_agent_legacy_events(
@@ -127,9 +143,17 @@ def stream_agent_legacy_events(
         etype = str(event.get("type", "")).strip()
 
         if etype == "status":
-            step = _status_step(str(event.get("step", "")))
-            if step:
-                yield {"type": "status", "step": step, "message_id": message_id}
+            step_name = str(event.get("step", ""))
+            if step_name == "searching":
+                # Fan out one status event per tool so the frontend's
+                # ThinkingSteps widget can light up "Consultation du
+                # manuel" and "Recherche internet" in sequence instead
+                # of showing a single opaque "agent_searching" step.
+                for step in _tool_status_steps(event.get("tool_calls") or []):
+                    yield {"type": "status", "step": step, "message_id": message_id}
+            elif step_name == "generating":
+                yield {"type": "status", "step": "generating", "message_id": message_id}
+            # Planning is internal — do not surface it.
             continue
 
         if etype == "chunk":
