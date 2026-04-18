@@ -76,7 +76,7 @@ def add_security_headers(response):
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
     if request.is_secure or request.headers.get("X-Forwarded-Proto") == "https":
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-    # CSP is handled by the reverse proxy (Traefik / Dokploy) or vercel.json.
+    # CSP is handled by the reverse proxy (Traefik / Dokploy).
     # Setting it here was blocking eval, inline scripts, and API connections.
     return response
 
