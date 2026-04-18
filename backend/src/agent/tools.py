@@ -16,7 +16,7 @@ Design rules
 from __future__ import annotations
 
 import logging
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError, as_completed
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Sequence, TYPE_CHECKING
 
@@ -419,23 +419,44 @@ class ToolCall:
     args: Dict[str, Any]
 
 
+# Wall-clock caps. The underlying ddgs library occasionally hangs when one
+# of its upstream engines (Wikipedia, Yahoo, Mojeek, ...) takes minutes to
+# respond or rate-limits. Without these caps, a single stuck future bubbles
+# all the way up to Gunicorn which then SIGKILLs the whole worker. Keep
+# these tight: the agent is allowed to return a partial evidence block if
+# one tool is slow.
+_PER_TOOL_TIMEOUT_SECONDS = 15.0
+_BATCH_TIMEOUT_SECONDS = 25.0
+
+
 def run_tools_in_parallel(
     chatbot: "GuideChatbot",
     calls: Sequence[ToolCall],
     max_workers: int = 3,
 ) -> List[ToolResult]:
-    """Execute a batch of tool calls concurrently.
+    """Execute a batch of tool calls concurrently with hard wall-clock caps.
 
     Unknown tool names produce a failed ``ToolResult`` rather than raising,
     so the agent can still hand off what succeeded to the responder.
     Results preserve the order of ``calls`` for deterministic citation
-    numbering.
+    numbering. Individual tools are capped at ``_PER_TOOL_TIMEOUT_SECONDS``
+    and the whole batch at ``_BATCH_TIMEOUT_SECONDS`` — anything slower is
+    recorded as a failed ``ToolResult(ok=False, error="timeout")`` so the
+    responder still gets whatever succeeded.
     """
     if not calls:
         return []
 
+    import time as _time
+    started_at = _time.monotonic()
+
     results: List[ToolResult] = [None] * len(calls)  # type: ignore[assignment]
-    with ThreadPoolExecutor(max_workers=max(1, min(max_workers, len(calls)))) as executor:
+    # ``cancel_futures=True`` is set on shutdown below so pending submits
+    # are dropped when the batch deadline is reached. The executor is kept
+    # out of the ``with`` contextmanager so we can control shutdown
+    # semantics manually.
+    executor = ThreadPoolExecutor(max_workers=max(1, min(max_workers, len(calls))))
+    try:
         future_to_index = {}
         for index, call in enumerate(calls):
             handler = _DISPATCH.get(call.name)
@@ -449,12 +470,22 @@ def run_tools_in_parallel(
                 continue
             future_to_index[executor.submit(handler, chatbot, call.args)] = index
 
-        for future in as_completed(future_to_index):
+        for future in as_completed(future_to_index, timeout=_BATCH_TIMEOUT_SECONDS):
             index = future_to_index[future]
+            call = calls[index]
+            remaining = max(0.1, _PER_TOOL_TIMEOUT_SECONDS - (_time.monotonic() - started_at))
             try:
-                results[index] = future.result()
+                results[index] = future.result(timeout=remaining)
+            except FutureTimeoutError:
+                log.warning("Tool %s timed out after %.1fs", call.name, remaining)
+                future.cancel()
+                results[index] = ToolResult(
+                    name=call.name,
+                    ok=False,
+                    summary=f"Tool {call.name} timed out.",
+                    error="timeout",
+                )
             except Exception as exc:  # pragma: no cover - defensive
-                call = calls[index]
                 log.exception("Tool %s crashed: %s", call.name, exc)
                 results[index] = ToolResult(
                     name=call.name,
@@ -462,5 +493,25 @@ def run_tools_in_parallel(
                     summary=f"Tool {call.name} crashed.",
                     error=str(exc),
                 )
+    except FutureTimeoutError:
+        log.warning(
+            "Batch of %d tool calls exceeded %.1fs — returning partial results",
+            len(future_to_index),
+            _BATCH_TIMEOUT_SECONDS,
+        )
+        for future, index in future_to_index.items():
+            if results[index] is None:
+                call = calls[index]
+                future.cancel()
+                results[index] = ToolResult(
+                    name=call.name,
+                    ok=False,
+                    summary=f"Tool {call.name} dropped (batch timeout).",
+                    error="batch_timeout",
+                )
+    finally:
+        # Do NOT wait for stuck threads — they would keep the worker blocked
+        # indefinitely. cancel_futures drops everything still pending.
+        executor.shutdown(wait=False, cancel_futures=True)
 
     return [r for r in results if r is not None]

@@ -3,14 +3,24 @@
 Consumes the tool results produced by the orchestrator and asks the main
 Gemini model for a final, user-facing answer. Two entry points are exposed:
 
-* ``compose_answer`` — blocking, returns the full string (used by the sync
+* ``compose_answer`` - blocking, returns the full string (used by the sync
   chat endpoint).
-* ``stream_answer`` — generator yielding text deltas (used by the streaming
+* ``stream_answer`` - generator yielding text deltas (used by the streaming
   endpoint so the UI can render tokens as they arrive).
 
 The responder NEVER invokes tools itself: all tool work has already been
 done by the orchestrator. This keeps the responder deterministic and its
 latency predictable.
+
+Module-level safety caps (used by ``stream_answer``):
+
+* ``_STREAM_WALLCLOCK_CAP_SECONDS`` - whole-stream deadline. Gemini's
+  streaming endpoint occasionally keeps the connection alive but stops
+  emitting tokens; without a cap the Flask worker would block until
+  Gunicorn SIGKILLs it.
+* ``_STREAM_SILENCE_CAP_SECONDS`` - max gap between two text deltas.
+  Guards against mid-stream stalls even when the overall stream is
+  still below the wallclock cap.
 """
 from __future__ import annotations
 
@@ -30,6 +40,9 @@ _MAX_CHUNK_CHARS = 1400   # Per-passage cap when injecting manual snippets
 _MAX_MANUAL_SNIPPETS = 6  # Never dump more than N chunks into the prompt
 _MAX_WEB_ITEMS = 5
 _DEFAULT_MAX_TOKENS = 3500
+
+_STREAM_WALLCLOCK_CAP_SECONDS = 40.0
+_STREAM_SILENCE_CAP_SECONDS = 15.0
 
 
 def build_system_instruction(vehicle_name: str, lang: str, safety_notice: str = "") -> str:
@@ -256,9 +269,26 @@ def stream_answer(
         log.error("Responder stream failed: %s", exc)
         raise
 
+    import time as _time
+    started_at = _time.monotonic()
+    last_chunk_at = started_at
     for chunk in stream:
+        now = _time.monotonic()
+        if now - started_at > _STREAM_WALLCLOCK_CAP_SECONDS:
+            log.warning(
+                "Responder stream exceeded %.0fs wall clock — aborting",
+                _STREAM_WALLCLOCK_CAP_SECONDS,
+            )
+            break
+        if now - last_chunk_at > _STREAM_SILENCE_CAP_SECONDS:
+            log.warning(
+                "Responder stream silent for %.0fs — aborting",
+                _STREAM_SILENCE_CAP_SECONDS,
+            )
+            break
         text = _extract_chunk_text(chunk)
         if text:
+            last_chunk_at = now
             yield text
 
 
