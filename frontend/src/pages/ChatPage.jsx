@@ -2116,17 +2116,31 @@ function ChatPage() {
           throw streamError
         }
 
-        if (streamError?.allowFallback) {
+        // Any failure BEFORE we saw a chunk is eligible for the JSON
+        // fallback — including raw network errors (e.g. gunicorn killing
+        // the worker mid-stream, Traefik dropping an idle connection).
+        // Previously only errors with an explicit allowFallback flag
+        // tried the fallback, so a dead worker would surface as
+        // "serveur indisponible" with no retry.
+        const shouldTryFallback = streamError?.allowFallback || !receivedChunk
+        if (shouldTryFallback) {
           setStreamStatus('deep_web_search')
-          const fallbackResponse = await requestChatJson({
-            text,
-            signal: controller.signal,
-            timeoutMs: CHAT_FALLBACK_TIMEOUT_MS,
-          })
-          setStreamStatus('generating')
-          appendFinalBotResponse(fallbackResponse)
-          setStreamStatus('')
-          return
+          try {
+            const fallbackResponse = await requestChatJson({
+              text,
+              signal: controller.signal,
+              timeoutMs: CHAT_FALLBACK_TIMEOUT_MS,
+            })
+            setStreamStatus('generating')
+            appendFinalBotResponse(fallbackResponse)
+            setStreamStatus('')
+            return
+          } catch (fallbackError) {
+            if (fallbackError?.name === 'AbortError') throw fallbackError
+            appendFinalBotResponse(t.chat.serverUnavailable)
+            setStreamStatus('')
+            return
+          }
         }
 
         if (streamError?.hasChunkContent) {
