@@ -115,6 +115,12 @@ def _sse_comment(comment: str) -> str:
     return f": {comment}\n\n"
 
 
+def _agent_enabled() -> bool:
+    """Feature flag — when true ``/chat`` and ``/chat/stream`` route to the
+    tool-calling agent instead of the legacy linear pipeline."""
+    return os.getenv("AGENT_ENABLED", "0").strip().lower() in ("1", "true", "yes", "on")
+
+
 def _compute_fallback_chunk(streamed_text: str, fallback_text: str) -> str:
     """Return only the missing suffix when a sync fallback completes a partial stream.
 
@@ -335,7 +341,10 @@ def chat(slug):
 
     try:
         chatbot = get_guide_chatbot(slug)
-        response = chatbot.chat(question, lang=lang, session_id=session_id)
+        if _agent_enabled():
+            response = chatbot.chat_agentic(question, lang=lang, session_id=session_id)
+        else:
+            response = chatbot.chat(question, lang=lang, session_id=session_id)
 
         return jsonify({
             "success": True,
@@ -406,13 +415,20 @@ def chat_stream(slug):
                     # of hardcoding manual_only — otherwise users asking
                     # recall/price/regulation questions get a manual-only answer
                     # that diverges from what the stream would have produced.
-                    fallback_response = chatbot.chat(
-                        question,
-                        lang=lang,
-                        session_id=session_id,
-                        llm_timeout_cap_seconds=12,
-                        max_output_tokens_cap=2000,
-                    )
+                    if use_agent:
+                        fallback_response = chatbot.chat_agentic(
+                            question,
+                            lang=lang,
+                            session_id=session_id,
+                        )
+                    else:
+                        fallback_response = chatbot.chat(
+                            question,
+                            lang=lang,
+                            session_id=session_id,
+                            llm_timeout_cap_seconds=12,
+                            max_output_tokens_cap=2000,
+                        )
                     event_queue.put(("fallback_result", fallback_response))
                 except Exception as fallback_exc:
                     event_queue.put(("fallback_error", fallback_exc))
@@ -423,9 +439,12 @@ def chat_stream(slug):
                 daemon=True,
             ).start()
 
+        use_agent = _agent_enabled()
+        stream_fn = chatbot.chat_stream_agentic if use_agent else chatbot.chat_stream
+
         def _produce():
             try:
-                for item in chatbot.chat_stream(question, lang=lang, session_id=session_id):
+                for item in stream_fn(question, lang=lang, session_id=session_id):
                     event_queue.put(("event", item))
             except Exception as exc:
                 event_queue.put(("error", exc))
