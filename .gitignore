@@ -90,3 +90,15 @@ auris-deploy*.tgz
 *.bak
 *.tmp
 *.temp
+
+# ================================
+# Local AI tooling artifacts
+# ================================
+.graphify_python
+.graphify_uncached.txt
+.graphifyignore
+graphify-out/
+.mcp.json
+.playwright-mcp/
+audit-screenshots/
+CLAUDE.md
