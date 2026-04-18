@@ -434,6 +434,21 @@ def run_tools_in_parallel(
     if not calls:
         return []
 
+    import time as _time
+
+    def _timed_handler(name: str, handler, args):
+        t_start = _time.perf_counter()
+        log.info("[TOOL %s] START args=%s", name, {k: str(v)[:60] for k, v in (args or {}).items()})
+        try:
+            result = handler(chatbot, args)
+            dt = int((_time.perf_counter() - t_start) * 1000)
+            log.info("[TOOL %s] DONE %dms ok=%s summary=%s", name, dt, result.ok, result.summary[:80])
+            return result
+        except Exception as exc:
+            dt = int((_time.perf_counter() - t_start) * 1000)
+            log.exception("[TOOL %s] CRASH %dms: %s", name, dt, exc)
+            raise
+
     results: List[ToolResult] = [None] * len(calls)  # type: ignore[assignment]
     with ThreadPoolExecutor(max_workers=max(1, min(max_workers, len(calls)))) as executor:
         future_to_index = {}
@@ -447,20 +462,56 @@ def run_tools_in_parallel(
                     error="unknown_tool",
                 )
                 continue
-            future_to_index[executor.submit(handler, chatbot, call.args)] = index
+            future_to_index[executor.submit(_timed_handler, call.name, handler, call.args)] = index
 
-        for future in as_completed(future_to_index):
-            index = future_to_index[future]
-            try:
-                results[index] = future.result()
-            except Exception as exc:  # pragma: no cover - defensive
+        batch_started = _time.perf_counter()
+        completed = 0
+        pending = len(future_to_index)
+        # Hard cap of 20s — if a tool hangs (DDGS stuck on Wikipedia, genai
+        # socket frozen, FAISS deadlock), we don't want the ThreadPool's
+        # ``with`` __exit__ to wait for it forever. Cancel pending futures
+        # and return partial results instead.
+        HARD_CAP_SECONDS = 20.0
+        try:
+            for future in as_completed(future_to_index, timeout=HARD_CAP_SECONDS):
+                index = future_to_index[future]
                 call = calls[index]
-                log.exception("Tool %s crashed: %s", call.name, exc)
-                results[index] = ToolResult(
-                    name=call.name,
-                    ok=False,
-                    summary=f"Tool {call.name} crashed.",
-                    error=str(exc),
-                )
+                try:
+                    results[index] = future.result(timeout=0.1)
+                    completed += 1
+                    pending -= 1
+                    log.info(
+                        "[TOOLS-BATCH] progress %d/%d elapsed=%.2fs",
+                        completed,
+                        len(future_to_index),
+                        _time.perf_counter() - batch_started,
+                    )
+                except Exception as exc:
+                    log.exception("[TOOLS-BATCH] %s failed: %s", call.name, exc)
+                    results[index] = ToolResult(
+                        name=call.name, ok=False, summary=f"Tool {call.name} failed.", error=str(exc),
+                    )
+                    pending -= 1
+        except Exception as exc:
+            # as_completed timeout OR any other failure: log + mark pending as timeout
+            log.warning(
+                "[TOOLS-BATCH] HARD CAP hit after %.2fs — %d pending, reason=%s",
+                _time.perf_counter() - batch_started,
+                pending,
+                exc.__class__.__name__,
+            )
+            for future, index in future_to_index.items():
+                if results[index] is None:
+                    future.cancel()
+                    call = calls[index]
+                    log.warning("[TOOLS-BATCH] marking %s as hang_timeout", call.name)
+                    results[index] = ToolResult(
+                        name=call.name,
+                        ok=False,
+                        summary=f"Tool {call.name} timed out after {HARD_CAP_SECONDS}s.",
+                        error="hang_timeout",
+                    )
+        log.info("[TOOLS-BATCH] EXITING with=ThreadPoolExecutor, pending=%d", pending)
 
+    log.info("[TOOLS-BATCH] FULLY DONE completed=%d/%d", completed, len(future_to_index))
     return [r for r in results if r is not None]

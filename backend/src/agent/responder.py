@@ -238,6 +238,8 @@ def stream_answer(
     safety_notice: str = "",
 ) -> Iterator[str]:
     """Streaming response. Yields text deltas as Gemini emits them."""
+    import time as _time
+
     system_instruction = build_system_instruction(vehicle_name, lang, safety_notice)
     evidence_block = build_evidence_block(tool_results)
     prompt = build_user_prompt(
@@ -245,7 +247,12 @@ def stream_answer(
         history_block=history_block,
         evidence_block=evidence_block,
     )
+    log.info(
+        "[RESPONDER] about to call generate_content_stream model=%s prompt_len=%d evidence_len=%d",
+        model, len(prompt), len(evidence_block),
+    )
 
+    call_started = _time.perf_counter()
     try:
         stream = client.models.generate_content_stream(
             model=model,
@@ -253,13 +260,40 @@ def stream_answer(
             config=_build_config(system_instruction, max_tokens),
         )
     except Exception as exc:
-        log.error("Responder stream failed: %s", exc)
+        log.error("[RESPONDER] generate_content_stream FAILED: %s", exc)
         raise
+    log.info(
+        "[RESPONDER] generate_content_stream returned in %dms, starting iteration",
+        int((_time.perf_counter() - call_started) * 1000),
+    )
 
+    iter_started = _time.perf_counter()
+    chunk_count = 0
+    first_text_at = None
+    last_log_at = iter_started
     for chunk in stream:
+        now = _time.perf_counter()
+        chunk_count += 1
         text = _extract_chunk_text(chunk)
         if text:
+            if first_text_at is None:
+                first_text_at = now - iter_started
+                log.info(
+                    "[RESPONDER] FIRST TEXT chunk after %dms (iter #%d)",
+                    int(first_text_at * 1000), chunk_count,
+                )
             yield text
+        # Periodic progress log so prod doesn't look silent for long pauses.
+        if now - last_log_at > 5.0:
+            log.info(
+                "[RESPONDER] still streaming... elapsed=%.1fs chunks=%d",
+                now - iter_started, chunk_count,
+            )
+            last_log_at = now
+    log.info(
+        "[RESPONDER] stream iteration DONE elapsed=%dms total_chunks=%d",
+        int((_time.perf_counter() - iter_started) * 1000), chunk_count,
+    )
 
 
 def _extract_chunk_text(chunk) -> str:
