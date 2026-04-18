@@ -15,10 +15,20 @@ _embeddings_instance: Optional[GoogleGenerativeAIEmbeddings] = None
 
 
 def get_embeddings() -> GoogleGenerativeAIEmbeddings:
-    """Return a singleton embeddings instance."""
+    """Return a singleton embeddings instance.
+
+    ``request_options`` passes a 15s socket timeout to the underlying
+    google-generativelanguage gRPC client. Without it a stuck TCP
+    connection to ``generativelanguage.googleapis.com`` hangs forever,
+    which on Dokploy caused every FAISS query to block the worker
+    until gunicorn SIGKILLed it at the 75s/180s timeout.
+    """
     global _embeddings_instance
     if _embeddings_instance is None:
-        _embeddings_instance = GoogleGenerativeAIEmbeddings(model=EMBEDDING_MODEL)
+        _embeddings_instance = GoogleGenerativeAIEmbeddings(
+            model=EMBEDDING_MODEL,
+            request_options={"timeout": 15},
+        )
     return _embeddings_instance
 
 

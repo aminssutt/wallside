@@ -152,6 +152,43 @@ class ToolResult:
 # Individual tools
 # ---------------------------------------------------------------------------
 
+_MANUAL_SEARCH_HARD_TIMEOUT = 12.0
+
+
+def _run_with_hard_timeout(fn, timeout_s: float, label: str):
+    """Run ``fn`` in a daemon thread and raise TimeoutError if it exceeds ``timeout_s``.
+
+    Python cannot kill a thread holding a stuck socket (embeddings RPC,
+    DDGS, etc.). We simply stop waiting for it — the thread becomes a
+    zombie that dies with the worker process, but the caller returns
+    in bounded time instead of blocking gunicorn to SIGKILL.
+    """
+    import queue as _queue
+    import threading as _threading
+
+    q: "_queue.Queue[tuple[str, object]]" = _queue.Queue(maxsize=1)
+
+    def _target() -> None:
+        try:
+            q.put(("ok", fn()))
+        except Exception as exc:
+            q.put(("err", exc))
+
+    t = _threading.Thread(target=_target, name=f"hardto-{label}", daemon=True)
+    t.start()
+    t.join(timeout_s)
+    if t.is_alive():
+        log.warning("[HARD-TIMEOUT] %s exceeded %.1fs — abandoning", label, timeout_s)
+        raise TimeoutError(f"{label} exceeded {timeout_s}s")
+    try:
+        status, payload = q.get_nowait()
+    except _queue.Empty:
+        raise TimeoutError(f"{label} returned without a result")
+    if status == "err":
+        raise payload  # type: ignore[misc]
+    return payload
+
+
 def _run_search_manual(chatbot: "GuideChatbot", args: Dict[str, Any]) -> ToolResult:
     """Hybrid FAISS + BM25 search scoped to the current guide."""
     query = str(args.get("query", "")).strip()
@@ -164,7 +201,23 @@ def _run_search_manual(chatbot: "GuideChatbot", args: Dict[str, Any]) -> ToolRes
         )
 
     try:
-        result = chatbot._hybrid_search(query, k=TOP_K_RESULTS)
+        # Wrap the hybrid search in a hard timeout. The embedding RPC
+        # can stall from Dokploy if the egress to Google is momentarily
+        # unreachable, and LangChain's FAISS wrapper has no timeout of
+        # its own.
+        result = _run_with_hard_timeout(
+            lambda: chatbot._hybrid_search(query, k=TOP_K_RESULTS),
+            timeout_s=_MANUAL_SEARCH_HARD_TIMEOUT,
+            label="search_manual",
+        )
+    except TimeoutError as exc:
+        log.warning("search_manual TIMED OUT for %s: %s", chatbot.guide.slug, exc)
+        return ToolResult(
+            name="search_manual",
+            ok=False,
+            summary="Manual search timed out (embedding service slow).",
+            error="timeout",
+        )
     except Exception as exc:  # pragma: no cover - defensive
         log.warning("search_manual failed for %s: %s", chatbot.guide.slug, exc)
         return ToolResult(
@@ -266,18 +319,32 @@ def _run_search_web(chatbot: "GuideChatbot", args: Dict[str, Any]) -> ToolResult
 
     import time as _time
 
+    # Per-variant hard timeout: 6s is enough for a healthy DDGS response
+    # (we measured ~1.3s locally) and caps the damage when the library
+    # falls back to Wikipedia OpenSearch and stalls on DNS/TLS inside
+    # Docker. DDGS(timeout=N) is only a per-HTTP-request cap, not a
+    # wall-clock guarantee — this is.
+    DDGS_VARIANT_TIMEOUT = 6.0
+
     def _fetch(q: str) -> List[Dict[str, str]]:
         t0 = _time.perf_counter()
         log.info("[DDGS] fetch START q=%r", q[:80])
         try:
-            out = web_search_results(
-                q,
-                max_results=max_results,
-                time_budget_seconds=budget,
-                region=region,
-            ) or []
+            out = _run_with_hard_timeout(
+                lambda: web_search_results(
+                    q,
+                    max_results=max_results,
+                    time_budget_seconds=budget,
+                    region=region,
+                ) or [],
+                timeout_s=DDGS_VARIANT_TIMEOUT,
+                label=f"ddgs[{q[:40]}]",
+            )
             log.info("[DDGS] fetch DONE %dms -> %d items q=%r", int((_time.perf_counter()-t0)*1000), len(out), q[:80])
             return out
+        except TimeoutError as exc:
+            log.warning("[DDGS] fetch TIMED OUT after %dms q=%r: %s", int((_time.perf_counter()-t0)*1000), q[:80], exc)
+            return []
         except Exception as exc:
             log.warning("[DDGS] fetch FAILED %dms q=%r: %s", int((_time.perf_counter()-t0)*1000), q[:80], exc)
             return []
@@ -392,11 +459,26 @@ def _run_search_youtube(chatbot: "GuideChatbot", args: Dict[str, Any]) -> ToolRe
     region = _region_for_lang(lang) if lang and lang != "en" else "wt-wt"
 
     try:
-        video = youtube_video_suggestion(
-            query,
-            time_budget_seconds=max(1.0, ENRICHMENT_TIME_BUDGET_SECONDS),
-            region=region,
-        ) or {}
+        # YouTube helper runs multiple DDGS queries sequentially; give it
+        # a hard 8s wall-clock cap so one stuck query doesn't block the
+        # whole agent.
+        video = _run_with_hard_timeout(
+            lambda: youtube_video_suggestion(
+                query,
+                time_budget_seconds=max(1.0, ENRICHMENT_TIME_BUDGET_SECONDS),
+                region=region,
+            ) or {},
+            timeout_s=8.0,
+            label="search_youtube",
+        )
+    except TimeoutError:
+        log.warning("search_youtube TIMED OUT for %s", query)
+        return ToolResult(
+            name="search_youtube",
+            ok=False,
+            summary="YouTube search timed out.",
+            error="timeout",
+        )
     except Exception as exc:  # pragma: no cover - defensive
         log.warning("search_youtube failed for %s: %s", query, exc)
         return ToolResult(
