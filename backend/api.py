@@ -48,6 +48,11 @@ logging.basicConfig(
 )
 log = logging.getLogger("auris")
 
+# Build fingerprint printed at worker boot — bump when shipping a fix
+# whose deployment must be verified at a glance in prod logs.
+BUILD_MARKER = "BUILD-2026-04-19-async-v1"
+log.info("=== %s booting ===", BUILD_MARKER)
+
 
 BACKEND_DIR = Path(__file__).parent
 PROJECT_ROOT = BACKEND_DIR.parent
@@ -419,6 +424,7 @@ def chat_stream(slug):
 
     @stream_with_context
     def event_stream():
+        log.info("[SSE %s] stream_opened use_agent=%s lang=%s", slug, _agent_enabled(), lang)
         yield _sse_event("start", {
             "success": True,
             "vehicle_name": guide.name,
@@ -479,13 +485,17 @@ def chat_stream(slug):
         stream_fn = chatbot.chat_stream_agentic if use_agent else chatbot.chat_stream
 
         def _produce():
+            log.info("[SSE %s] _produce START fn=%s", slug, stream_fn.__name__)
+            count = 0
             try:
                 for item in stream_fn(question, lang=lang, session_id=session_id):
+                    count += 1
                     event_queue.put(("event", item))
             except Exception as exc:
                 log.exception("chat stream crashed slug=%s: %s", slug, exc)
                 event_queue.put(("error", exc))
             finally:
+                log.info("[SSE %s] _produce EXIT events=%d", slug, count)
                 event_queue.put(("done", None))
 
         Thread(target=_produce, name=f"chat-stream-{slug}", daemon=True).start()

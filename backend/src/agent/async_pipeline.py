@@ -442,10 +442,16 @@ async def _run_tools_async(
         if handler is None:
             return ToolResult(name=call.name, ok=False,
                               summary=f"Unknown tool: {call.name}", error="unknown_tool")
+        t0 = time.perf_counter()
+        log.info("[TOOL %s] START", call.name)
         try:
-            return await handler(chatbot, call.args)
+            result = await handler(chatbot, call.args)
+            log.info("[TOOL %s] DONE %dms ok=%s", call.name,
+                     int((time.perf_counter() - t0) * 1000), result.ok)
+            return result
         except Exception as exc:
-            log.exception("tool %s crashed: %s", call.name, exc)
+            log.exception("[TOOL %s] CRASH %dms: %s", call.name,
+                          int((time.perf_counter() - t0) * 1000), exc)
             return ToolResult(name=call.name, ok=False,
                               summary=f"Tool {call.name} crashed.", error=str(exc))
 
@@ -592,6 +598,7 @@ async def stream_agent_async(
     history = chatbot._get_session_history(session_id)
     history_block = _build_history_block(history)
     slug = chatbot.guide.slug
+    log.info("[AGENT %s] ENTER q=%r lang=%s", slug, question[:60], lang)
 
     # ---- Safety triage (sync, cheap) ---------------------------------
     verdict = assess_input_safety(
@@ -614,6 +621,7 @@ async def stream_agent_async(
     # ---- Planner ----------------------------------------------------
     yield {"type": "status", "step": "planning"}
     plan_started = time.perf_counter()
+    log.info("[AGENT %s] planner START", slug)
     tool_calls = await _plan_async(
         chatbot.client,
         question=question,
@@ -624,6 +632,8 @@ async def stream_agent_async(
         safety_notice=verdict.soft_notice,
     )
     timings["plan_ms"] = int((time.perf_counter() - plan_started) * 1000)
+    log.info("[AGENT %s] planner DONE %dms -> %s", slug, timings["plan_ms"],
+             [c.name for c in tool_calls])
 
     # ---- Tools ------------------------------------------------------
     yield {
@@ -631,13 +641,18 @@ async def stream_agent_async(
         "tool_calls": [{"name": c.name, "args": c.args} for c in tool_calls],
     }
     tools_started = time.perf_counter()
+    log.info("[AGENT %s] tools START %s", slug, [c.name for c in tool_calls])
     tool_results = await _run_tools_async(chatbot, tool_calls)
     timings["tools_ms"] = int((time.perf_counter() - tools_started) * 1000)
+    log.info("[AGENT %s] tools DONE %dms -> %s", slug, timings["tools_ms"],
+             [f"{r.name}:ok={r.ok}" for r in tool_results])
 
     # ---- Responder --------------------------------------------------
     yield {"type": "status", "step": "generating"}
     pieces: List[str] = []
     respond_started = time.perf_counter()
+    log.info("[AGENT %s] responder START", slug)
+    first_chunk = False
     try:
         async for delta in _stream_answer_async(
             chatbot.client,
@@ -649,11 +664,17 @@ async def stream_agent_async(
             tool_results=tool_results,
             safety_notice=verdict.soft_notice,
         ):
+            if not first_chunk:
+                first_chunk = True
+                log.info("[AGENT %s] responder FIRST-CHUNK %dms", slug,
+                         int((time.perf_counter() - respond_started) * 1000))
             pieces.append(delta)
             yield {"type": "chunk", "text": delta}
     except Exception as exc:
         log.error("responder failed slug=%s: %s", slug, exc)
     timings["respond_ms"] = int((time.perf_counter() - respond_started) * 1000)
+    log.info("[AGENT %s] responder DONE %dms chunks=%d", slug,
+             timings["respond_ms"], len(pieces))
 
     answer = "".join(pieces).strip()
     if not answer:
@@ -708,27 +729,35 @@ def stream_agent_sync(
     """
     event_queue: "queue.Queue[Any]" = queue.Queue(maxsize=256)
     stop_event = threading.Event()
+    slug = chatbot.guide.slug
 
     async def _driver() -> None:
+        log.info("[BRIDGE %s] async driver STARTED", slug)
         try:
             async for event in stream_agent_async(
                 chatbot, question=question, lang=lang, session_id=session_id,
             ):
                 if stop_event.is_set():
+                    log.info("[BRIDGE %s] stop_event set — leaving async driver", slug)
                     break
                 event_queue.put(event)
+        except Exception as exc:
+            log.exception("[BRIDGE %s] async driver CRASH: %s", slug, exc)
         finally:
+            log.info("[BRIDGE %s] async driver EXIT", slug)
             event_queue.put(_SENTINEL)
 
     def _run_loop() -> None:
+        log.info("[BRIDGE %s] worker thread STARTED", slug)
         try:
             asyncio.run(_driver())
         except Exception as exc:
-            log.exception("agent event loop crashed slug=%s: %s", chatbot.guide.slug, exc)
+            log.exception("[BRIDGE %s] event loop CRASH: %s", slug, exc)
             event_queue.put(_SENTINEL)
+        log.info("[BRIDGE %s] worker thread EXIT", slug)
 
     worker = threading.Thread(
-        target=_run_loop, name=f"agent-{chatbot.guide.slug}", daemon=True,
+        target=_run_loop, name=f"agent-{slug}", daemon=True,
     )
     worker.start()
 
