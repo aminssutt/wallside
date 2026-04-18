@@ -18,7 +18,7 @@ Permet d'obtenir des reponses contextualisees a partir de documents techniques, 
 |--------|-------------|
 | **Backend** | Python, Flask, LangChain, FAISS, BM25, Google Gemini |
 | **Frontend** | React 19, Vite, React Router, Framer Motion |
-| **Deploiement** | Render (backend), Vercel (frontend) |
+| **Deploiement** | Dokploy (Docker Compose) |
 
 ## Architecture
 
@@ -26,7 +26,6 @@ Permet d'obtenir des reponses contextualisees a partir de documents techniques, 
 backend/
 ├── api.py                  # API Flask (point d'entree)
 ├── requirements.txt
-├── render.yaml             # Config deploiement Render
 └── src/
     ├── config.py           # Configuration & variables d'env
     ├── session_manager.py  # Gestion des sessions utilisateur
@@ -36,7 +35,6 @@ backend/
     └── session_chatbot.py  # RAG chatbot avec recherche hybride
 
 frontend/
-├── vercel.json             # Config deploiement Vercel
 └── src/
     ├── App.jsx
     └── pages/
@@ -120,10 +118,9 @@ python process_vehicle_images.py
 
 ## Deploiement
 
-- **Backend** → [Render](https://render.com) (Free tier, config dans `render.yaml`)
-- **Frontend** → [Vercel](https://vercel.com) (Free tier, config dans `vercel.json`)
-
-Variable d'environnement Vercel : `VITE_API_URL=https://your-app.onrender.com/api`
+- **Production** → Dokploy via `docker-compose.yml`
+- Build frontend integre dans l'image Docker avec `VITE_API_URL` (par defaut `/api`)
+- Reverse proxy (Traefik/Dokploy) recommande pour TLS + domaine
 
 ### Nettoyage avant redeploiement serveur
 
