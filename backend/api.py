@@ -50,7 +50,7 @@ log = logging.getLogger("auris")
 
 # Build fingerprint printed at worker boot — bump when shipping a fix
 # whose deployment must be verified at a glance in prod logs.
-BUILD_MARKER = "BUILD-2026-04-19-async-v1"
+BUILD_MARKER = "BUILD-2026-04-19-async-v2-sequential"
 log.info("=== %s booting ===", BUILD_MARKER)
 
 

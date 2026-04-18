@@ -322,10 +322,18 @@ async def _search_web_async(chatbot: "GuideChatbot", args: Dict[str, Any]) -> To
             log.warning("web variant failed q=%r: %s", q[:60], exc)
             return []
 
-    results_by_variant = await asyncio.gather(
-        *[_one(v) for v in query_variants],
-        return_exceptions=False,
-    )
+    # Serialize variants. Running them in parallel via gather under a
+    # 1-CPU container caused the event loop to freeze with no timeout
+    # firing — a chain of at most ~3 DDGS calls finishes in 3-6s total
+    # and is far more predictable.
+    results_by_variant: List[List[Dict[str, str]]] = []
+    for variant in query_variants:
+        items = await _one(variant)
+        results_by_variant.append(items)
+        # Early exit: stop fanning out as soon as we have 2 non-empty
+        # result sets. The responder doesn't need every single angle.
+        if sum(1 for r in results_by_variant if r) >= 2:
+            break
 
     # Merge with per-domain cap for diversity; official variants first.
     seen_urls: set = set()
@@ -433,52 +441,55 @@ async def _run_tools_async(
     chatbot: "GuideChatbot",
     calls: Sequence[ToolCall],
 ) -> List[ToolResult]:
-    """Fan out all tool calls concurrently with a batch-wide deadline."""
+    """Run tool calls SEQUENTIALLY.
+
+    We intentionally serialize the tools instead of ``asyncio.gather``:
+    - On a 1-CPU container with nested ``wait_for`` + ``to_thread``, the
+      event loop got starved under contention and no timeout could fire.
+    - The embedding + DDGS calls are network-bound, not CPU-bound, so
+      going sequential only adds ~0.5-1s of wall time vs. in-parallel.
+    - Each tool keeps its own internal ``wait_for``, so a hung tool
+      still bounds itself.
+    """
     if not calls:
         return []
 
-    async def _dispatch(call: ToolCall) -> ToolResult:
+    results: List[ToolResult] = []
+    for call in calls:
         handler = _DISPATCH_ASYNC.get(call.name)
         if handler is None:
-            return ToolResult(name=call.name, ok=False,
-                              summary=f"Unknown tool: {call.name}", error="unknown_tool")
+            results.append(ToolResult(
+                name=call.name, ok=False,
+                summary=f"Unknown tool: {call.name}", error="unknown_tool",
+            ))
+            continue
         t0 = time.perf_counter()
         log.info("[TOOL %s] START", call.name)
         try:
-            result = await handler(chatbot, call.args)
+            result = await asyncio.wait_for(
+                handler(chatbot, call.args),
+                timeout=_TOOLS_BATCH_TIMEOUT,
+            )
             log.info("[TOOL %s] DONE %dms ok=%s", call.name,
                      int((time.perf_counter() - t0) * 1000), result.ok)
-            return result
+            results.append(result)
+        except asyncio.TimeoutError:
+            log.warning("[TOOL %s] OUTER TIMEOUT after %dms", call.name,
+                        int((time.perf_counter() - t0) * 1000))
+            results.append(ToolResult(
+                name=call.name, ok=False,
+                summary=f"Tool {call.name} outer timeout.",
+                error="outer_timeout",
+            ))
         except Exception as exc:
             log.exception("[TOOL %s] CRASH %dms: %s", call.name,
                           int((time.perf_counter() - t0) * 1000), exc)
-            return ToolResult(name=call.name, ok=False,
-                              summary=f"Tool {call.name} crashed.", error=str(exc))
-
-    tasks = [asyncio.create_task(_dispatch(c)) for c in calls]
-    try:
-        results = await asyncio.wait_for(
-            asyncio.gather(*tasks, return_exceptions=False),
-            timeout=_TOOLS_BATCH_TIMEOUT,
-        )
-        return list(results)
-    except asyncio.TimeoutError:
-        log.warning("tools batch hit %.0fs cap — collecting partials", _TOOLS_BATCH_TIMEOUT)
-        partials: List[ToolResult] = []
-        for task, call in zip(tasks, calls):
-            if task.done() and not task.cancelled():
-                try:
-                    partials.append(task.result())
-                    continue
-                except Exception as exc:
-                    log.warning("tool %s result failed: %s", call.name, exc)
-            task.cancel()
-            partials.append(ToolResult(
+            results.append(ToolResult(
                 name=call.name, ok=False,
-                summary=f"Tool {call.name} timed out in batch.",
-                error="batch_timeout",
+                summary=f"Tool {call.name} crashed.", error=str(exc),
             ))
-        return partials
+
+    return results
 
 
 # ---------------------------------------------------------------------------
@@ -731,6 +742,12 @@ def stream_agent_sync(
     stop_event = threading.Event()
     slug = chatbot.guide.slug
 
+    # Global watchdog: even if the async driver gets wedged (e.g. event
+    # loop starved by GIL contention on a 1-CPU container), we cut the
+    # stream after this many seconds so the SSE consumer never waits
+    # forever. 55s leaves margin below the 75s gunicorn timeout.
+    WATCHDOG_SECONDS = 55.0
+
     async def _driver() -> None:
         log.info("[BRIDGE %s] async driver STARTED", slug)
         try:
@@ -756,10 +773,25 @@ def stream_agent_sync(
             event_queue.put(_SENTINEL)
         log.info("[BRIDGE %s] worker thread EXIT", slug)
 
+    def _watchdog() -> None:
+        stopped = stop_event.wait(WATCHDOG_SECONDS)
+        if not stopped:
+            log.warning("[BRIDGE %s] WATCHDOG triggered after %.0fs — forcing end",
+                        slug, WATCHDOG_SECONDS)
+            stop_event.set()
+            # Unblock any queue.get on the consumer side.
+            try:
+                event_queue.put_nowait(_SENTINEL)
+            except queue.Full:
+                pass
+
     worker = threading.Thread(
         target=_run_loop, name=f"agent-{slug}", daemon=True,
     )
     worker.start()
+    threading.Thread(
+        target=_watchdog, name=f"agent-wd-{slug}", daemon=True,
+    ).start()
 
     try:
         while True:
