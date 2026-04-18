@@ -255,36 +255,55 @@ def _run_search_web(chatbot: "GuideChatbot", args: Dict[str, Any]) -> ToolResult
     region = _region_for_lang(lang)
 
     official = _official_domains_for(chatbot)
-    query_variants: List[tuple[str, float]] = [(query, max(1.0, ENRICHMENT_TIME_BUDGET_SECONDS))]
+    # Fan out: generic query + up to 3 separate ``site:<domain>`` queries,
+    # one per official domain. Each runs in its own thread so a slow or
+    # empty manufacturer site can't delay the generic search. We then
+    # early-exit as soon as two variants come back with any usable
+    # results — extra results are nice but not worth waiting for.
+    query_variants: List[str] = [query]
     if official and "site:" not in query.lower():
-        # A single site: clause is reliable; chaining ``site:A OR site:B OR
-        # site:C`` regularly hangs DDGS for 3-5s and returns nothing. Use
-        # only the primary domain and give it a tighter budget so a slow
-        # official site does not delay the generic variant.
-        query_variants.append((f"{query} site:{official[0]}", 1.5))
+        for domain in official[:3]:
+            query_variants.append(f"{query} site:{domain}")
 
+    budget = max(1.0, ENRICHMENT_TIME_BUDGET_SECONDS)
     results_by_variant: List[List[Dict[str, str]]] = []
 
-    def _fetch(q: str, q_budget: float) -> List[Dict[str, str]]:
+    def _fetch(q: str) -> List[Dict[str, str]]:
         try:
             return web_search_results(
                 q,
                 max_results=max_results,
-                time_budget_seconds=q_budget,
+                time_budget_seconds=budget,
                 region=region,
             ) or []
         except Exception as exc:
             log.warning("web_search_results failed for %r: %s", q, exc)
             return []
 
-    max_budget = max(b for _, b in query_variants)
-    with ThreadPoolExecutor(max_workers=len(query_variants)) as ex:
-        futures = [ex.submit(_fetch, q, b) for q, b in query_variants]
-        for future in as_completed(futures, timeout=max_budget + 1.0):
-            try:
-                results_by_variant.append(future.result(timeout=0.1))
-            except Exception:
-                results_by_variant.append([])
+    # Early-exit target: once ENOUGH variants come back non-empty we stop
+    # waiting for the rest. That guarantees we return in roughly the time
+    # of the FASTEST two responders rather than the slowest one.
+    enough_non_empty = min(2, len(query_variants))
+    non_empty_count = 0
+    ex = ThreadPoolExecutor(max_workers=len(query_variants))
+    try:
+        futures = [ex.submit(_fetch, variant) for variant in query_variants]
+        try:
+            for future in as_completed(futures, timeout=budget + 1.0):
+                try:
+                    result = future.result(timeout=0.1)
+                except Exception:
+                    result = []
+                results_by_variant.append(result)
+                if result:
+                    non_empty_count += 1
+                if non_empty_count >= enough_non_empty:
+                    # Good enough — drop the pending ones and move on.
+                    break
+        except FutureTimeoutError:
+            pass
+    finally:
+        ex.shutdown(wait=False, cancel_futures=True)
 
     # Merge: prefer items that appear in the ``site:<official>`` variant
     # (they come from a manufacturer domain) but keep diversity so the

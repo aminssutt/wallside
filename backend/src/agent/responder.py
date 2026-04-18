@@ -259,36 +259,65 @@ def stream_answer(
         evidence_block=evidence_block,
     )
 
-    try:
-        stream = client.models.generate_content_stream(
-            model=model,
-            contents=prompt,
-            config=_build_config(system_instruction, max_tokens),
-        )
-    except Exception as exc:
-        log.error("Responder stream failed: %s", exc)
-        raise
-
+    # The Gemini SDK iterator blocks on the network read, so a naive
+    # ``for chunk in stream`` would ignore our wall-clock / silence caps
+    # when the server holds the connection open. Drain the stream in a
+    # background daemon and pull from a queue with timeouts so the caps
+    # actually fire.
+    import queue as _queue
+    import threading as _threading
     import time as _time
+
+    chunk_queue: "_queue.Queue[tuple[str, object]]" = _queue.Queue(maxsize=64)
+
+    def _drain() -> None:
+        try:
+            stream = client.models.generate_content_stream(
+                model=model,
+                contents=prompt,
+                config=_build_config(system_instruction, max_tokens),
+            )
+            for chunk in stream:
+                chunk_queue.put(("chunk", chunk))
+        except Exception as exc:  # pragma: no cover - defensive
+            chunk_queue.put(("error", exc))
+        finally:
+            chunk_queue.put(("done", None))
+
+    _threading.Thread(
+        target=_drain,
+        name="responder-stream-drain",
+        daemon=True,
+    ).start()
+
     started_at = _time.monotonic()
     last_chunk_at = started_at
-    for chunk in stream:
+    while True:
         now = _time.monotonic()
         if now - started_at > _STREAM_WALLCLOCK_CAP_SECONDS:
             log.warning(
                 "Responder stream exceeded %.0fs wall clock — aborting",
                 _STREAM_WALLCLOCK_CAP_SECONDS,
             )
-            break
+            return
         if now - last_chunk_at > _STREAM_SILENCE_CAP_SECONDS:
             log.warning(
                 "Responder stream silent for %.0fs — aborting",
                 _STREAM_SILENCE_CAP_SECONDS,
             )
-            break
-        text = _extract_chunk_text(chunk)
+            return
+        try:
+            kind, payload = chunk_queue.get(timeout=0.5)
+        except _queue.Empty:
+            continue
+        if kind == "done":
+            return
+        if kind == "error":
+            log.error("Responder stream failed: %s", payload)
+            return
+        text = _extract_chunk_text(payload)
         if text:
-            last_chunk_at = now
+            last_chunk_at = _time.monotonic()
             yield text
 
 
