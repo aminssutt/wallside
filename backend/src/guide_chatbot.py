@@ -2401,6 +2401,118 @@ RÈGLES STRICTES :
             log.error("LLM streaming failed for %s: %s", self.guide.slug, exc)
             raise
 
+    # ------------------------------------------------------------------
+    # Agentic chat — delegates to the tool-calling agent package. Wire
+    # format of the streaming events matches ``chat_stream`` so the
+    # existing frontend consumes them without any change.
+    # ------------------------------------------------------------------
+
+    def _agentic_pre_filter(self, question: str, lang: str) -> Optional[str]:
+        """Handle greetings / language meta questions / off-topic before
+        paying for a planner call. Returns the canned response when one
+        applies, otherwise ``None`` so the agent runs."""
+        if is_language_capability_question(question):
+            return LANG_QUESTION_RESPONSE.get(lang, LANG_QUESTION_RESPONSE["fr"])
+
+        is_vehicle, confidence = is_vehicle_related(question)
+        if not is_vehicle and confidence < 0.5:
+            return LANG_OFF_TOPIC.get(lang, LANG_OFF_TOPIC["fr"]).format(
+                vehicle=self.guide.name
+            )
+        return None
+
+
+    def chat_agentic(
+        self,
+        question: str,
+        lang: Optional[str] = None,
+        session_id: str = "default",
+    ) -> str:
+        """Synchronous agentic answer. Returns the final text + sources block."""
+        if not lang:
+            lang = detect_language(question)
+
+        early = self._agentic_pre_filter(question, lang)
+        if early is not None:
+            return early
+
+        # Lazy import keeps the agent package optional and avoids import
+        # cycles (the agent in turn imports helpers from this module).
+        from .agent import run_agent
+
+        try:
+            result = run_agent(
+                self,
+                question=question,
+                lang=lang,
+                session_id=session_id,
+            )
+        except Exception as exc:
+            log.error("Agent run failed for %s: %s", self.guide.slug, exc)
+            return "Erreur: impossible de generer une reponse. Veuillez reessayer."
+
+        answer = trim_response(clean_model_output(result.answer)).strip()
+        if not answer:
+            answer = "Je n'ai pas pu generer de reponse. Veuillez reessayer."
+
+        blocks = [answer]
+        if result.sources_block:
+            blocks.append(result.sources_block)
+        return "\n\n".join(blocks)
+
+    def chat_stream_agentic(
+        self,
+        question: str,
+        lang: Optional[str] = None,
+        session_id: str = "default",
+    ):
+        """Streaming agent output translated to the legacy SSE wire shape."""
+        if not lang:
+            lang = detect_language(question)
+
+        message_id = uuid.uuid4().hex[:16]
+
+        early = self._agentic_pre_filter(question, lang)
+        if early is not None:
+            yield {"type": "chunk", "text": early, "message_id": message_id}
+            yield {
+                "type": "end",
+                "message_id": message_id,
+                "response": early,
+                "confidence": "low",
+                "fix_mode": False,
+                "metrics": {},
+                "sources_structured": [],
+            }
+            return
+
+        from .agent import stream_agent_legacy_events
+
+        try:
+            yield from stream_agent_legacy_events(
+                self,
+                question=question,
+                lang=lang,
+                session_id=session_id,
+                message_id=message_id,
+            )
+        except Exception as exc:
+            log.error("Agent stream failed for %s: %s", self.guide.slug, exc)
+            yield {
+                "type": "chunk",
+                "text": "Erreur: impossible de generer une reponse. Veuillez reessayer.",
+                "message_id": message_id,
+            }
+            yield {
+                "type": "end",
+                "message_id": message_id,
+                "response": "",
+                "confidence": "low",
+                "fix_mode": False,
+                "metrics": {},
+                "sources_structured": [],
+            }
+
     def get_history(self, session_id: str = "default") -> list:
         return self._get_session_history(session_id)
 

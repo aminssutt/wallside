@@ -22,7 +22,9 @@ services:
     environment:
       - PORT=3000
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - LLM_PLANNER_MODEL=${LLM_PLANNER_MODEL:-}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-https://carchat.online,https://www.carchat.online}
+      - AGENT_ENABLED=${AGENT_ENABLED:-0}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:3000/api/health')"]
