@@ -6,8 +6,8 @@ from playwright.sync_api import sync_playwright
 from pathlib import Path
 from datetime import datetime, timezone
 
-sys.path.insert(0, str(Path(__file__).parent))
-from index_manuals import extract_pdf_with_fallback, build_indexes
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from scripts.index_manuals import extract_pdf_with_fallback, build_indexes
 from src.config import CHUNK_SIZE, CHUNK_OVERLAP
 try:
     from src.text_chunker import split_documents as split_document_chunks

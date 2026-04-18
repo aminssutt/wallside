@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
-BACKEND_DIR = Path(__file__).parent
+BACKEND_DIR = Path(__file__).resolve().parents[1]
 load_dotenv(BACKEND_DIR / ".env")
 
 sys.path.insert(0, str(BACKEND_DIR))

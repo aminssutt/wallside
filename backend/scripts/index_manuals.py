@@ -27,8 +27,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-# Ensure backend src is importable
-sys.path.insert(0, str(Path(__file__).parent))
+# Ensure backend/ (one level up) is importable
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.config import CHUNK_SIZE, CHUNK_OVERLAP, DATA_DIR
 from src.guide_manager import GUIDES_DIR, slugify
@@ -36,7 +36,7 @@ from src.vector_store import get_embeddings
 from src.text_chunker import split_documents as split_document_chunks
 
 
-BACKEND_DIR = Path(__file__).parent
+BACKEND_DIR = Path(__file__).resolve().parents[1]
 PROJECT_ROOT = BACKEND_DIR.parent
 
 CAR_DATA_DIR = PROJECT_ROOT / "car data"
