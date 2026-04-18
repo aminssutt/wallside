@@ -52,7 +52,13 @@ _SEARCH_WEB = genai_types.FunctionDeclaration(
         "(recalls, real-world fixes, community tips, third-party repair "
         "guides, recent model updates). Prefer search_manual first; only "
         "fall back to the web when the manual is silent or the question is "
-        "clearly outside its scope (e.g. known recalls, forum fixes)."
+        "clearly outside its scope (e.g. known recalls, forum fixes). "
+        "The tool automatically issues a parallel site:<manufacturer> "
+        "query so official sources are surfaced alongside general results; "
+        "you do not need to add site: yourself. You MAY call this function "
+        "more than once per question (up to 2x) with different queries when "
+        "another angle would clearly widen coverage (e.g. technical + "
+        "regulatory, or English + user-language)."
     ),
     parameters={
         "type": "OBJECT",
@@ -68,6 +74,16 @@ _SEARCH_WEB = genai_types.FunctionDeclaration(
                 "type": "INTEGER",
                 "description": "Upper bound on results to return (1-8).",
             },
+            "language": {
+                "type": "STRING",
+                "description": (
+                    "ISO-639-1 code biasing the search region "
+                    "(fr / en / ko / de / es / it). Leave empty for "
+                    "worldwide. Use 'fr' for French-specific content "
+                    "(regulations, official FR sites), 'ko' for Korean "
+                    "sources, 'en' for technical English sources."
+                ),
+            },
         },
         "required": ["query"],
     },
@@ -81,7 +97,9 @@ _SEARCH_YOUTUBE = genai_types.FunctionDeclaration(
         "question (e.g. how to replace brake pads, change a tire, reset a "
         "service light). Only call this when the user explicitly asks how "
         "to perform a hands-on procedure or when a video would materially "
-        "help."
+        "help. Worldwide search by default: the tool probes English, "
+        "French and Korean query variants so a good tutorial is found "
+        "regardless of the user's own language."
     ),
     parameters={
         "type": "OBJECT",
@@ -90,7 +108,18 @@ _SEARCH_YOUTUBE = genai_types.FunctionDeclaration(
                 "type": "STRING",
                 "description": (
                     "Concise query naming the procedure + vehicle "
-                    "(e.g. 'Renault Clio 5 replace brake pads')."
+                    "(e.g. 'Renault Clio 5 replace brake pads'). "
+                    "English wording usually yields the best-produced "
+                    "tutorials; the tool expands to other languages on "
+                    "its own."
+                ),
+            },
+            "language": {
+                "type": "STRING",
+                "description": (
+                    "Optional ISO-639-1 code (fr / en / ko / de / es / it) "
+                    "to bias YouTube results toward that locale. Omit to "
+                    "stay worldwide."
                 ),
             },
         },
