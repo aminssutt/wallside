@@ -1,65 +1,90 @@
-﻿# Car Chat : CC — Assistant documentaire intelligent pour vehicules
+# CarChat — Assistant documentaire intelligent pour véhicules
 
-Application full-stack qui transforme des manuels PDF (entretien, depannage, fonctionnalites) en assistant conversationnel specialise par vehicule.
+Application full-stack qui transforme des manuels constructeur PDF (entretien,
+dépannage, fonctionnalités) en assistant conversationnel spécialisé par
+véhicule. L'utilisateur choisit un guide, pose une question en français /
+anglais / coréen et obtient une réponse sourcée dans le manuel.
 
-Permet d'obtenir des reponses contextualisees a partir de documents techniques, sans recherche manuelle dans des centaines de pages.
+## Stack
 
-## Fonctionnalites
+| Couche       | Technologies                                                 |
+|--------------|--------------------------------------------------------------|
+| Backend      | Python 3.12, Flask, LangChain, FAISS, BM25, Google Gemini    |
+| Frontend     | React 19, Vite, React Router, Framer Motion                  |
+| Déploiement  | Dokploy (Docker Compose)                                     |
 
-- **Sessions isolees** par vehicule avec upload multi-PDF
-- **Pipeline RAG optimise** : extraction parallele, chunking intelligent par sections, filtrage des pages inutiles
-- **Recherche hybride** : FAISS (semantique) + BM25 (lexicale) pour une meilleure pertinence
-- **Traitement asynchrone** avec suivi de progression en temps reel
-- **Chat contextuel** base uniquement sur les documents de la session
-
-## Stack technique
-
-| Couche | Technologies |
-|--------|-------------|
-| **Backend** | Python, Flask, LangChain, FAISS, BM25, Google Gemini |
-| **Frontend** | React 19, Vite, React Router, Framer Motion |
-| **Deploiement** | Dokploy (Docker Compose) |
-
-## Architecture
+## Arborescence
 
 ```
-backend/
-├── api.py                  # API Flask (point d'entree)
-├── requirements.txt
-└── src/
-    ├── config.py           # Configuration & variables d'env
-    ├── session_manager.py  # Gestion des sessions utilisateur
-    ├── pdf_processor.py    # Pipeline : extraction → chunking → indexation
-    ├── text_chunker.py     # Chunking intelligent par sections
-    ├── vector_store.py     # FAISS vector store
-    └── session_chatbot.py  # RAG chatbot avec recherche hybride
-
-frontend/
-└── src/
-    ├── App.jsx
-    └── pages/
-        ├── LandingPage.jsx
-        ├── UploadPage.jsx
-        ├── ProcessingPage.jsx
-        └── ChatPage.jsx
+.
+├── backend/
+│   ├── api.py                     # Serveur Flask (point d'entrée)
+│   ├── gunicorn.conf.py           # Config runtime Gunicorn (SSE friendly)
+│   ├── requirements.txt
+│   ├── .env.example
+│   ├── src/                       # Bibliothèque métier
+│   │   ├── config.py              # Variables d'env + constantes
+│   │   ├── guide_manager.py       # Catalogue des guides pré-indexés
+│   │   ├── guide_chatbot.py       # Pipeline RAG + streaming
+│   │   ├── text_chunker.py        # Chunking sémantique
+│   │   └── vector_store.py        # FAISS + BM25
+│   ├── scripts/                   # CLIs d'orchestration
+│   │   ├── add_manual.py          # Ajouter un manuel utilisateur
+│   │   ├── index_manuals.py       # Indexation principale
+│   │   ├── ingest_vehicle.py      # Ingestion d'un véhicule (générique)
+│   │   ├── ingest_tesla.py        # Pipeline Tesla
+│   │   ├── batch_images.py        # Batch images + suppression fond
+│   │   ├── fetch_vehicle_images.py
+│   │   ├── process_vehicle_images.py
+│   │   └── batches/               # Vagues d'ingestion historiques
+│   │       ├── batch_ingest.py
+│   │       ├── batch_ingest2.py
+│   │       ├── batch_ingest4.py
+│   │       ├── batch_ingest5.py
+│   │       └── batch_vintage.py
+│   ├── tests/                     # Pytest + scripts de qualité RAG
+│   └── data/                      # Index FAISS/BM25 pré-calculés
+├── frontend/
+│   ├── index.html
+│   ├── package.json
+│   ├── vite.config.js
+│   └── src/
+│       ├── App.jsx
+│       ├── i18n.js
+│       ├── api.js
+│       ├── toast.jsx
+│       ├── assets/
+│       └── pages/
+│           ├── LandingPage.jsx
+│           ├── GuidesPage.jsx
+│           ├── ChatPage.jsx
+│           └── LegalPage.jsx
+├── docs/                          # Business plan, notes techniques
+├── manuel/                        # PDF utilisateur (exemples)
+├── car data/                      # PDF servis en production
+├── Dockerfile
+├── docker-compose.yml             # Déploiement Dokploy
+├── deploy-prod.ps1
+├── start-dev.ps1                  # Lance backend + frontend (Windows)
+└── start-dev.cmd
 ```
 
 ## Installation
 
-### Prerequis
-- Python 3.10+
+### Prérequis
+- Python 3.12+
 - Node.js 18+
-- Cle API Google Gemini ([obtenir ici](https://aistudio.google.com/app/apikey))
+- Clé API Google Gemini ([obtenir ici](https://aistudio.google.com/app/apikey))
 
 ### Backend
 
 ```bash
 cd backend
 python -m venv .venv
-source .venv/bin/activate   # Linux/macOS
-# .venv\Scripts\activate    # Windows
+source .venv/bin/activate     # Linux / macOS
+# .venv\Scripts\activate      # Windows
 pip install -r requirements.txt
-cp .env.example .env        # Editer et ajouter GOOGLE_API_KEY
+cp .env.example .env          # Ajouter GOOGLE_API_KEY
 python api.py
 ```
 
@@ -71,71 +96,77 @@ npm install
 npm run dev
 ```
 
-L'API tourne sur `http://localhost:5002`, le frontend sur `http://localhost:5173`.
+API : `http://localhost:5002`
+Frontend : `http://localhost:5173`
 
-## Donnees Locales (Non Versionnees)
+Sur Windows, `start-dev.ps1` lance les deux en parallèle et nettoie les ports.
 
-Pour eviter de publier des donnees sensibles ou trop lourdes, le repo **ne versionne pas**:
+## Données non versionnées
 
-- `backend/data/guides/*/vector_store/*` (indexes FAISS/BM25 issus des manuels)
-- `backend/data/waitlist/*`
-- les fichiers `.env`
-- les PDF de manuels
+Pour rester léger et éviter les fuites, le dépôt ignore :
 
-### Regenerer les guides apres un clone
+- `backend/data/guides/*/vector_store/*` — index FAISS et BM25 des manuels
+- `backend/data/waitlist/*` — données waitlist
+- `.env`, `.env.prod` — secrets
+- Les PDF constructeur sont servis depuis `car data/` (versionné pour la prod)
 
-1. Mettre les PDF dans `car data/<marque>/*.pdf`
-2. Lancer l'indexation:
+### Re-générer les guides après un clone
 
-```bash
-cd backend
-python index_manuals.py --prune-missing-sources
-```
-
-3. Redemarrer l'API Flask (`python api.py`)
-
-### Images vehicules
-
-- Les images front sont dans `backend/data/vehicle_images/`
-- Nom recommande: nom du vehicule (exemple: `honda civic 11.png`)
-- Si besoin de retraitement local:
+1. Placer les PDF dans `car data/<marque>/*.pdf`
+2. Lancer l'indexation depuis `backend/` :
 
 ```bash
 cd backend
-python process_vehicle_images.py
+python scripts/index_manuals.py --prune-missing-sources
 ```
 
-## Endpoints API
+3. Redémarrer l'API (`python api.py`)
 
-| Methode | Route | Description |
-|---------|-------|-------------|
-| `POST` | `/api/session/create` | Creer une session vehicule |
-| `POST` | `/api/session/{id}/upload` | Uploader un PDF |
-| `POST` | `/api/session/{id}/process` | Lancer le traitement |
-| `GET` | `/api/session/{id}/status` | Statut de la session |
-| `POST` | `/api/session/{id}/chat` | Poser une question |
-| `GET` | `/api/health` | Verification de sante |
+### Images véhicules
 
-## Deploiement
+- Fichiers dans `backend/data/vehicle_images/`
+- Nom conventionnel : `<marque> <modèle>.png`
+- Retraitement local (suppression de fond) :
 
-- **Production** → Dokploy via `docker-compose.yml`
-- Build frontend integre dans l'image Docker avec `VITE_API_URL` (par defaut `/api`)
-- Reverse proxy (Traefik/Dokploy) recommande pour TLS + domaine
-
-### Nettoyage avant redeploiement serveur
-
-Depuis la racine du projet (Windows PowerShell) :
-
-```powershell
-./clean-workspace.ps1
+```bash
+cd backend
+python scripts/process_vehicle_images.py
 ```
 
-Options utiles :
+## Endpoints API principaux
 
-- `./clean-workspace.ps1 -IncludeFrontendDist`
-- `./clean-workspace.ps1 -IncludeFrontendDist -IncludeNodeModules`
+| Méthode | Route                               | Description                          |
+|---------|-------------------------------------|--------------------------------------|
+| GET     | `/api/guides`                       | Liste des guides pré-indexés         |
+| GET     | `/api/guides/<slug>`                | Détails d'un guide                   |
+| GET     | `/api/guides/<slug>/pdf`            | PDF constructeur du guide            |
+| POST    | `/api/guides/<slug>/chat`           | Question synchrone                   |
+| POST    | `/api/guides/<slug>/chat/stream`    | Question avec streaming SSE          |
+| GET     | `/api/guides/<slug>/history`        | Historique de session                |
+| POST    | `/api/guides/<slug>/reset`          | Réinitialiser l'historique           |
+| GET     | `/api/health`                       | Healthcheck                          |
+
+## Tests
+
+Depuis `backend/` :
+
+```bash
+python -m pytest tests/ -q
+```
+
+La suite couvre le fallback de streaming, la force du contexte manuel, les
+timeouts d'enrichissement et le pipeline RAG complet. Le script
+`tests/test_rag_quality.py` est un harnais QA manuel (nécessite une
+`GOOGLE_API_KEY`).
+
+## Déploiement
+
+Production : Dokploy (Docker Compose).
+
+- Build frontend intégré à l'image Docker via `VITE_API_URL` (défaut `/api`)
+- Reverse-proxy Traefik / Dokploy pour TLS + domaine
+- Les secrets (`GOOGLE_API_KEY`, `FRONTEND_URL`) sont injectés au runtime
 
 ## Auteur
 
-**Amine S.**
-
+Lakhdar Berache — [carchat.online](https://carchat.online)
