@@ -1192,6 +1192,25 @@ const RichBotMessage = memo(function RichBotMessage({ text, lang = 'fr', video, 
   )
 })
 
+const stripUnclosedMarkdownPairs = (text) => {
+  // During streaming, chunks arrive with partial markdown markers like
+  // "**drivi" (opening bold, closing will come in a later chunk). When
+  // the parser sees an odd number of ** or ` markers it means one pair
+  // is unclosed — hide the last opener so "**drivi" shows as "drivi"
+  // rather than literal "**drivi" until the closing ** arrives and the
+  // next re-render wraps it in <strong>.
+  let result = text
+  const boldCount = (result.match(/\*\*/g) || []).length
+  if (boldCount % 2 === 1) {
+    result = result.replace(/\*\*([^*]*)$/, '$1')
+  }
+  const tickCount = (result.match(/`/g) || []).length
+  if (tickCount % 2 === 1) {
+    result = result.replace(/`([^`]*)$/, '$1')
+  }
+  return result
+}
+
 const normalizeStreamingLine = (line) => {
   const raw = String(line || '')
   if (!raw.trim()) return ''
@@ -1201,6 +1220,7 @@ const normalizeStreamingLine = (line) => {
     .replace(/^\s*[-*]\s+(?=\S)/, '• ')
     .replace(/^\s*\*\s+/, '• ')
 
+  cleaned = stripUnclosedMarkdownPairs(cleaned)
   cleaned = cleaned.replace(/\s{2,}/g, ' ').trim()
   return cleaned
 }
