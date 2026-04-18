@@ -2266,7 +2266,7 @@ function ChatPage() {
       <header className="chat-header">
         {isCompactNav ? (
           <div className="chat-brand chat-brand-static" aria-hidden>
-            <img src="/logo-mechora.png" alt="Mechora" width="122" height="36" loading="lazy" />
+            <img src="/carchat-logo.png" alt="CarChat" width="122" height="36" loading="lazy" />
             <div className="chat-brand-copy">
               <span className="chat-brand-system">{terminalSystemLabel}</span>
               <p>{guide.name}</p>
@@ -2282,7 +2282,7 @@ function ChatPage() {
             onClick={() => openExitConfirm('/')}
             aria-label={(UI_TEXT[lang] || UI_TEXT.fr).guides.home}
           >
-            <img src="/logo-mechora.png" alt="Mechora" width="122" height="36" loading="lazy" />
+            <img src="/carchat-logo.png" alt="CarChat" width="122" height="36" loading="lazy" />
             <div className="chat-brand-copy">
               <span className="chat-brand-system">{terminalSystemLabel}</span>
               <p>{guide.name}</p>

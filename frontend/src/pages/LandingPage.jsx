@@ -14,7 +14,7 @@ const COPY = {
     navPricing: 'Tarifs',
     navFaq: 'FAQ',
     navContact: 'Contact',
-    heroTitle: 'Mechora',
+    heroTitle: 'CarChat',
     heroSubtitle: 'Votre compagnon technique automobile intelligent',
     heroStats: ['130+ véhicules', 'Manuels officiels', 'Réponses instantanées'],
     ctaPrimary: 'Commencer gratuitement',
@@ -61,8 +61,8 @@ const COPY = {
     ],
     aboutLabel: 'À propos',
     aboutName: 'Lakhdar Berache',
-    aboutRole: 'Créateur de Mechora',
-    aboutBio: "Passionn\u00e9 d'automobile et \u00e9tudiant en \u00e9cole d'ing\u00e9nieur, j'ai cr\u00e9\u00e9 Mechora apr\u00e8s un stage en ing\u00e9nierie automobile. Mon objectif : rendre l'information technique automobile accessible \u00e0 tous, gratuitement. Chaque r\u00e9ponse est sourc\u00e9e directement depuis les manuels officiels des constructeurs.",
+    aboutRole: 'Créateur de CarChat',
+    aboutBio: "Passionn\u00e9 d'automobile et \u00e9tudiant en \u00e9cole d'ing\u00e9nieur, j'ai cr\u00e9\u00e9 CarChat apr\u00e8s un stage en ing\u00e9nierie automobile. Mon objectif : rendre l'information technique automobile accessible \u00e0 tous, gratuitement. Chaque r\u00e9ponse est sourc\u00e9e directement depuis les manuels officiels des constructeurs.",
     contactLabel: 'Contact',
     contactTitle: 'Contactez-nous',
     contactSubtitle: 'Une question, une suggestion, ou un partenariat ?',
@@ -109,7 +109,7 @@ const COPY = {
     navPricing: 'Pricing',
     navFaq: 'FAQ',
     navContact: 'Contact',
-    heroTitle: 'Mechora',
+    heroTitle: 'CarChat',
     heroSubtitle: 'Your intelligent automotive companion',
     heroStats: ['130+ vehicles', 'Official manuals', 'Instant answers'],
     ctaPrimary: 'Start for free',
@@ -156,8 +156,8 @@ const COPY = {
     ],
     aboutLabel: 'About',
     aboutName: 'Lakhdar Berache',
-    aboutRole: 'Creator of Mechora',
-    aboutBio: 'Passionate about cars and studying engineering, I created Mechora after an automotive engineering internship. My goal: make technical automotive information accessible to everyone, for free. Every answer is sourced directly from official manufacturer manuals.',
+    aboutRole: 'Creator of CarChat',
+    aboutBio: 'Passionate about cars and studying engineering, I created CarChat after an automotive engineering internship. My goal: make technical automotive information accessible to everyone, for free. Every answer is sourced directly from official manufacturer manuals.',
     contactLabel: 'Contact',
     contactTitle: 'Contact us',
     contactSubtitle: 'A question, a suggestion, or a partnership?',
@@ -204,7 +204,7 @@ const COPY = {
     navPricing: '요금',
     navFaq: 'FAQ',
     navContact: '문의',
-    heroTitle: 'Mechora',
+    heroTitle: 'CarChat',
     heroSubtitle: '당신의 지능형 자동차 컴패니언',
     heroStats: ['130+ 차량', '공식 매뉴얼', '즉각적인 답변'],
     ctaPrimary: '무료로 시작하기',
@@ -251,8 +251,8 @@ const COPY = {
     ],
     aboutLabel: '소개',
     aboutName: 'Lakhdar Berache',
-    aboutRole: 'Mechora 제작자',
-    aboutBio: '자동차에 대한 열정과 공학을 공부하면서, 자동차 엔지니어링 인턴십 후에 Mechora를 만들었습니다. 목표: 기술적인 자동차 정보를 모두에게 무료로 제공하는 것입니다.',
+    aboutRole: 'CarChat 제작자',
+    aboutBio: '자동차에 대한 열정과 공학을 공부하면서, 자동차 엔지니어링 인턴십 후에 CarChat을 만들었습니다. 목표: 기술적인 자동차 정보를 모두에게 무료로 제공하는 것입니다.',
     contactLabel: '문의',
     contactTitle: '문의하기',
     contactSubtitle: '질문, 제안 또는 파트너십이 있으신가요?',
@@ -532,7 +532,7 @@ function ChatDemo({ userMsg, aiMsg, sourceMsg }) {
         <div className="chat-demo__dots">
           <span /><span /><span />
         </div>
-        <img src="/mechora-writing-tight.png" alt="Mechora" className="chat-demo__logo" />
+        <img src="/carchat-writing.png" alt="CarChat" className="chat-demo__logo" />
       </div>
       <div className="chat-demo__body">
         {showUser && (
@@ -553,7 +553,7 @@ function ChatDemo({ userMsg, aiMsg, sourceMsg }) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
           >
-            <span className="chat-demo__label">Mechora AI</span>
+            <span className="chat-demo__label">CarChat AI</span>
             <p>{formatAiText(aiMsg.slice(0, charIndex))}</p>
             {phase === 'typing' && <span className="chat-demo__cursor" />}
           </Motion.div>
@@ -667,7 +667,7 @@ export default function LandingPage() {
     const name = form.elements.name.value;
     const email = form.elements.email.value;
     const message = form.elements.message.value;
-    const subject = encodeURIComponent(`Mechora Contact - ${name}`);
+    const subject = encodeURIComponent(`CarChat Contact - ${name}`);
     const body = encodeURIComponent(`From: ${name}\nEmail: ${email}\n\n${message}`);
     window.location.href = `mailto:lakhdarberache@gmail.com?subject=${subject}&body=${body}`;
   };
@@ -685,7 +685,7 @@ export default function LandingPage() {
       <nav className={`nav${navScrolled ? ' nav--scrolled' : ''}`}>
         <div className="nav__inner">
           <button type="button" className="nav__brand" onClick={() => navigate('/')} aria-label="Home">
-            <img className="nav__logo" src="/logo-mechora.png" alt="Mechora" />
+            <img className="nav__logo" src="/carchat-logo.png" alt="CarChat" />
           </button>
 
           <ul className="nav__links">
@@ -797,7 +797,7 @@ export default function LandingPage() {
               animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
               transition={{ duration: 1.2, ease: [0.25, 0.1, 0.25, 1] }}
             >
-              <img src="/mechora-writing-tight.png" alt="Mechora" className="hero__title-logo" />
+              <img src="/carchat-writing.png" alt="CarChat" className="hero__title-logo" />
             </Motion.div>
 
             {/* Subtitle with word reveal */}
@@ -1057,7 +1057,7 @@ export default function LandingPage() {
                 ))}
               </ul>
               <a
-                href="mailto:lakhdarberache@gmail.com?subject=Mechora%20Enterprise"
+                href="mailto:lakhdarberache@gmail.com?subject=CarChat%20Enterprise"
                 className="price-card__cta price-card__cta--enterprise"
               >
                 {t.enterprisePlan.cta}
@@ -1181,7 +1181,7 @@ export default function LandingPage() {
         <div className="container">
           <div className="footer__grid">
             <div className="footer__col footer__col--brand">
-              <img src="/logo-mechora.png" alt="Mechora" className="footer__logo" />
+              <img src="/carchat-logo.png" alt="CarChat" className="footer__logo" />
               <p className="footer__bio">{t.footerBio}</p>
               <a href="mailto:lakhdarberache@gmail.com" className="footer__email">lakhdarberache@gmail.com</a>
             </div>
@@ -1216,7 +1216,7 @@ export default function LandingPage() {
           </div>
 
           <div className="footer__bottom">
-            <span>&copy; 2026 Mechora. Tous droits r&eacute;serv&eacute;s.</span>
+            <span>&copy; 2026 CarChat. Tous droits r&eacute;serv&eacute;s.</span>
             <a href="/legal" className="footer__legal-link">Mentions l&eacute;gales</a>
           </div>
         </div>
