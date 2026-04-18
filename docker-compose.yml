@@ -24,6 +24,11 @@ services:
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       - LLM_PLANNER_MODEL=${LLM_PLANNER_MODEL:-}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-https://carchat.online,https://www.carchat.online}
+      # Legacy RAG pipeline is the canonical prod path (stable, 4-5s TTFT).
+      # Agent path is kept for experimentation but needs workers>=2 to be
+      # reliable — with workers=1 (default) the nested ThreadPoolExecutors
+      # saturate the worker under load. Set AGENT_ENABLED=1 only when the
+      # agent architecture has been hardened.
       - AGENT_ENABLED=${AGENT_ENABLED:-0}
     restart: unless-stopped
     healthcheck:

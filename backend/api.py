@@ -48,11 +48,6 @@ logging.basicConfig(
 )
 log = logging.getLogger("auris")
 
-# Build fingerprint — printed at worker boot so prod logs show exactly
-# which commit is running. Bump this string when making a fix whose
-# deployment you need to verify quickly from the logs.
-BUILD_MARKER = "BUILD-2026-04-18-responder-drain-v3"
-log.info("=== %s booting ===", BUILD_MARKER)
 
 BACKEND_DIR = Path(__file__).parent
 PROJECT_ROOT = BACKEND_DIR.parent
@@ -424,7 +419,6 @@ def chat_stream(slug):
 
     @stream_with_context
     def event_stream():
-        log.info("[SSE %s] stream opened use_agent=%s lang=%s q=%r", slug, _agent_enabled(), lang, question[:80])
         yield _sse_event("start", {
             "success": True,
             "vehicle_name": guide.name,
@@ -485,20 +479,13 @@ def chat_stream(slug):
         stream_fn = chatbot.chat_stream_agentic if use_agent else chatbot.chat_stream
 
         def _produce():
-            log.info("[SSE %s] _produce thread START fn=%s", slug, stream_fn.__name__)
-            event_count = 0
             try:
                 for item in stream_fn(question, lang=lang, session_id=session_id):
-                    event_count += 1
-                    etype = str(item.get("type", "?")) if isinstance(item, dict) else "?"
-                    if event_count <= 20 or event_count % 10 == 0:
-                        log.info("[SSE %s] _produce event #%d type=%s", slug, event_count, etype)
                     event_queue.put(("event", item))
             except Exception as exc:
-                log.exception("[SSE %s] _produce CRASH: %s", slug, exc)
+                log.exception("chat stream crashed slug=%s: %s", slug, exc)
                 event_queue.put(("error", exc))
             finally:
-                log.info("[SSE %s] _produce thread EXIT total_events=%d", slug, event_count)
                 event_queue.put(("done", None))
 
         Thread(target=_produce, name=f"chat-stream-{slug}", daemon=True).start()

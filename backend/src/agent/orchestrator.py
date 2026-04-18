@@ -238,11 +238,9 @@ def stream_agent(
         return
 
     slug = chatbot.guide.slug
-    log.info("[AGENT %s] START question=%r lang=%s", slug, question[:80], lang)
 
     yield {"type": "status", "step": "planning"}
     plan_started = time.perf_counter()
-    log.info("[AGENT %s] planner CALL model=%s", slug, chatbot.model_name)
     tool_calls = plan_tool_calls(
         chatbot.client,
         question=question,
@@ -253,13 +251,6 @@ def stream_agent(
         safety_notice=verdict.soft_notice,
     )
     timings["plan_ms"] = int((time.perf_counter() - plan_started) * 1000)
-    log.info(
-        "[AGENT %s] planner DONE %dms -> %d calls: %s",
-        slug,
-        timings["plan_ms"],
-        len(tool_calls),
-        [c.name for c in tool_calls],
-    )
 
     yield {
         "type": "status",
@@ -267,24 +258,14 @@ def stream_agent(
         "tool_calls": [{"name": call.name, "args": call.args} for call in tool_calls],
     }
     tools_started = time.perf_counter()
-    log.info("[AGENT %s] tools CALL %s", slug, [c.name for c in tool_calls])
     tool_results = run_tools_in_parallel(chatbot, tool_calls)
     timings["tools_ms"] = int((time.perf_counter() - tools_started) * 1000)
-    log.info(
-        "[AGENT %s] tools DONE %dms -> %s",
-        slug,
-        timings["tools_ms"],
-        [f"{r.name}:ok={r.ok}" for r in tool_results],
-    )
 
     yield {"type": "status", "step": "generating"}
 
     pieces: List[str] = []
     respond_started = time.perf_counter()
-    log.info("[AGENT %s] responder CALL model=%s", slug, chatbot.model_name)
     try:
-        first_chunk_at = None
-        chunk_count = 0
         for delta in stream_answer(
             chatbot.client,
             model=chatbot.model_name,
@@ -295,23 +276,11 @@ def stream_agent(
             tool_results=tool_results,
             safety_notice=verdict.soft_notice,
         ):
-            if first_chunk_at is None:
-                first_chunk_at = time.perf_counter() - respond_started
-                log.info(
-                    "[AGENT %s] responder FIRST-CHUNK %dms",
-                    slug,
-                    int(first_chunk_at * 1000),
-                )
-            chunk_count += 1
             pieces.append(delta)
             yield {"type": "chunk", "text": delta}
-        log.info(
-            "[AGENT %s] responder STREAM-END %d chunks", slug, chunk_count,
-        )
     except Exception as exc:
-        log.error("[AGENT %s] responder CRASH: %s", slug, exc)
+        log.error("agent responder failed slug=%s: %s", slug, exc)
     timings["respond_ms"] = int((time.perf_counter() - respond_started) * 1000)
-    log.info("[AGENT %s] responder DONE %dms", slug, timings["respond_ms"])
 
     answer = "".join(pieces).strip()
     if not answer:

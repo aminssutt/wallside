@@ -178,7 +178,7 @@ def _run_with_hard_timeout(fn, timeout_s: float, label: str):
     t.start()
     t.join(timeout_s)
     if t.is_alive():
-        log.warning("[HARD-TIMEOUT] %s exceeded %.1fs — abandoning", label, timeout_s)
+        log.warning("%s exceeded %.1fs hard timeout", label, timeout_s)
         raise TimeoutError(f"{label} exceeded {timeout_s}s")
     try:
         status, payload = q.get_nowait()
@@ -317,8 +317,6 @@ def _run_search_web(chatbot: "GuideChatbot", args: Dict[str, Any]) -> ToolResult
     budget = max(1.0, ENRICHMENT_TIME_BUDGET_SECONDS)
     results_by_variant: List[List[Dict[str, str]]] = []
 
-    import time as _time
-
     # Per-variant hard timeout: 6s is enough for a healthy DDGS response
     # (we measured ~1.3s locally) and caps the damage when the library
     # falls back to Wikipedia OpenSearch and stalls on DNS/TLS inside
@@ -327,10 +325,8 @@ def _run_search_web(chatbot: "GuideChatbot", args: Dict[str, Any]) -> ToolResult
     DDGS_VARIANT_TIMEOUT = 6.0
 
     def _fetch(q: str) -> List[Dict[str, str]]:
-        t0 = _time.perf_counter()
-        log.info("[DDGS] fetch START q=%r", q[:80])
         try:
-            out = _run_with_hard_timeout(
+            return _run_with_hard_timeout(
                 lambda: web_search_results(
                     q,
                     max_results=max_results,
@@ -340,13 +336,10 @@ def _run_search_web(chatbot: "GuideChatbot", args: Dict[str, Any]) -> ToolResult
                 timeout_s=DDGS_VARIANT_TIMEOUT,
                 label=f"ddgs[{q[:40]}]",
             )
-            log.info("[DDGS] fetch DONE %dms -> %d items q=%r", int((_time.perf_counter()-t0)*1000), len(out), q[:80])
-            return out
-        except TimeoutError as exc:
-            log.warning("[DDGS] fetch TIMED OUT after %dms q=%r: %s", int((_time.perf_counter()-t0)*1000), q[:80], exc)
+        except TimeoutError:
             return []
         except Exception as exc:
-            log.warning("[DDGS] fetch FAILED %dms q=%r: %s", int((_time.perf_counter()-t0)*1000), q[:80], exc)
+            log.warning("web_search variant failed q=%r: %s", q[:80], exc)
             return []
 
     # Same trap as run_tools_in_parallel: never use `with ThreadPoolExecutor`
@@ -542,27 +535,12 @@ def run_tools_in_parallel(
     if not calls:
         return []
 
-    import time as _time
-
-    def _timed_handler(name: str, handler, args):
-        t_start = _time.perf_counter()
-        log.info("[TOOL %s] START args=%s", name, {k: str(v)[:60] for k, v in (args or {}).items()})
-        try:
-            result = handler(chatbot, args)
-            dt = int((_time.perf_counter() - t_start) * 1000)
-            log.info("[TOOL %s] DONE %dms ok=%s summary=%s", name, dt, result.ok, result.summary[:80])
-            return result
-        except Exception as exc:
-            dt = int((_time.perf_counter() - t_start) * 1000)
-            log.exception("[TOOL %s] CRASH %dms: %s", name, dt, exc)
-            raise
-
     results: List[ToolResult] = [None] * len(calls)  # type: ignore[assignment]
     # NOTE: do NOT use `with ThreadPoolExecutor(...)` — the context manager
     # calls shutdown(wait=True) on exit, which would block forever on any
-    # stuck thread (DDGS hanging on Wikipedia, genai socket frozen). Python
-    # cannot kill a thread, so we explicitly shutdown(wait=False) and let
-    # zombies die with the worker process.
+    # stuck thread. Python cannot interrupt a thread waiting on a socket,
+    # so we explicitly shutdown(wait=False) and let zombies die with the
+    # worker process.
     executor = ThreadPoolExecutor(max_workers=max(1, min(max_workers, len(calls))))
     try:
         future_to_index = {}
@@ -576,11 +554,8 @@ def run_tools_in_parallel(
                     error="unknown_tool",
                 )
                 continue
-            future_to_index[executor.submit(_timed_handler, call.name, handler, call.args)] = index
+            future_to_index[executor.submit(handler, chatbot, call.args)] = index
 
-        batch_started = _time.perf_counter()
-        completed = 0
-        pending = len(future_to_index)
         HARD_CAP_SECONDS = 20.0
         try:
             for future in as_completed(future_to_index, timeout=HARD_CAP_SECONDS):
@@ -588,44 +563,24 @@ def run_tools_in_parallel(
                 call = calls[index]
                 try:
                     results[index] = future.result(timeout=0.1)
-                    completed += 1
-                    pending -= 1
-                    log.info(
-                        "[TOOLS-BATCH] progress %d/%d elapsed=%.2fs",
-                        completed,
-                        len(future_to_index),
-                        _time.perf_counter() - batch_started,
-                    )
                 except Exception as exc:
-                    log.exception("[TOOLS-BATCH] %s failed: %s", call.name, exc)
+                    log.warning("tool %s failed: %s", call.name, exc)
                     results[index] = ToolResult(
-                        name=call.name, ok=False, summary=f"Tool {call.name} failed.", error=str(exc),
+                        name=call.name, ok=False,
+                        summary=f"Tool {call.name} failed.", error=str(exc),
                     )
-                    pending -= 1
-        except Exception as exc:
-            log.warning(
-                "[TOOLS-BATCH] HARD CAP hit after %.2fs — %d pending, reason=%s",
-                _time.perf_counter() - batch_started,
-                pending,
-                exc.__class__.__name__,
-            )
+        except Exception:
+            log.warning("tools batch hit %.1fs cap — partial results", HARD_CAP_SECONDS)
             for future, index in future_to_index.items():
                 if results[index] is None:
                     future.cancel()
                     call = calls[index]
-                    log.warning("[TOOLS-BATCH] marking %s as hang_timeout", call.name)
                     results[index] = ToolResult(
-                        name=call.name,
-                        ok=False,
-                        summary=f"Tool {call.name} timed out after {HARD_CAP_SECONDS}s.",
+                        name=call.name, ok=False,
+                        summary=f"Tool {call.name} timed out.",
                         error="hang_timeout",
                     )
     finally:
-        # wait=False: return immediately even if threads are stuck.
-        # cancel_futures=True: drop anything still in the queue.
-        log.info("[TOOLS-BATCH] shutting down executor (wait=False)")
         executor.shutdown(wait=False, cancel_futures=True)
-        log.info("[TOOLS-BATCH] executor.shutdown returned")
 
-    log.info("[TOOLS-BATCH] FULLY DONE completed=%d/%d", completed, len(future_to_index))
     return [r for r in results if r is not None]
