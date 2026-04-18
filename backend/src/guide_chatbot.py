@@ -1171,28 +1171,46 @@ def youtube_video_suggestion(
     effective_region = region or "wt-wt"
 
     if DDGS is not None and ENABLE_DEEP_WEB_ENRICHMENT:
-        try:
-            search_queries = [
-                f"site:youtube.com/watch {query}",
-                f"{query} tutorial",
-                f"{query} tutoriel",      # FR
-                f"{query} how to",        # EN
-                f"{query} \ud29c\ud1a0\ub9ac\uc5bc",  # KO (튜토리얼)
-                f"{query} review",
-            ]
-            request_timeout = max(1, int(min(6, max(1.0, float(time_budget_seconds or 0.0)))))
+        # Keep this small and parallel: earlier this loop ran 6 sequential
+        # DDGS queries and dominated total agent latency (~4s on a cold
+        # pipeline). Two queries fired concurrently cover the common cases
+        # (direct YouTube match + localized tutorial) while keeping TTFT
+        # under ~1.5s.
+        locale_suffix = {
+            "fr-fr": "tutoriel",
+            "kr-kr": "\ud29c\ud1a0\ub9ac\uc5bc",  # 튜토리얼
+            "de-de": "tutorial",
+            "es-es": "tutorial",
+            "it-it": "tutorial",
+        }.get(effective_region, "tutorial")
+        search_queries = [
+            f"site:youtube.com/watch {query}",
+            f"{query} {locale_suffix}",
+        ]
+        request_timeout = max(1, int(min(4, max(1.0, float(time_budget_seconds or 0.0)))))
+
+        def _run_one(q: str) -> List[Dict[str, str]]:
             try:
-                ddgs_ctx = DDGS(timeout=request_timeout)
-            except TypeError:
-                ddgs_ctx = DDGS()
-            with ddgs_ctx as ddgs:
-                for search_query in search_queries:
-                    if (time.perf_counter() - started_at) > max(0.2, time_budget_seconds):
+                try:
+                    ctx = DDGS(timeout=request_timeout)
+                except TypeError:
+                    ctx = DDGS()
+                with ctx as ddgs:
+                    return list(ddgs.text(q, max_results=10, region=effective_region) or [])
+            except Exception as exc:
+                log.warning("YouTube DDG sub-query %r failed: %s", q, exc)
+                return []
+
+        from concurrent.futures import ThreadPoolExecutor as _TPE, as_completed as _as_completed
+
+        try:
+            with _TPE(max_workers=len(search_queries)) as ex:
+                futures = [ex.submit(_run_one, q) for q in search_queries]
+                deadline = started_at + max(0.2, time_budget_seconds)
+                for future in _as_completed(futures, timeout=max(0.2, time_budget_seconds)):
+                    if time.perf_counter() > deadline:
                         break
-                    results = ddgs.text(search_query, max_results=10, region=effective_region)
-                    for item in results:
-                        if (time.perf_counter() - started_at) > max(0.2, time_budget_seconds):
-                            break
+                    for item in future.result() or []:
                         title = str(item.get("title", "")).strip()
                         url = str(item.get("href", "")).strip()
                         snippet = str(item.get("body", "")).strip()

@@ -255,32 +255,34 @@ def _run_search_web(chatbot: "GuideChatbot", args: Dict[str, Any]) -> ToolResult
     region = _region_for_lang(lang)
 
     official = _official_domains_for(chatbot)
-    query_variants: List[str] = [query]
+    query_variants: List[tuple[str, float]] = [(query, max(1.0, ENRICHMENT_TIME_BUDGET_SECONDS))]
     if official and "site:" not in query.lower():
-        # Cap to the first 3 domains so the ``OR`` chain stays sane.
-        site_clause = " OR ".join(f"site:{d}" for d in official[:3])
-        query_variants.append(f"{query} {site_clause}")
+        # A single site: clause is reliable; chaining ``site:A OR site:B OR
+        # site:C`` regularly hangs DDGS for 3-5s and returns nothing. Use
+        # only the primary domain and give it a tighter budget so a slow
+        # official site does not delay the generic variant.
+        query_variants.append((f"{query} site:{official[0]}", 1.5))
 
-    budget = max(1.0, ENRICHMENT_TIME_BUDGET_SECONDS)
     results_by_variant: List[List[Dict[str, str]]] = []
 
-    def _fetch(q: str) -> List[Dict[str, str]]:
+    def _fetch(q: str, q_budget: float) -> List[Dict[str, str]]:
         try:
             return web_search_results(
                 q,
                 max_results=max_results,
-                time_budget_seconds=budget,
+                time_budget_seconds=q_budget,
                 region=region,
             ) or []
         except Exception as exc:
             log.warning("web_search_results failed for %r: %s", q, exc)
             return []
 
+    max_budget = max(b for _, b in query_variants)
     with ThreadPoolExecutor(max_workers=len(query_variants)) as ex:
-        futures = [ex.submit(_fetch, variant) for variant in query_variants]
-        for future in as_completed(futures):
+        futures = [ex.submit(_fetch, q, b) for q, b in query_variants]
+        for future in as_completed(futures, timeout=max_budget + 1.0):
             try:
-                results_by_variant.append(future.result(timeout=budget + 1.0))
+                results_by_variant.append(future.result(timeout=0.1))
             except Exception:
                 results_by_variant.append([])
 
@@ -425,8 +427,8 @@ class ToolCall:
 # all the way up to Gunicorn which then SIGKILLs the whole worker. Keep
 # these tight: the agent is allowed to return a partial evidence block if
 # one tool is slow.
-_PER_TOOL_TIMEOUT_SECONDS = 15.0
-_BATCH_TIMEOUT_SECONDS = 25.0
+_PER_TOOL_TIMEOUT_SECONDS = 8.0
+_BATCH_TIMEOUT_SECONDS = 12.0
 
 
 def run_tools_in_parallel(
