@@ -264,25 +264,51 @@ def _run_search_web(chatbot: "GuideChatbot", args: Dict[str, Any]) -> ToolResult
     budget = max(1.0, ENRICHMENT_TIME_BUDGET_SECONDS)
     results_by_variant: List[List[Dict[str, str]]] = []
 
+    import time as _time
+
     def _fetch(q: str) -> List[Dict[str, str]]:
+        t0 = _time.perf_counter()
+        log.info("[DDGS] fetch START q=%r", q[:80])
         try:
-            return web_search_results(
+            out = web_search_results(
                 q,
                 max_results=max_results,
                 time_budget_seconds=budget,
                 region=region,
             ) or []
+            log.info("[DDGS] fetch DONE %dms -> %d items q=%r", int((_time.perf_counter()-t0)*1000), len(out), q[:80])
+            return out
         except Exception as exc:
-            log.warning("web_search_results failed for %r: %s", q, exc)
+            log.warning("[DDGS] fetch FAILED %dms q=%r: %s", int((_time.perf_counter()-t0)*1000), q[:80], exc)
             return []
 
-    with ThreadPoolExecutor(max_workers=len(query_variants)) as ex:
+    # Same trap as run_tools_in_parallel: never use `with ThreadPoolExecutor`
+    # here. If DDGS hangs on a network read, Python cannot kill the thread,
+    # and the context manager's shutdown(wait=True) blocks the entire
+    # request. Exit with wait=False and accept zombie threads.
+    ex = ThreadPoolExecutor(max_workers=len(query_variants))
+    fetch_deadline = budget + 2.0
+    try:
         futures = [ex.submit(_fetch, variant) for variant in query_variants]
-        for future in as_completed(futures):
-            try:
-                results_by_variant.append(future.result(timeout=budget + 1.0))
-            except Exception:
-                results_by_variant.append([])
+        try:
+            for future in as_completed(futures, timeout=fetch_deadline):
+                try:
+                    results_by_variant.append(future.result(timeout=0.1))
+                except Exception:
+                    results_by_variant.append([])
+        except Exception:
+            log.warning("[DDGS] variants deadline %.1fs hit — collecting what we have", fetch_deadline)
+            for f in futures:
+                if f.done():
+                    try:
+                        results_by_variant.append(f.result(timeout=0.1))
+                    except Exception:
+                        results_by_variant.append([])
+                else:
+                    f.cancel()
+                    results_by_variant.append([])
+    finally:
+        ex.shutdown(wait=False, cancel_futures=True)
 
     # Merge: prefer items that appear in the ``site:<official>`` variant
     # (they come from a manufacturer domain) but keep diversity so the
@@ -450,7 +476,13 @@ def run_tools_in_parallel(
             raise
 
     results: List[ToolResult] = [None] * len(calls)  # type: ignore[assignment]
-    with ThreadPoolExecutor(max_workers=max(1, min(max_workers, len(calls)))) as executor:
+    # NOTE: do NOT use `with ThreadPoolExecutor(...)` — the context manager
+    # calls shutdown(wait=True) on exit, which would block forever on any
+    # stuck thread (DDGS hanging on Wikipedia, genai socket frozen). Python
+    # cannot kill a thread, so we explicitly shutdown(wait=False) and let
+    # zombies die with the worker process.
+    executor = ThreadPoolExecutor(max_workers=max(1, min(max_workers, len(calls))))
+    try:
         future_to_index = {}
         for index, call in enumerate(calls):
             handler = _DISPATCH.get(call.name)
@@ -467,10 +499,6 @@ def run_tools_in_parallel(
         batch_started = _time.perf_counter()
         completed = 0
         pending = len(future_to_index)
-        # Hard cap of 20s — if a tool hangs (DDGS stuck on Wikipedia, genai
-        # socket frozen, FAISS deadlock), we don't want the ThreadPool's
-        # ``with`` __exit__ to wait for it forever. Cancel pending futures
-        # and return partial results instead.
         HARD_CAP_SECONDS = 20.0
         try:
             for future in as_completed(future_to_index, timeout=HARD_CAP_SECONDS):
@@ -493,7 +521,6 @@ def run_tools_in_parallel(
                     )
                     pending -= 1
         except Exception as exc:
-            # as_completed timeout OR any other failure: log + mark pending as timeout
             log.warning(
                 "[TOOLS-BATCH] HARD CAP hit after %.2fs — %d pending, reason=%s",
                 _time.perf_counter() - batch_started,
@@ -511,7 +538,12 @@ def run_tools_in_parallel(
                         summary=f"Tool {call.name} timed out after {HARD_CAP_SECONDS}s.",
                         error="hang_timeout",
                     )
-        log.info("[TOOLS-BATCH] EXITING with=ThreadPoolExecutor, pending=%d", pending)
+    finally:
+        # wait=False: return immediately even if threads are stuck.
+        # cancel_futures=True: drop anything still in the queue.
+        log.info("[TOOLS-BATCH] shutting down executor (wait=False)")
+        executor.shutdown(wait=False, cancel_futures=True)
+        log.info("[TOOLS-BATCH] executor.shutdown returned")
 
     log.info("[TOOLS-BATCH] FULLY DONE completed=%d/%d", completed, len(future_to_index))
     return [r for r in results if r is not None]
