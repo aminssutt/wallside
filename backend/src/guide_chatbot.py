@@ -469,6 +469,81 @@ LANG_QUESTION_RESPONSE = {
     ),
 }
 
+
+# --- Small-talk / greeting detection --------------------------------------
+# The planner runs with function_calling_config.mode = "ANY", so it always
+# emits at least one tool call. That means a pure greeting like "ça va ?"
+# would waste a planner + tools + responder round-trip chasing
+# "Citroen C5 Aircross 2023 how are you" on the web. Catch these before
+# the agent even starts.
+
+_GREETING_RE = re.compile(
+    r"(?ix)"
+    r"^\s*(?:"
+    # FR
+    r"salut|bonjour|bonsoir|coucou|hey|hi|hello|yo|sup|allo|all[oô]"
+    r"|ca\s*va|ça\s*va|comment\s+(?:allez[- ]vous|vas[- ]tu|ça\s+va|ca\s+va|tu\s+vas)"
+    # EN
+    r"|how\s+(?:are\s+(?:you|u)|r\s+u|do\s+you\s+do|is\s+it\s+going|'s\s+it\s+going)"
+    r"|what'?s\s*up|whats\s*up|wassup"
+    # thanks
+    r"|merci(?:\s+beaucoup|\s+bien|\s+a\s+toi|\s+a\s+vous)?|thanks?|thx|thank\s+you"
+    # sign-offs
+    r"|au\s+revoir|bye|goodbye|a\s+bient[oô]t|a\s+plus|a\s+la\s+prochaine"
+    # KO basics
+    r"|\uc548\ub155|\ubc18\uac11|\uac10\uc0ac|\uac10\uc0ac\ud569\ub2c8\ub2e4"
+    r")"
+    r"[\s!?.,\u2019'\"\uc694\uc608]*$"
+)
+
+
+def _is_pure_greeting(question: str) -> bool:
+    """True when the whole message is small-talk / a greeting / a thanks.
+
+    Intentionally strict: matches only messages that are entirely social
+    fluff (<= 60 chars, no actual request verb). A message like
+    ``"Salut, comment changer les plaquettes ?"`` must NOT match.
+    """
+    text = (question or "").strip()
+    if not text or len(text) > 60:
+        return False
+    return bool(_GREETING_RE.match(text))
+
+
+GREETING_RESPONSES = {
+    "fr": (
+        "Salut ! Tout va bien, je suis l'assistant spécialisé pour le {vehicle}. "
+        "Posez-moi une question technique (entretien, voyants, procédure, spécifications) "
+        "et je cherche la réponse dans le manuel et sur les sources officielles."
+    ),
+    "en": (
+        "Hi! Doing great — I'm the assistant specialised in the {vehicle}. "
+        "Ask me a technical question (maintenance, warning lights, procedures, "
+        "specs) and I'll dig through the manual and trusted sources."
+    ),
+    "ko": (
+        "\uc548\ub155\ud558\uc138\uc694! \uc800\ub294 {vehicle} \uc804\uc6a9 \uc5b4\uc2dc\uc2a4\ud134\ud2b8\uc785\ub2c8\ub2e4. "
+        "\uc815\ube44, \uacbd\uace0\ub4f1, \uc808\ucc28, \uc0ac\uc591 \ub4f1 \uae30\uc220\uc801 \uc9c8\ubb38\uc744 \ud574\uc8fc\uc138\uc694. "
+        "\uba54\ub274\uc5bc\uacfc \uacf5\uc2dd \uc790\ub8cc\uc5d0\uc11c \ub2f5\uc744 \ucc3e\uc544\ub4dc\ub9ac\uaca0\uc2b5\ub2c8\ub2e4."
+    ),
+}
+
+THANKS_RESPONSES = {
+    "fr": "Avec plaisir ! N'hésitez pas si vous avez d'autres questions sur le {vehicle}.",
+    "en": "You're welcome! Feel free to ask anything else about the {vehicle}.",
+    "ko": "\ucc9c\ub9cc\uc5d0\uc694! {vehicle}\uc5d0 \ub300\ud574 \ub2e4\ub978 \uad81\uae08\ud55c \uc810\uc774 \uc788\uc73c\uc2dc\uba74 \uc5b8\uc81c\ub4e0 \ubb3c\uc5b4\ubcf4\uc138\uc694.",
+}
+
+_THANKS_RE = re.compile(r"(?i)^\s*(?:merci|thanks?|thx|thank\s+you|\uac10\uc0ac)")
+
+
+def canned_smalltalk_reply(question: str, vehicle_name: str, lang: str) -> Optional[str]:
+    """Canned friendly response for greetings / thanks. ``None`` otherwise."""
+    if not _is_pure_greeting(question):
+        return None
+    bank = THANKS_RESPONSES if _THANKS_RE.match(question or "") else GREETING_RESPONSES
+    return bank.get(lang, bank["fr"]).format(vehicle=vehicle_name)
+
 VIDEO_LABELS = {
     "fr": "Video YouTube recommandee:",
     "en": "Recommended YouTube video:",
@@ -2431,6 +2506,14 @@ RÈGLES STRICTES :
         """Handle greetings / language meta questions / off-topic before
         paying for a planner call. Returns the canned response when one
         applies, otherwise ``None`` so the agent runs."""
+        # Pure small-talk ("salut", "ça va", "merci", "bye") — answer
+        # conversationally without ever calling the planner. The planner
+        # runs with mode=ANY so it would otherwise force a tool call
+        # ("Citroen C5 Aircross 2023 how are you" web search).
+        smalltalk = canned_smalltalk_reply(question, self.guide.name, lang)
+        if smalltalk is not None:
+            return smalltalk
+
         if is_language_capability_question(question):
             return LANG_QUESTION_RESPONSE.get(lang, LANG_QUESTION_RESPONSE["fr"])
 
