@@ -17,7 +17,7 @@ from typing import List, Optional
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from flask import Flask, request, jsonify, send_from_directory, Response, stream_with_context
+from flask import Flask, request, jsonify, redirect, send_from_directory, Response, stream_with_context
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -225,11 +225,13 @@ def get_guide(slug):
         }), 404
 
     guide_payload = guide.to_dict()
-    # Tell the frontend whether /api/guides/<slug>/pdf will actually serve a
-    # file. Lots of historical guides are indexed (FAISS + BM25 present) but
-    # their source PDF was never copied into car data/, and a dead "Preview"
-    # button is worse than no button.
-    guide_payload["pdf_available"] = _find_guide_pdf(slug) is not None
+    # The preview button should be shown when EITHER a local PDF exists
+    # under car data/ OR the guide's manifest carries an external pdf_url
+    # (inspirauto.fr/getPdf.php/?file=...). to_dict() already exposes
+    # pdf_url so the frontend can open it directly with #page=N anchors.
+    has_external = bool(guide_payload.get("pdf_url"))
+    has_local = _find_guide_pdf(slug) is not None
+    guide_payload["pdf_available"] = has_local or has_external
 
     return jsonify({
         "success": True,
@@ -290,14 +292,22 @@ def serve_guide_pdf(slug, filename=None):
         return jsonify({"error": "Invalid request"}), 400
 
     pdf_path = _find_guide_pdf(slug, filename=filename)
-    if pdf_path is None:
-        return jsonify({"error": "PDF not found"}), 404
+    if pdf_path is not None:
+        resp = send_from_directory(
+            str(pdf_path.parent), pdf_path.name, mimetype="application/pdf"
+        )
+        resp.headers["X-Frame-Options"] = "SAMEORIGIN"
+        return resp
 
-    resp = send_from_directory(
-        str(pdf_path.parent), pdf_path.name, mimetype="application/pdf"
-    )
-    resp.headers["X-Frame-Options"] = "SAMEORIGIN"
-    return resp
+    # No local PDF — if the guide manifest carries an inspirauto pdf_url,
+    # redirect the browser to it so the built-in proof modal can still
+    # open the right page via the #page=N anchor.
+    guide = guide_manager.get_guide(slug)
+    external_url = str(getattr(guide, "pdf_url", "") or "").strip()
+    if external_url:
+        return redirect(external_url, code=302)
+
+    return jsonify({"error": "PDF not found"}), 404
 
 
 

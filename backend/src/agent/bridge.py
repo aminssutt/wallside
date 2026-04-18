@@ -37,10 +37,14 @@ def _extract_youtube_id(url: str) -> str:
     return match.group(1) if match else ""
 
 
-def _legacy_manual_source(citation: Citation, slug: str) -> Dict[str, str]:
+def _legacy_manual_source(
+    citation: Citation,
+    slug: str,
+    pdf_url: str = "",
+) -> Dict[str, str]:
     label = citation.source_file or citation.label or "manuel.pdf"
     page = citation.page or "?"
-    return {
+    source: Dict[str, str] = {
         "kind": "manual",
         "label": label,
         "page": page,
@@ -48,6 +52,14 @@ def _legacy_manual_source(citation: Citation, slug: str) -> Dict[str, str]:
         "excerpt": "",
         "display": f"Manual: {label}, page {page}",
     }
+    # When the guide's manifest carries an inspirauto pdf_url, thread it
+    # through so the frontend's proof modal opens the external PDF
+    # anchored on the right page (#page=N) instead of hitting a dead
+    # /api/guides/<slug>/pdf route for guides whose source PDF was never
+    # copied into car data/.
+    if pdf_url:
+        source["pdf_url"] = pdf_url
+    return source
 
 
 def _legacy_web_source(citation: Citation) -> Dict[str, str]:
@@ -102,6 +114,7 @@ def stream_agent_legacy_events(
     (``event_type == "chunk"`` / ``"source_item"`` / …).
     """
     slug = chatbot.guide.slug
+    guide_pdf_url = str(getattr(chatbot.guide, "pdf_url", "") or "")
     response_parts: List[str] = []
     sources_emitted = False
 
@@ -139,7 +152,9 @@ def stream_agent_legacy_events(
             video_payload: Optional[Dict[str, str]] = None
             for citation in citations:
                 if citation.kind == "manual":
-                    manual_and_web.append(_legacy_manual_source(citation, slug))
+                    manual_and_web.append(
+                        _legacy_manual_source(citation, slug, pdf_url=guide_pdf_url)
+                    )
                 elif citation.kind == "web":
                     manual_and_web.append(_legacy_web_source(citation))
                 elif citation.kind == "youtube":
