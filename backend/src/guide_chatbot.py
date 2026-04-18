@@ -523,7 +523,11 @@ def format_web_context(web_results: List[Dict[str, str]], lang: str) -> str:
 
 
 def format_sources(documents: List[Document], web_results: Optional[List[Dict[str, str]]] = None) -> str:
-    """Build a deterministic source block from manual docs + optional web refs."""
+    """Build a deterministic source block from manual docs + optional web refs.
+
+    Returns an empty string when nothing is cite-worthy so the caller can skip
+    the Sources section entirely instead of displaying a misleading fallback.
+    """
     refs: List[str] = []
 
     seen_manual = set()
@@ -549,12 +553,27 @@ def format_sources(documents: List[Document], web_results: Optional[List[Dict[st
             refs.append(ref)
 
     if not refs:
-        return (
-            "Sources:\n"
-            "- Aucune page precise du manuel retrouvee pour cette question (reponse generale)."
-        )
+        return ""
 
     return "Sources:\n" + "\n".join(f"- {ref}" for ref in refs[:8])
+
+
+_UNAVAILABLE_ANSWER_RE = re.compile(
+    r"(?is)"
+    r"(?:pas\s+disponible|non\s+disponible|n[e']?\s*est\s+pas\s+disponible"
+    r"|ne\s+(?:figure|apparait|apparai[tsî]t)\s+pas\s+dans\s+(?:le\s+)?manuel"
+    r"|(?:le\s+)?manuel\s+(?:ne\s+(?:contient|mentionne|pr[eé]cise|d[eé]crit|indique|fournit|couvre)\s+pas"
+    r"|fourni\s+ne\s+(?:contient|mentionne|pr[eé]cise|d[eé]crit|indique|fournit|couvre)\s+pas)"
+    r"|je\s+n[e']?\s*ai\s+pas\s+(?:trouv[eé]|d[e']?\s*information)"
+    r"|aucune\s+information\s+(?:n[e']?\s*est\s+)?(?:disponible|pr[eé]sente)"
+    r"|not\s+available|no\s+information|i\s+(?:cannot|can['\s]*t|don['\s]*t|do\s+not)\s+find"
+    r"|this\s+manual\s+does\s+not)"
+)
+
+
+def looks_unavailable_answer(text: str) -> bool:
+    """True when the LLM openly says the manual/context does not cover the question."""
+    return bool(_UNAVAILABLE_ANSWER_RE.search((text or "").strip()))
 
 
 def is_vehicle_related(question: str) -> Tuple[bool, float]:
@@ -819,14 +838,15 @@ class GuideChatbot:
 REGLES STRICTES:
 1) {lang_instruction}
 2) Base-toi UNIQUEMENT sur le contexte fourni (manuel du vehicule et web).
-3) JAMAIS d'invention: si une information (valeur technique, procedure, specification) n'est PAS dans le contexte fourni, dis-le clairement. Exemple: "Cette information n'est pas disponible dans le manuel fourni."
-4) Ne JAMAIS inventer de valeurs chiffrees (couples de serrage, pressions, capacites, intervalles) qui ne sont pas explicitement dans le contexte.
-5) Le contexte web est un complement. En cas de conflit avec le manuel, le manuel prime TOUJOURS.
-6) Reponds de facon complete et detaillee. Pour les procedures en etapes, donne TOUTES les etapes.
-7) Pas de markdown (pas de ###, **, ```, etc.). Texte brut uniquement avec des listes numerotees pour les etapes.
-8) N'ajoute PAS de section "Sources" (elle sera ajoutee automatiquement).
-9) Orthographe, grammaire et ponctuation impeccables. Phrases claires et naturelles.
-10) Personnalise chaque reponse pour le {self.guide.name}: mentionne le nom du vehicule quand c'est pertinent."""
+3) Ne JAMAIS inventer de valeurs chiffrees (couples de serrage, pressions, capacites, intervalles) qui ne sont pas explicitement dans le contexte.
+4) Si le manuel ne couvre pas la question MAIS que le contexte web contient l'information, UTILISE le web et reponds normalement en precisant que la source est externe.
+5) Si ni le manuel ni le web ne permettent de repondre, dis-le en une phrase courte et propose 2-3 pistes generiques pour guider l'utilisateur (diagnostic, ressource constructeur, forum specialise). N'invente aucune donnee chiffree.
+6) En cas de conflit entre manuel et web, le manuel prime TOUJOURS.
+7) Reponds de facon complete et detaillee. Pour les procedures en etapes, donne TOUTES les etapes.
+8) Pas de markdown (pas de ###, **, ```, etc.). Texte brut uniquement avec des listes numerotees pour les etapes.
+9) N'ajoute PAS de section "Sources" (elle sera ajoutee automatiquement).
+10) Orthographe, grammaire et ponctuation impeccables. Phrases claires et naturelles.
+11) Personnalise chaque reponse pour le {self.guide.name}: mentionne le nom du vehicule quand c'est pertinent."""
 
         # --- User content ---
         user_parts = []
@@ -850,7 +870,7 @@ REGLES STRICTES:
                 config=genai_types.GenerateContentConfig(
                     system_instruction=system_instruction,
                     temperature=0.15,
-                    max_output_tokens=800,
+                    max_output_tokens=3500,
                     http_options=genai_types.HttpOptions(timeout=LLM_TIMEOUT_SECONDS * 1000),
                 ),
             )
@@ -861,10 +881,19 @@ REGLES STRICTES:
             if not answer:
                 answer = "Je n'ai pas trouve de reponse exploitable dans le manuel."
 
+            # If the model explicitly says the info is not in the manual,
+            # keep only web refs (if any) and drop manual pages that didn't
+            # actually help. No citations at all when both are empty.
+            if looks_unavailable_answer(answer):
+                relevant_sources_block = format_sources([], web_results=web_results)
+            else:
+                relevant_sources_block = sources_block
+
             blocks = [answer]
             if video_block:
                 blocks.append(video_block)
-            blocks.append(sources_block)
+            if relevant_sources_block:
+                blocks.append(relevant_sources_block)
             final_answer = "\n\n".join(blocks)
 
             # Save to session history
@@ -878,9 +907,7 @@ REGLES STRICTES:
             log.error("LLM generation failed for %s: %s", self.guide.slug, exc)
             return (
                 "Erreur:\n"
-                "Impossible de generer une reponse. Veuillez reessayer.\n\n"
-                "Sources:\n"
-                "- Indisponibles (erreur interne)."
+                "Impossible de generer une reponse. Veuillez reessayer."
             )
 
     def get_history(self, session_id: str = "default") -> list:

@@ -771,6 +771,28 @@
     0 12px 22px rgba(90, 69, 36, 0.42);
 }
 
+.plan-cta-locked,
+.plan-cta-locked:hover,
+.plan-cta-locked:focus {
+  opacity: 0.62;
+  filter: grayscale(0.35);
+  cursor: not-allowed;
+  pointer-events: none;
+  transform: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 6px 14px rgba(0, 0, 0, 0.28);
+}
+
+.plan-cta-locked::after {
+  content: '\2022';
+  margin-left: 10px;
+  color: rgba(255, 246, 220, 0.7);
+  font-size: 1.4em;
+  line-height: 0;
+  vertical-align: middle;
+}
+
 .waitlist-backdrop {
   position: fixed;
   inset: 0;

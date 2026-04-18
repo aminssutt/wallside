@@ -44,6 +44,7 @@ const COPY = {
       'Deep diagnostics workflow guidance',
     ],
     premiumPlanCta: 'Join premium waitlist',
+    premiumPlanLocked: 'Coming soon',
     waitlistTitle: 'Join premium waitlist',
     waitlistSubtitle: 'Enter your email to be notified when premium opens.',
     waitlistPlaceholder: 'you@example.com',
@@ -90,6 +91,7 @@ const COPY = {
       'Guidage de workflow de diagnostic avancé',
     ],
     premiumPlanCta: "Rejoindre la liste d'attente premium",
+    premiumPlanLocked: 'Bientôt disponible',
     waitlistTitle: "Rejoindre la liste d'attente premium",
     waitlistSubtitle: 'Ajoutez votre e-mail pour être prévenu de l\'ouverture.',
     waitlistPlaceholder: 'vous@exemple.com',
@@ -136,6 +138,7 @@ const COPY = {
       '딥 진단 워크플로 가이드',
     ],
     premiumPlanCta: '프리미엄 대기자 등록',
+    premiumPlanLocked: '곧 공개',
     waitlistTitle: '프리미엄 대기자 등록',
     waitlistSubtitle: '프리미엄 오픈 알림을 받을 이메일을 입력하세요.',
     waitlistPlaceholder: 'you@example.com',
@@ -451,8 +454,8 @@ export default function LandingPage() {
                   <div className="chat-dot"></div>
                 </div>
                 <div className="chat-title">
-                  <img src="/logo-128.png" alt="CarChat" className="chat-title-icon" />
-                  CarChat
+                  <img src="/carchat-logo.png" alt="CarChat" className="chat-title-icon" />
+                  CarChat AI
                 </div>
               </div>
               
@@ -577,8 +580,13 @@ export default function LandingPage() {
                 <li key={feature}>{feature}</li>
               ))}
             </ul>
-            <button className="plan-cta plan-cta-premium" onClick={openWaitlistModal}>
-              {t.premiumPlanCta}
+            <button
+              type="button"
+              className="plan-cta plan-cta-premium plan-cta-locked"
+              disabled
+              aria-disabled="true"
+            >
+              {t.premiumPlanLocked}
             </button>
           </Motion.article>
         </div>

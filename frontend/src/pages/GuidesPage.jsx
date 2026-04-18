@@ -73,7 +73,14 @@ function GuidesPage() {
   const [segmentPickerOpen, setSegmentPickerOpen] = useState(false)
   const [brandSearchTerm, setBrandSearchTerm] = useState('')
   const [showExitConfirm, setShowExitConfirm] = useState(false)
-  const [activeGuideSlug, setActiveGuideSlug] = useState('')
+  const [activeGuideSlug, setActiveGuideSlug] = useState(() => {
+    if (typeof window === 'undefined') return ''
+    try {
+      return window.sessionStorage.getItem('carchat_active_guide_slug') || ''
+    } catch {
+      return ''
+    }
+  })
   const [carouselWidth, setCarouselWidth] = useState(0)
   const [isCompactNav, setIsCompactNav] = useState(
     typeof window !== 'undefined' ? window.innerWidth <= COMPACT_MENU_BREAKPOINT : false,
@@ -125,9 +132,13 @@ function GuidesPage() {
           manual_count: Number(guide.manual_count || 1),
         }))
         const sortedGuides = guidesList.sort((a, b) => a.name.localeCompare(b.name))
-        const apiBrands = (data.brands || [])
-          .map((value) => String(value || '').trim())
-          .filter(Boolean)
+        const apiBrands = [
+          ...new Set(
+            (data.brands || [])
+              .map((value) => String(value || '').trim())
+              .filter(Boolean),
+          ),
+        ]
         const derivedBrands = [...new Set(guidesList.map((guide) => guide.brand).filter(Boolean))]
         const sortedBrands = (apiBrands.length ? apiBrands : derivedBrands)
           .sort((a, b) => a.localeCompare(b))
@@ -272,6 +283,21 @@ function GuidesPage() {
     }
   }, [filteredGuides])
 
+  // Persist the centered guide so returning from ChatPage lands on the same
+  // card instead of resetting the carousel to the first entry.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      if (activeGuideSlug) {
+        window.sessionStorage.setItem('carchat_active_guide_slug', activeGuideSlug)
+      } else {
+        window.sessionStorage.removeItem('carchat_active_guide_slug')
+      }
+    } catch {
+      /* storage unavailable — ignore */
+    }
+  }, [activeGuideSlug])
+
   useEffect(() => {
     const viewport = carouselViewportRef.current
     if (!viewport) return undefined
@@ -306,11 +332,16 @@ function GuidesPage() {
 
     const seen = new Set()
     const cards = []
-    const offsets = total <= 3
-      ? [-1, 0, 1]
-      : carouselWidth > 0 && carouselWidth < 760
-        ? COMPACT_CAROUSEL_OFFSETS
-        : CAROUSEL_OFFSETS
+    // When a single guide matches (e.g. brand search narrowed to one model)
+    // render only the centered card. Otherwise pick a symmetric offset range
+    // that gives the 3D carousel its depth.
+    const offsets = total === 1
+      ? [0]
+      : total <= 3
+        ? [-1, 0, 1]
+        : carouselWidth > 0 && carouselWidth < 760
+          ? COMPACT_CAROUSEL_OFFSETS
+          : CAROUSEL_OFFSETS
 
     offsets.forEach((offset) => {
       const nextIndex = wrapIndex(safeActiveIndex + offset, total)
