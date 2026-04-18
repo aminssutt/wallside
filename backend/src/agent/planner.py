@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional, TYPE_CHECKING
 from google.genai import types as genai_types
 
 from ..config import LLM_TIMEOUT_SECONDS
+from .safety import SAFETY_GUARDRAIL
 from .schemas import TOOL_NAMES, build_tool_declarations
 from .tools import ToolCall
 
@@ -63,12 +64,16 @@ def plan_tool_calls(
     history_block: str,
     default_model: str,
     timeout_seconds: Optional[int] = None,
+    safety_notice: str = "",
 ) -> List[ToolCall]:
     """Ask the planner model which tools to run.
 
     Returns an ordered list of tool calls. An empty list is a valid outcome
     and means the responder should answer from history alone (e.g. for
     a pure greeting).
+
+    ``safety_notice`` is injected into the planner system prompt when the
+    safety triage flagged soft-injection hints in the user question.
     """
     model = _resolve_planner_model(default_model)
     tools = build_tool_declarations()
@@ -85,6 +90,10 @@ def plan_tool_calls(
         else "No prior conversation."
     )
 
+    system_instruction = _PLANNER_SYSTEM_PROMPT + SAFETY_GUARDRAIL
+    if safety_notice:
+        system_instruction += f"\n\n{safety_notice}"
+
     prompt = (
         f"Vehicle: {vehicle_name}\n"
         f"{lang_hint}\n"
@@ -99,7 +108,7 @@ def plan_tool_calls(
             model=model,
             contents=prompt,
             config=genai_types.GenerateContentConfig(
-                system_instruction=_PLANNER_SYSTEM_PROMPT,
+                system_instruction=system_instruction,
                 temperature=0.0,
                 tools=tools,
                 tool_config=genai_types.ToolConfig(

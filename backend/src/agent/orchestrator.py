@@ -23,6 +23,7 @@ from .responder import (
     render_sources_block,
     stream_answer,
 )
+from .safety import SafetyVerdict, assess_input_safety
 from .tools import Citation, ToolCall, ToolResult, run_tools_in_parallel
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -92,12 +93,35 @@ def run_agent(
     lang: str,
     session_id: str = "default",
 ) -> AgentAnswer:
-    """End-to-end run: plan → execute tools → compose answer."""
+    """End-to-end run: safety triage → plan → tools → answer."""
     timings: dict = {}
     t0 = time.perf_counter()
 
     history = chatbot._get_session_history(session_id)
     history_block = _build_history_block(history)
+
+    # --- Stage 0: safety triage --------------------------------------------
+    verdict = assess_input_safety(
+        question,
+        vehicle_name=chatbot.guide.name,
+        lang=lang,
+    )
+    if verdict.refused:
+        log.info(
+            "agent refusal slug=%s reason=%s",
+            chatbot.guide.slug,
+            verdict.reason,
+        )
+        timings["total_ms"] = int((time.perf_counter() - t0) * 1000)
+        _save_history(chatbot, session_id, question, verdict.refusal_message)
+        return AgentAnswer(
+            answer=verdict.refusal_message,
+            sources_block="",
+            citations=[],
+            tool_calls=[],
+            tool_results=[],
+            timings_ms=timings,
+        )
 
     # --- Stage 1: planner ---------------------------------------------------
     plan_started = time.perf_counter()
@@ -108,6 +132,7 @@ def run_agent(
         lang=lang,
         history_block=history_block,
         default_model=chatbot.model_name,
+        safety_notice=verdict.soft_notice,
     )
     timings["plan_ms"] = int((time.perf_counter() - plan_started) * 1000)
 
@@ -127,6 +152,7 @@ def run_agent(
             question=question,
             history_block=history_block,
             tool_results=tool_results,
+            safety_notice=verdict.soft_notice,
         )
     except Exception as exc:
         log.error("Responder failed for %s: %s", chatbot.guide.slug, exc)
@@ -186,6 +212,31 @@ def stream_agent(
     timings: dict = {}
     t0 = time.perf_counter()
 
+    # --- Safety triage first ---------------------------------------------
+    verdict = assess_input_safety(
+        question,
+        vehicle_name=chatbot.guide.name,
+        lang=lang,
+    )
+    if verdict.refused:
+        log.info(
+            "agent stream refusal slug=%s reason=%s",
+            chatbot.guide.slug,
+            verdict.reason,
+        )
+        yield {"type": "chunk", "text": verdict.refusal_message}
+        _save_history(chatbot, session_id, question, verdict.refusal_message)
+        yield {
+            "type": "end",
+            "answer": verdict.refusal_message,
+            "sources_block": "",
+            "sources": [],
+            "tool_calls": [],
+            "timings_ms": {"total_ms": int((time.perf_counter() - t0) * 1000)},
+            "refusal_reason": verdict.reason,
+        }
+        return
+
     yield {"type": "status", "step": "planning"}
     plan_started = time.perf_counter()
     tool_calls = plan_tool_calls(
@@ -195,6 +246,7 @@ def stream_agent(
         lang=lang,
         history_block=history_block,
         default_model=chatbot.model_name,
+        safety_notice=verdict.soft_notice,
     )
     timings["plan_ms"] = int((time.perf_counter() - plan_started) * 1000)
 
@@ -220,6 +272,7 @@ def stream_agent(
             question=question,
             history_block=history_block,
             tool_results=tool_results,
+            safety_notice=verdict.soft_notice,
         ):
             pieces.append(delta)
             yield {"type": "chunk", "text": delta}

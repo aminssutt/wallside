@@ -20,6 +20,7 @@ from typing import Iterable, Iterator, List, Sequence
 from google.genai import types as genai_types
 
 from ..config import LLM_TIMEOUT_SECONDS
+from .safety import SAFETY_GUARDRAIL, sanitize_tool_text
 from .tools import Citation, ToolResult
 
 log = logging.getLogger("auris.agent.responder")
@@ -31,15 +32,20 @@ _MAX_WEB_ITEMS = 5
 _DEFAULT_MAX_TOKENS = 3500
 
 
-def build_system_instruction(vehicle_name: str, lang: str) -> str:
-    """Static guardrails for the responder model."""
+def build_system_instruction(vehicle_name: str, lang: str, safety_notice: str = "") -> str:
+    """Static guardrails for the responder model.
+
+    ``safety_notice`` is appended when the safety triage flagged the user
+    message as potentially adversarial (embedded role-play, fake system
+    headers, etc.). The responder then knows to ignore any such framing.
+    """
     lang_line = {
         "fr": "Réponds en français.",
         "en": "Answer in English.",
         "ko": "한국어로 답변하세요.",
     }.get(lang, "Reponds en francais.")
 
-    return (
+    core = (
         f"You are the REPLY brain of an automotive assistant specialised in "
         f"the {vehicle_name}. Another brain (the planner) has already chosen "
         f"tools and executed them; you receive their results as evidence.\n\n"
@@ -60,6 +66,10 @@ def build_system_instruction(vehicle_name: str, lang: str) -> str:
         "7. Do NOT add a 'Sources' section yourself: it is rendered "
         "separately from the citations in the evidence block."
     )
+    instruction = core + SAFETY_GUARDRAIL
+    if safety_notice:
+        instruction += f"\n\n{safety_notice}"
+    return instruction
 
 
 def build_evidence_block(tool_results: Sequence[ToolResult]) -> str:
@@ -86,7 +96,7 @@ def build_evidence_block(tool_results: Sequence[ToolResult]) -> str:
     if manual_chunks:
         rendered = []
         for chunk in manual_chunks[:_MAX_MANUAL_SNIPPETS]:
-            text = str(chunk.get("text", "")).strip()
+            text = sanitize_tool_text(str(chunk.get("text", "")))
             if not text:
                 continue
             if len(text) > _MAX_CHUNK_CHARS:
@@ -101,9 +111,9 @@ def build_evidence_block(tool_results: Sequence[ToolResult]) -> str:
     if web_items:
         rendered = []
         for item in web_items[:_MAX_WEB_ITEMS]:
-            title = str(item.get("title", "")).strip()
-            domain = str(item.get("domain", "")).strip()
-            snippet = str(item.get("snippet", "")).strip()
+            title = sanitize_tool_text(str(item.get("title", "")))
+            domain = sanitize_tool_text(str(item.get("domain", "")))
+            snippet = sanitize_tool_text(str(item.get("snippet", "")))
             url = str(item.get("url", "")).strip()
             if not title or not url:
                 continue
@@ -116,7 +126,7 @@ def build_evidence_block(tool_results: Sequence[ToolResult]) -> str:
     if youtube_items:
         rendered = []
         for video in youtube_items[:1]:
-            title = str(video.get("title", "")).strip() or "YouTube tutorial"
+            title = sanitize_tool_text(str(video.get("title", ""))) or "YouTube tutorial"
             url = str(video.get("url", "")).strip()
             if not url:
                 continue
@@ -164,9 +174,10 @@ def compose_answer(
     history_block: str,
     tool_results: Sequence[ToolResult],
     max_tokens: int = _DEFAULT_MAX_TOKENS,
+    safety_notice: str = "",
 ) -> str:
     """Blocking response. Returns the raw text the model produced."""
-    system_instruction = build_system_instruction(vehicle_name, lang)
+    system_instruction = build_system_instruction(vehicle_name, lang, safety_notice)
     evidence_block = build_evidence_block(tool_results)
     prompt = build_user_prompt(
         question=question,
@@ -197,9 +208,10 @@ def stream_answer(
     history_block: str,
     tool_results: Sequence[ToolResult],
     max_tokens: int = _DEFAULT_MAX_TOKENS,
+    safety_notice: str = "",
 ) -> Iterator[str]:
     """Streaming response. Yields text deltas as Gemini emits them."""
-    system_instruction = build_system_instruction(vehicle_name, lang)
+    system_instruction = build_system_instruction(vehicle_name, lang, safety_notice)
     evidence_block = build_evidence_block(tool_results)
     prompt = build_user_prompt(
         question=question,

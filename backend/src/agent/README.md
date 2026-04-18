@@ -45,6 +45,33 @@ simple.
 | `planner.py` | `plan_tool_calls` — picks tools via Gemini function-calling with `mode=ANY`. Includes a deterministic fallback so the pipeline never stalls. |
 | `responder.py` | Builds the evidence block, calls Gemini (sync or streaming) and flattens citations (`collect_citations`, `render_sources_block`). |
 | `orchestrator.py` | Ties everything together. Exposes `run_agent` and `stream_agent`. Emits timing metrics and logs. |
+| `safety.py` | Pre-LLM input triage, tool-output sanitisation and the `SAFETY_GUARDRAIL` string appended to every system prompt. |
+
+## Safety layers
+
+The agent is hardened against prompt injection, credential extraction and
+unsafe advice through three independent layers:
+
+1. **Input triage** (`assess_input_safety`) runs before the planner. It
+   folds accents, then matches against a hard blocklist (API keys, system
+   prompt dumps, "ignore previous instructions", infra probing, dangerous
+   safety-system tampering). A hit short-circuits the pipeline with a
+   deterministic localised refusal — no tokens are spent.
+
+2. **Tool-output sanitisation** (`sanitize_tool_text`) strips HTML tags,
+   `javascript:` URIs and literal "ignore previous instructions" phrases
+   from every piece of tool output. Long outputs are truncated so the
+   responder prompt stays bounded.
+
+3. **Model guardrails** — `SAFETY_GUARDRAIL` is appended to the planner
+   and responder system instructions. It tells Gemini to refuse to
+   reveal internal configuration, to treat evidence blocks strictly as
+   data (never instructions), and to refuse requests that would bypass
+   a vehicle safety system.
+
+Unit tests in `backend/tests/test_agent_safety.py` cover each refusal
+path in FR / EN / KO, soft-injection detection, and tool-output sanitiser
+edge cases.
 
 ## Latency budget
 
