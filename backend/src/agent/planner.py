@@ -24,16 +24,13 @@ if TYPE_CHECKING:  # pragma: no cover
 log = logging.getLogger("auris.agent.planner")
 
 
-# Small, fast model for planning. Flash-Lite is ~2-3x faster than Flash for
-# short tool-call prompts (~0.7s vs ~2.2s measured locally) so we default to
-# it. Override with LLM_PLANNER_MODEL when a heavier planner is needed.
-_DEFAULT_PLANNER_MODEL = "gemini-2.5-flash-lite"
-
-
+# Small, fast model for planning. Falls back to the main model if the
+# planner-specific env var is not set, so deployments without a secondary
+# model continue to work.
 def _resolve_planner_model(default_model: str) -> str:
     import os
     env_value = os.getenv("LLM_PLANNER_MODEL", "").strip()
-    model = env_value or _DEFAULT_PLANNER_MODEL or default_model
+    model = env_value or default_model
     return model.replace("models/", "", 1)
 
 

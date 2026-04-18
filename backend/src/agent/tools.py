@@ -16,7 +16,7 @@ Design rules
 from __future__ import annotations
 
 import logging
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Sequence, TYPE_CHECKING
 
@@ -255,15 +255,11 @@ def _run_search_web(chatbot: "GuideChatbot", args: Dict[str, Any]) -> ToolResult
     region = _region_for_lang(lang)
 
     official = _official_domains_for(chatbot)
-    # Fan out: generic query + up to 3 separate ``site:<domain>`` queries,
-    # one per official domain. Each runs in its own thread so a slow or
-    # empty manufacturer site can't delay the generic search. We then
-    # early-exit as soon as two variants come back with any usable
-    # results — extra results are nice but not worth waiting for.
     query_variants: List[str] = [query]
     if official and "site:" not in query.lower():
-        for domain in official[:3]:
-            query_variants.append(f"{query} site:{domain}")
+        # Cap to the first 3 domains so the ``OR`` chain stays sane.
+        site_clause = " OR ".join(f"site:{d}" for d in official[:3])
+        query_variants.append(f"{query} {site_clause}")
 
     budget = max(1.0, ENRICHMENT_TIME_BUDGET_SECONDS)
     results_by_variant: List[List[Dict[str, str]]] = []
@@ -280,30 +276,13 @@ def _run_search_web(chatbot: "GuideChatbot", args: Dict[str, Any]) -> ToolResult
             log.warning("web_search_results failed for %r: %s", q, exc)
             return []
 
-    # Early-exit target: once ENOUGH variants come back non-empty we stop
-    # waiting for the rest. That guarantees we return in roughly the time
-    # of the FASTEST two responders rather than the slowest one.
-    enough_non_empty = min(2, len(query_variants))
-    non_empty_count = 0
-    ex = ThreadPoolExecutor(max_workers=len(query_variants))
-    try:
+    with ThreadPoolExecutor(max_workers=len(query_variants)) as ex:
         futures = [ex.submit(_fetch, variant) for variant in query_variants]
-        try:
-            for future in as_completed(futures, timeout=budget + 1.0):
-                try:
-                    result = future.result(timeout=0.1)
-                except Exception:
-                    result = []
-                results_by_variant.append(result)
-                if result:
-                    non_empty_count += 1
-                if non_empty_count >= enough_non_empty:
-                    # Good enough — drop the pending ones and move on.
-                    break
-        except FutureTimeoutError:
-            pass
-    finally:
-        ex.shutdown(wait=False, cancel_futures=True)
+        for future in as_completed(futures):
+            try:
+                results_by_variant.append(future.result(timeout=budget + 1.0))
+            except Exception:
+                results_by_variant.append([])
 
     # Merge: prefer items that appear in the ``site:<official>`` variant
     # (they come from a manufacturer domain) but keep diversity so the
@@ -440,44 +419,23 @@ class ToolCall:
     args: Dict[str, Any]
 
 
-# Wall-clock caps. The underlying ddgs library occasionally hangs when one
-# of its upstream engines (Wikipedia, Yahoo, Mojeek, ...) takes minutes to
-# respond or rate-limits. Without these caps, a single stuck future bubbles
-# all the way up to Gunicorn which then SIGKILLs the whole worker. Keep
-# these tight: the agent is allowed to return a partial evidence block if
-# one tool is slow.
-_PER_TOOL_TIMEOUT_SECONDS = 8.0
-_BATCH_TIMEOUT_SECONDS = 12.0
-
-
 def run_tools_in_parallel(
     chatbot: "GuideChatbot",
     calls: Sequence[ToolCall],
     max_workers: int = 3,
 ) -> List[ToolResult]:
-    """Execute a batch of tool calls concurrently with hard wall-clock caps.
+    """Execute a batch of tool calls concurrently.
 
     Unknown tool names produce a failed ``ToolResult`` rather than raising,
     so the agent can still hand off what succeeded to the responder.
     Results preserve the order of ``calls`` for deterministic citation
-    numbering. Individual tools are capped at ``_PER_TOOL_TIMEOUT_SECONDS``
-    and the whole batch at ``_BATCH_TIMEOUT_SECONDS`` — anything slower is
-    recorded as a failed ``ToolResult(ok=False, error="timeout")`` so the
-    responder still gets whatever succeeded.
+    numbering.
     """
     if not calls:
         return []
 
-    import time as _time
-    started_at = _time.monotonic()
-
     results: List[ToolResult] = [None] * len(calls)  # type: ignore[assignment]
-    # ``cancel_futures=True`` is set on shutdown below so pending submits
-    # are dropped when the batch deadline is reached. The executor is kept
-    # out of the ``with`` contextmanager so we can control shutdown
-    # semantics manually.
-    executor = ThreadPoolExecutor(max_workers=max(1, min(max_workers, len(calls))))
-    try:
+    with ThreadPoolExecutor(max_workers=max(1, min(max_workers, len(calls)))) as executor:
         future_to_index = {}
         for index, call in enumerate(calls):
             handler = _DISPATCH.get(call.name)
@@ -491,22 +449,12 @@ def run_tools_in_parallel(
                 continue
             future_to_index[executor.submit(handler, chatbot, call.args)] = index
 
-        for future in as_completed(future_to_index, timeout=_BATCH_TIMEOUT_SECONDS):
+        for future in as_completed(future_to_index):
             index = future_to_index[future]
-            call = calls[index]
-            remaining = max(0.1, _PER_TOOL_TIMEOUT_SECONDS - (_time.monotonic() - started_at))
             try:
-                results[index] = future.result(timeout=remaining)
-            except FutureTimeoutError:
-                log.warning("Tool %s timed out after %.1fs", call.name, remaining)
-                future.cancel()
-                results[index] = ToolResult(
-                    name=call.name,
-                    ok=False,
-                    summary=f"Tool {call.name} timed out.",
-                    error="timeout",
-                )
+                results[index] = future.result()
             except Exception as exc:  # pragma: no cover - defensive
+                call = calls[index]
                 log.exception("Tool %s crashed: %s", call.name, exc)
                 results[index] = ToolResult(
                     name=call.name,
@@ -514,25 +462,5 @@ def run_tools_in_parallel(
                     summary=f"Tool {call.name} crashed.",
                     error=str(exc),
                 )
-    except FutureTimeoutError:
-        log.warning(
-            "Batch of %d tool calls exceeded %.1fs — returning partial results",
-            len(future_to_index),
-            _BATCH_TIMEOUT_SECONDS,
-        )
-        for future, index in future_to_index.items():
-            if results[index] is None:
-                call = calls[index]
-                future.cancel()
-                results[index] = ToolResult(
-                    name=call.name,
-                    ok=False,
-                    summary=f"Tool {call.name} dropped (batch timeout).",
-                    error="batch_timeout",
-                )
-    finally:
-        # Do NOT wait for stuck threads — they would keep the worker blocked
-        # indefinitely. cancel_futures drops everything still pending.
-        executor.shutdown(wait=False, cancel_futures=True)
 
     return [r for r in results if r is not None]

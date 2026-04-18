@@ -29,7 +29,7 @@ worker_class = os.getenv("GUNICORN_WORKER_CLASS", "gthread").strip() or "gthread
 workers = _env_int("GUNICORN_WORKERS", 1, minimum=1)
 threads = _env_int("GUNICORN_THREADS", 8, minimum=1) if worker_class == "gthread" else 1
 
-timeout = _env_int("GUNICORN_TIMEOUT", 75, minimum=30)
+timeout = _env_int("GUNICORN_TIMEOUT", 180, minimum=30)
 graceful_timeout = _env_int("GUNICORN_GRACEFUL_TIMEOUT", 45, minimum=10)
 keepalive = _env_int("GUNICORN_KEEPALIVE", 10, minimum=1)
 

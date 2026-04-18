@@ -428,17 +428,13 @@ def chat_stream(slug):
         fallback_started_at = 0.0
         request_started_at = time.monotonic()
         first_chunk_received = False
-        last_activity_at = request_started_at
         # Poll faster than STREAM_HEARTBEAT_SECONDS so chunks don't sit in the
         # queue while the reader naps. The ping comment is decoupled below.
         stream_poll_timeout = 0.2
         ping_interval = max(5.0, min(STREAM_HEARTBEAT_SECONDS, 20.0))
         last_ping_at = time.monotonic()
-        # Stall cap sized for: planner ~3s + parallel tools up to 25s + first
-        # responder token ~2s + buffer. Reset on ANY agent event, so status
-        # pings ("planning", "searching") count as progress.
-        stream_stall_timeout = 45.0
-        fallback_deadline = 25.0
+        stream_stall_timeout = 18.0
+        fallback_deadline = 14.0
 
         def _start_fallback(reason: str = "error"):
             nonlocal fallback_started, fallback_started_at
@@ -507,9 +503,9 @@ def chat_stream(slug):
                         not ended
                         and not fallback_started
                         and not first_chunk_received
-                        and (now - last_activity_at) >= stream_stall_timeout
+                        and (now - request_started_at) >= stream_stall_timeout
                     ):
-                        _start_fallback("stall_no_activity")
+                        _start_fallback("stall_no_chunk")
                     if (
                         fallback_started
                         and not fallback_completed
@@ -615,10 +611,6 @@ def chat_stream(slug):
                 mid = event.get("message_id", "")
                 if mid:
                     last_message_id = mid
-                # Any event from the agent counts as progress and resets the
-                # stall timer. Otherwise a 25s tool batch would look like a
-                # silent stream even though status events were flowing.
-                last_activity_at = time.monotonic()
                 if event_type == "chunk":
                     chunk_text = str(event.get("text", ""))
                     if chunk_text:
