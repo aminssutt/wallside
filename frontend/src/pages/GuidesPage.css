@@ -280,6 +280,15 @@
 }
 .brand-scroll::-webkit-scrollbar { display: none; }
 
+/* Compact mode: the brand list was not tripled (narrow search result),
+   so the few cards sit left-aligned by default. Center them horizontally
+   and drop the snap so the JS-computed scrollLeft isn't fought by the
+   native scroll-snap. */
+.brand-scroll.brand-scroll--compact {
+  justify-content: center;
+  scroll-snap-type: none;
+}
+
 /* -- brand card -------------------------------------------------------- */
 
 .brand-card {

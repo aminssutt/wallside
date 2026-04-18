@@ -48,7 +48,8 @@ const COPY = {
       name: 'Premium',
       price: '9.99\u20AC / mois',
       features: ['Questions illimitées', 'Sans publicités', 'Sources PDF directes', 'Vidéo YouTube', 'Support prioritaire'],
-      cta: 'Passer Premium',
+      cta: 'Bientôt disponible',
+      locked: true,
     },
     faqLabel: 'FAQ',
     faqTitle: 'Questions fréquentes',
@@ -89,7 +90,8 @@ const COPY = {
         'Tableau de bord analytics',
         'Partenariats constructeurs',
       ],
-      cta: 'Nous contacter',
+      cta: 'Bientôt disponible',
+      locked: true,
     },
     footerBio: 'Créé par Lakhdar Berache. Étudiant ingénieur, passionné d\'automobile.',
     footerNavTitle: 'Navigation',
@@ -143,7 +145,8 @@ const COPY = {
       name: 'Premium',
       price: '\u20AC9.99 / month',
       features: ['Unlimited questions', 'No advertisements', 'Direct PDF sources', 'YouTube videos', 'Priority support'],
-      cta: 'Go Premium',
+      cta: 'Coming soon',
+      locked: true,
     },
     faqLabel: 'FAQ',
     faqTitle: 'Frequently asked questions',
@@ -176,6 +179,7 @@ const COPY = {
       badge: 'ENTERPRISE',
       name: 'Enterprise',
       subtitle: 'Custom pricing',
+      locked: true,
       features: [
         'Unlimited access for the whole team',
         'Dedicated API integration',
@@ -184,7 +188,7 @@ const COPY = {
         'Analytics dashboard',
         'Manufacturer partnerships',
       ],
-      cta: 'Contact us',
+      cta: 'Coming soon',
     },
     footerBio: 'Created by Lakhdar Berache. Engineering student, passionate about cars.',
     footerNavTitle: 'Navigation',
@@ -238,7 +242,8 @@ const COPY = {
       name: '프리미엄',
       price: '월 \u20AC9.99',
       features: ['무제한 질문', '광고 없음', 'PDF 직접 출처', 'YouTube 동영상', '우선 지원'],
-      cta: '프리미엄으로 전환',
+      cta: '\uACE7 \uACF5\uAC1C',
+      locked: true,
     },
     faqLabel: 'FAQ',
     faqTitle: '자주 묻는 질문',
@@ -271,6 +276,7 @@ const COPY = {
       badge: '기업',
       name: '기업',
       subtitle: '맞춤 가격',
+      locked: true,
       features: [
         '팀 전체 무제한 접근',
         '전용 API 통합',
@@ -279,7 +285,7 @@ const COPY = {
         '분석 대시보드',
         '제조사 파트너십',
       ],
-      cta: '문의하기',
+      cta: '\uACE7 \uACF5\uAC1C',
     },
     footerBio: 'Lakhdar Berache가 제작. 공학 학생, 자동차 열정가.',
     footerNavTitle: '탐색',
@@ -333,6 +339,13 @@ const IconGlobe = () => (
 const IconCheck = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <polyline points="20 6 9 17 4 12" />
+  </svg>
+);
+
+const IconLock = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ width: '0.95em', height: '0.95em', marginRight: 8, verticalAlign: '-0.12em' }}>
+    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
   </svg>
 );
 
@@ -1029,7 +1042,7 @@ export default function LandingPage() {
             </Motion.div>
 
             {/* Premium */}
-            <Motion.div className="price-card price-card--premium" variants={fadeInUp} onMouseMove={handleCardSpotlight}>
+            <Motion.div className="price-card price-card--premium price-card--locked" variants={fadeInUp} onMouseMove={handleCardSpotlight}>
               <div className="price-card__spotlight" />
               <div className="price-card__glow-border" />
               <span className="price-card__badge price-card__badge--premium">{t.premiumPlan.badge}</span>
@@ -1040,13 +1053,19 @@ export default function LandingPage() {
                   <li key={i}><IconCheck />{f}</li>
                 ))}
               </ul>
-              <button className="price-card__cta price-card__cta--premium" onClick={goToGuides}>
+              <button
+                type="button"
+                className="price-card__cta price-card__cta--premium price-card__cta--locked"
+                disabled
+                aria-disabled="true"
+              >
+                <IconLock />
                 {t.premiumPlan.cta}
               </button>
             </Motion.div>
 
             {/* Enterprise */}
-            <Motion.div className="price-card price-card--enterprise" variants={fadeInUp} onMouseMove={handleCardSpotlight}>
+            <Motion.div className="price-card price-card--enterprise price-card--locked" variants={fadeInUp} onMouseMove={handleCardSpotlight}>
               <div className="price-card__spotlight" />
               <span className="price-card__badge price-card__badge--enterprise">{t.enterprisePlan.badge}</span>
               <h3 className="price-card__name">{t.enterprisePlan.name}</h3>
@@ -1056,12 +1075,15 @@ export default function LandingPage() {
                   <li key={i}><IconCheck />{f}</li>
                 ))}
               </ul>
-              <a
-                href="mailto:lakhdarberache@gmail.com?subject=CarChat%20Enterprise"
-                className="price-card__cta price-card__cta--enterprise"
+              <button
+                type="button"
+                className="price-card__cta price-card__cta--enterprise price-card__cta--locked"
+                disabled
+                aria-disabled="true"
               >
+                <IconLock />
                 {t.enterprisePlan.cta}
-              </a>
+              </button>
             </Motion.div>
           </Motion.div>
         </div>
@@ -1166,7 +1188,7 @@ export default function LandingPage() {
           </Motion.form>
 
           <div className="contact__socials">
-            <a href="#" target="_blank" rel="noopener noreferrer" className="contact__social" aria-label="LinkedIn">
+            <a href="https://www.linkedin.com/in/lakhdar-berache/" target="_blank" rel="noopener noreferrer" className="contact__social" aria-label="LinkedIn">
               <svg viewBox="0 0 24 24" fill="currentColor">
                 <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zM6.84 20.452H3.834V9H6.84v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
               </svg>
@@ -1209,7 +1231,7 @@ export default function LandingPage() {
             <div className="footer__col">
               <h4 className="footer__col-title">{t.footerContactTitle}</h4>
               <ul>
-                <li><a href="#" target="_blank" rel="noopener noreferrer">LinkedIn</a></li>
+                <li><a href="https://www.linkedin.com/in/lakhdar-berache/" target="_blank" rel="noopener noreferrer">LinkedIn</a></li>
                 <li><a href="mailto:lakhdarberache@gmail.com">lakhdarberache@gmail.com</a></li>
               </ul>
             </div>

@@ -273,11 +273,43 @@ function GuidesPage() {
     return () => el.removeEventListener('scroll', updateVehicleCenterCard)
   }, [updateVehicleCenterCard, filteredVehiclesForBrand])
 
-  /* -- infinite scroll: triple brands and jump to middle on edges ----- */
+  /* -- center the vehicle carousel on the first/middle card on mount --
+     Without this the list starts left-aligned and the active card is
+     pinned to the edge of the viewport. */
+  useEffect(() => {
+    const el = vehicleScrollRef.current
+    if (!el || filteredVehiclesForBrand.length === 0) return
+    requestAnimationFrame(() => {
+      const cards = el.querySelectorAll('.vehicle-card')
+      if (!cards.length) return
+      const targetCard = cards[Math.floor((cards.length - 1) / 2)]
+      const cardCenter = targetCard.offsetLeft + targetCard.offsetWidth / 2
+      const target = cardCenter - el.clientWidth / 2
+      el.scrollLeft = Math.max(0, target)
+      updateVehicleCenterCard()
+    })
+  }, [filteredVehiclesForBrand, updateVehicleCenterCard])
+
+  /* -- infinite scroll: triple brands and jump to middle on edges -----
+     Only active when the carousel is actually tripled (>= 4 brands). */
 
   useEffect(() => {
     const el = scrollRef.current
     if (!el || filteredBrands.length === 0) return
+    if (filteredBrands.length < 4) {
+      // Compact mode: render once, center the (only) card inside the
+      // scrollable area so a single brand search doesn't stick to the
+      // left edge.
+      requestAnimationFrame(() => {
+        const firstCard = el.querySelector('.brand-card')
+        if (!firstCard) return
+        const cardCenter = firstCard.offsetLeft + firstCard.offsetWidth / 2
+        const target = cardCenter - el.clientWidth / 2
+        el.scrollLeft = Math.max(0, target)
+        updateCenterCard()
+      })
+      return undefined
+    }
     const cardWidth = 200 // card + gap
     const singleSetWidth = filteredBrands.length * cardWidth
 
@@ -289,10 +321,13 @@ function GuidesPage() {
       }
     }
     el.addEventListener('scrollend', handleScroll)
-    // Initial position: start at the middle copy
+    // Initial position: start at the middle copy, then re-apply the
+    // depth effect on the next frame so the centered card is scaled
+    // up immediately after a remount.
     el.scrollLeft = singleSetWidth
+    requestAnimationFrame(() => updateCenterCard())
     return () => el.removeEventListener('scrollend', handleScroll)
-  }, [filteredBrands])
+  }, [filteredBrands, updateCenterCard])
 
   /* -- keyboard navigation --------------------------------------------- */
 
@@ -672,9 +707,18 @@ function GuidesPage() {
                         </svg>
                       </button>
 
-                      {/* scrollable brand row (tripled for infinite scroll) */}
-                      <div className="brand-scroll" ref={scrollRef}>
-                        {[...filteredBrands, ...filteredBrands, ...filteredBrands].map((brand, i) => {
+                      {/* scrollable brand row — tripled ONLY when there are
+                          enough brands to make an infinite-scroll illusion
+                          useful. Narrow searches ("renault") now render the
+                          single matching brand exactly once, centered. */}
+                      <div
+                        className={`brand-scroll${filteredBrands.length < 4 ? ' brand-scroll--compact' : ''}`}
+                        ref={scrollRef}
+                      >
+                        {(filteredBrands.length >= 4
+                          ? [...filteredBrands, ...filteredBrands, ...filteredBrands]
+                          : filteredBrands
+                        ).map((brand, i) => {
                           const slug = toBrandSlug(brand)
                           const count = (brandGroups[brand] || []).length
                           return (
@@ -817,7 +861,10 @@ function GuidesPage() {
                         </svg>
                       </button>
 
-                      <div className="brand-scroll vehicle-scroll" ref={vehicleScrollRef}>
+                      <div
+                        className={`brand-scroll vehicle-scroll${filteredVehiclesForBrand.length < 4 ? ' brand-scroll--compact' : ''}`}
+                        ref={vehicleScrollRef}
+                      >
                         {filteredVehiclesForBrand.map((guide) => {
                           const slug = toBrandSlug(selectedBrand)
                           return (
