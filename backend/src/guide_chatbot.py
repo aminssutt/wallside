@@ -751,164 +751,111 @@ class GuideChatbot:
         return filtered[:k]
 
     def chat(self, question: str, lang: str = None, session_id: str = "default") -> str:
-        """Generate a response. If lang is provided, use it; otherwise auto-detect."""
+        """Answer a user question via the tool-calling agent.
+
+        Pre-filters conversational / off-topic inputs with cheap heuristics,
+        then delegates to ``agent.run_agent`` which plans, executes tools in
+        parallel and composes the final answer.
+        """
         if not lang:
             lang = detect_language(question)
 
-        if is_language_capability_question(question):
-            return LANG_QUESTION_RESPONSE.get(lang, LANG_QUESTION_RESPONSE["fr"])
+        early = self._early_answer(question, lang)
+        if early is not None:
+            return early
 
-        is_vehicle, confidence = is_vehicle_related(question)
-
-        if not is_vehicle and confidence < 0.5:
-            return LANG_OFF_TOPIC.get(lang, LANG_OFF_TOPIC["fr"]).format(
-                vehicle=self.guide.name
-            )
-
-        # --- Hybrid retrieval with relevance threshold ---
-        docs: List[Document] = []
-        context = ""
-        has_relevant_context = False
-        if self.vector_stores or self.bm25_indices:
-            docs = self._hybrid_search(question, k=TOP_K_RESULTS)
-            if docs:
-                has_relevant_context = True
-                context = format_context(docs)
-
-        # --- Web enrichment (parallel) ---
-        web_results: List[Dict[str, str]] = []
-        video: Dict[str, str] = {}
-        web_context = ""
-
-        if ENABLE_WEB_ENRICHMENT:
-            enrichment_query = f"{self.guide.name} {question}".strip()
-            budget = max(0.5, ENRICHMENT_TIME_BUDGET_SECONDS)
-
-            def _fetch_web():
-                return web_search_results(
-                    enrichment_query,
-                    max_results=WEB_MAX_RESULTS,
-                    time_budget_seconds=budget,
-                )
-
-            def _fetch_video():
-                return youtube_video_suggestion(
-                    f"{self.guide.name} {question} tutorial",
-                    time_budget_seconds=budget,
-                )
-
-            executor = ThreadPoolExecutor(max_workers=2)
-            web_future = executor.submit(_fetch_web)
-            video_future = executor.submit(_fetch_video)
-            try:
-                try:
-                    web_results = web_future.result(timeout=budget)
-                except Exception:
-                    web_results = []
-                try:
-                    video = video_future.result(timeout=max(1.0, budget))
-                except Exception:
-                    video = {}
-            finally:
-                for future in (web_future, video_future):
-                    if not future.done():
-                        future.cancel()
-                executor.shutdown(wait=False, cancel_futures=True)
-
-            web_context = format_web_context(web_results, lang=lang)
-
-        sources_block = format_sources(docs, web_results=web_results)
-        video_block = format_video_block(video, lang=lang)
-        lang_instruction = LANG_INSTRUCTIONS.get(lang, LANG_INSTRUCTIONS["fr"])
-
-        # --- Build conversation context from session history ---
-        history = self._get_session_history(session_id)
-        history_block = ""
-        if history:
-            recent = history[-(min(len(history), 6)):]  # last 3 exchanges (6 messages)
-            parts = []
-            for msg in recent:
-                role = "Utilisateur" if msg["role"] == "user" else "Assistant"
-                parts.append(f"{role}: {msg['content'][:300]}")
-            history_block = "\n".join(parts)
-
-        # --- System instruction (separated from user content for Gemini) ---
-        system_instruction = f"""Tu es un assistant technique expert et precis, specialise pour le vehicule {self.guide.name}.
-
-REGLES STRICTES:
-1) {lang_instruction}
-2) Base-toi UNIQUEMENT sur le contexte fourni (manuel du vehicule et web).
-3) Ne JAMAIS inventer de valeurs chiffrees (couples de serrage, pressions, capacites, intervalles) qui ne sont pas explicitement dans le contexte.
-4) Si le manuel ne couvre pas la question MAIS que le contexte web contient l'information, UTILISE le web et reponds normalement en precisant que la source est externe.
-5) Si ni le manuel ni le web ne permettent de repondre, dis-le en une phrase courte et propose 2-3 pistes generiques pour guider l'utilisateur (diagnostic, ressource constructeur, forum specialise). N'invente aucune donnee chiffree.
-6) En cas de conflit entre manuel et web, le manuel prime TOUJOURS.
-7) Reponds de facon complete et detaillee. Pour les procedures en etapes, donne TOUTES les etapes.
-8) Pas de markdown (pas de ###, **, ```, etc.). Texte brut uniquement avec des listes numerotees pour les etapes.
-9) N'ajoute PAS de section "Sources" (elle sera ajoutee automatiquement).
-10) Orthographe, grammaire et ponctuation impeccables. Phrases claires et naturelles.
-11) Personnalise chaque reponse pour le {self.guide.name}: mentionne le nom du vehicule quand c'est pertinent."""
-
-        # --- User content ---
-        user_parts = []
-        if history_block:
-            user_parts.append(f"Historique recent de la conversation:\n{history_block}")
-        if context:
-            user_parts.append(f"Contexte du manuel du vehicule:\n{context}")
-        else:
-            user_parts.append("Aucun passage pertinent trouve dans le manuel du vehicule pour cette question.")
-        if web_context:
-            user_parts.append(f"<web_enrichment>\n{web_context}\n</web_enrichment>")
-        user_parts.append(f"Question de l'utilisateur: {question}")
-
-        user_content = "\n\n---\n\n".join(user_parts)
+        # Lazy import: keeps the agent package optional in environments that
+        # disable it (e.g. offline dev) and avoids import cycles.
+        from .agent import run_agent
 
         try:
-            from google.genai import types as genai_types
-            response = self.client.models.generate_content(
-                model=self.model_name,
-                contents=user_content,
-                config=genai_types.GenerateContentConfig(
-                    system_instruction=system_instruction,
-                    temperature=0.15,
-                    max_output_tokens=3500,
-                    http_options=genai_types.HttpOptions(timeout=LLM_TIMEOUT_SECONDS * 1000),
-                ),
+            result = run_agent(
+                self,
+                question=question,
+                lang=lang,
+                session_id=session_id,
             )
-
-            raw_answer = (getattr(response, "text", "") or "").strip()
-            clean_answer = clean_model_output(raw_answer)
-            answer = trim_response(clean_answer)
-            if not answer:
-                answer = "Je n'ai pas trouve de reponse exploitable dans le manuel."
-
-            # If the model explicitly says the info is not in the manual,
-            # keep only web refs (if any) and drop manual pages that didn't
-            # actually help. No citations at all when both are empty.
-            if looks_unavailable_answer(answer):
-                relevant_sources_block = format_sources([], web_results=web_results)
-            else:
-                relevant_sources_block = sources_block
-
-            blocks = [answer]
-            if video_block:
-                blocks.append(video_block)
-            if relevant_sources_block:
-                blocks.append(relevant_sources_block)
-            final_answer = "\n\n".join(blocks)
-
-            # Save to session history
-            history.append({"role": "user", "content": question})
-            history.append({"role": "assistant", "content": answer})
-            self._trim_session_history(session_id)
-
-            return final_answer
-
         except Exception as exc:
-            log.error("LLM generation failed for %s: %s", self.guide.slug, exc)
+            log.error("Agent run failed for %s: %s", self.guide.slug, exc)
             return (
                 "Erreur:\n"
                 "Impossible de generer une reponse. Veuillez reessayer."
             )
+
+        answer = trim_response(clean_model_output(result.answer)).strip()
+        if not answer:
+            answer = "Je n'ai pas pu generer de reponse. Veuillez reessayer."
+
+        blocks = [answer]
+        if result.sources_block:
+            blocks.append(result.sources_block)
+        return "\n\n".join(blocks)
+
+    def chat_stream(self, question: str, lang: str = None, session_id: str = "default"):
+        """Stream agent events (status + answer chunks + end payload).
+
+        Yields dicts shaped for an SSE generator: see ``agent.stream_agent``
+        for the exact event types.
+        """
+        if not lang:
+            lang = detect_language(question)
+
+        early = self._early_answer(question, lang)
+        if early is not None:
+            yield {"type": "chunk", "text": early}
+            yield {
+                "type": "end",
+                "answer": early,
+                "sources_block": "",
+                "sources": [],
+                "tool_calls": [],
+                "timings_ms": {},
+            }
+            return
+
+        from .agent import stream_agent
+
+        try:
+            yield from stream_agent(
+                self,
+                question=question,
+                lang=lang,
+                session_id=session_id,
+            )
+        except Exception as exc:
+            log.error("Agent stream failed for %s: %s", self.guide.slug, exc)
+            yield {
+                "type": "chunk",
+                "text": "Erreur: impossible de generer une reponse. Veuillez reessayer.",
+            }
+            yield {
+                "type": "end",
+                "answer": "",
+                "sources_block": "",
+                "sources": [],
+                "tool_calls": [],
+                "timings_ms": {},
+            }
+
+    # ------------------------------------------------------------------
+    # Pre-filters — small hand-coded guards that are not worth an agent pass.
+    # ------------------------------------------------------------------
+
+    def _early_answer(self, question: str, lang: str) -> Optional[str]:
+        """Return a canned response when the agent pipeline would be overkill.
+
+        Covers the "can you speak language X" meta question and clearly
+        off-topic prompts. Everything else falls through to the agent.
+        """
+        if is_language_capability_question(question):
+            return LANG_QUESTION_RESPONSE.get(lang, LANG_QUESTION_RESPONSE["fr"])
+
+        is_vehicle, confidence = is_vehicle_related(question)
+        if not is_vehicle and confidence < 0.5:
+            return LANG_OFF_TOPIC.get(lang, LANG_OFF_TOPIC["fr"]).format(
+                vehicle=self.guide.name
+            )
+        return None
 
     def get_history(self, session_id: str = "default") -> list:
         return self._get_session_history(session_id)

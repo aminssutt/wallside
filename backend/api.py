@@ -2,6 +2,7 @@
 API Flask for the pre-indexed vehicle guide chatbot.
 """
 import csv
+import json
 import logging
 import os
 import re
@@ -12,7 +13,14 @@ from threading import Lock
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from flask import Flask, request, jsonify, send_from_directory
+from flask import (
+    Flask,
+    Response,
+    jsonify,
+    request,
+    send_from_directory,
+    stream_with_context,
+)
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -199,6 +207,74 @@ def chat(slug):
             "success": False,
             "error": "Une erreur interne est survenue. Veuillez reessayer."
         }), 500
+
+
+def _sse_event(event_name: str, payload: dict) -> str:
+    """Format a single Server-Sent Event frame."""
+    return f"event: {event_name}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+
+@app.route('/api/guides/<slug>/chat/stream', methods=['POST'])
+@limiter.limit("15 per minute")
+def chat_stream(slug):
+    """Stream the tool-calling agent output as SSE events."""
+    if not _SLUG_RE.match(slug):
+        return jsonify({"success": False, "error": "Invalid slug"}), 400
+    guide = guide_manager.get_guide(slug)
+    if not guide or not guide.is_indexed:
+        return jsonify({"success": False, "error": "Guide introuvable"}), 404
+
+    data = request.get_json(silent=True)
+    if not data or 'message' not in data:
+        return jsonify({"success": False, "error": "Message requis"}), 400
+
+    question = str(data.get('message', '')).strip()
+    if not question:
+        return jsonify({"success": False, "error": "Message vide"}), 400
+    if len(question) > MAX_MESSAGE_LENGTH:
+        return jsonify({
+            "success": False,
+            "error": f"Message trop long (max {MAX_MESSAGE_LENGTH} caracteres)",
+        }), 400
+
+    lang = data.get('lang') or None
+    if lang and lang not in ('fr', 'en', 'ko'):
+        lang = None
+
+    session_id = data.get('session_id') or "default"
+
+    try:
+        chatbot = get_guide_chatbot(slug)
+    except Exception as exc:
+        log.error("Chat stream init failed for %s: %s", slug, exc)
+        return jsonify({
+            "success": False,
+            "error": "Une erreur interne est survenue. Veuillez reessayer.",
+        }), 500
+
+    @stream_with_context
+    def event_stream():
+        yield _sse_event("start", {"success": True, "vehicle_name": guide.name})
+        try:
+            for event in chatbot.chat_stream(question, lang=lang, session_id=session_id):
+                event_type = str(event.get("type", "")).strip().lower()
+                if not event_type:
+                    continue
+                payload = {k: v for k, v in event.items() if k != "type"}
+                yield _sse_event(event_type, payload)
+        except Exception as exc:
+            log.error("Chat stream failed for %s: %s", slug, exc)
+            yield _sse_event("end", {
+                "success": False,
+                "answer": "",
+                "error": "Une erreur interne est survenue.",
+            })
+
+    response = Response(event_stream(), mimetype="text/event-stream; charset=utf-8")
+    response.headers["Cache-Control"] = "no-cache, no-transform"
+    response.headers["Connection"] = "keep-alive"
+    response.headers["X-Accel-Buffering"] = "no"
+    return response
 
 
 @app.route('/api/guides/<slug>/history', methods=['GET'])
