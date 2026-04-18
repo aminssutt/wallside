@@ -171,9 +171,32 @@ _QUESTION_INTENT_RE = re.compile(
     r"(?:\?"
     r"|^(?:comment|pourquoi|ou est|ou se|quel(?:le)?s?|est[ -]ce que|combien|quand|que faire)"
     r"|^(?:how|what|why|where|when|which|can (?:you|i)|do (?:you|i)|is (?:there|it|the))"
-    r"|(?:explain|dis[ -]moi|peux[ -]tu|peut[ -]on|j'?aimerais savoir))",
+    r"|(?:explain|dis[ -]moi|peux[ -]tu|peut[ -]on|pouvez[ -]vous|pourrai[st][ -]tu|pourriez[ -]vous"
+    r"|j'?aimerais (?:savoir|comprendre)|je (?:voudrais|voudrai) savoir|j'?ai besoin de"
+    r"|indique[ -]moi|indiquez[ -]moi|explique[ -]moi|expliquez[ -]moi"
+    r"|montre[ -]moi|montrez[ -]moi|aide[ -]moi|aidez[ -]moi|aide moi|aidez moi"
+    r"|detaille[ -]moi|detaillez[ -]moi|decris[ -]moi|decrivez[ -]moi"
+    r"|tell me|show me|help me)"
+    r"|(?:merci de (?:me )?(?:dire|expliquer|indiquer|preciser|detailler|donner|confirmer)"
+    r"|please (?:tell|explain|show|help))"
+    r"|^\s*(?:svp|s'?il (?:te|vous) pla[iî]t|please)\b)",
     re.IGNORECASE,
 )
+
+# A "merci" that is clearly used as a thank-you closer and not as polite
+# preamble ("merci de me dire...", "merci pour le lien, maintenant..."). We
+# only treat it as thanks when it appears essentially alone or at the end.
+_THANKS_CLOSER_RE = re.compile(
+    r"(?:^\s*(?:merci|thanks?|thx|thank you)[\s!.,:;)\"']*$"
+    r"|(?:merci|thanks?|thx|thank you)[\s!.,:;)\"']*$)",
+    re.IGNORECASE,
+)
+
+
+def _is_polite_request(text: str) -> bool:
+    """Detect polite phrasings that introduce a real question ("merci de me
+    dire...", "Svp expliquez-moi...", "pouvez-vous m'indiquer...")."""
+    return bool(_QUESTION_INTENT_RE.search(text))
 
 
 def _is_conversational(question: str) -> bool:
@@ -187,7 +210,7 @@ def _is_conversational(question: str) -> bool:
     has_smalltalk = bool(_SMALLTALK_PHRASES.search(text))
     has_closure = bool(_CLOSURE_PHRASES.search(text))
     has_vehicle_kw = any(kw in text.lower() for kw in VEHICLE_KEYWORDS)
-    has_question = bool(_QUESTION_INTENT_RE.search(text))
+    has_question = _is_polite_request(text)
     # Closure/acknowledgment wins even if vehicle keywords present
     if has_closure and not has_question:
         return True
@@ -1565,7 +1588,10 @@ RÈGLES STRICTES :
         # Conversational / greeting / closure — answer directly, no RAG
         if _is_conversational(question):
             is_closure = bool(_CLOSURE_PHRASES.search(question))
-            is_thanks = bool(re.search(r"(?:merci|thanks?|thx|thank you)", question, re.IGNORECASE))
+            # Only treat "merci" as thanks when it really is a closer
+            # (standalone or at the end of a short message). Otherwise it
+            # may be polite preamble like "merci de me dire comment...".
+            is_thanks = bool(_THANKS_CLOSER_RE.search(question)) and not _is_polite_request(question)
             if is_closure or is_thanks:
                 closures = {
                     "fr": f"Avec plaisir ! N'hésitez pas si vous avez d'autres questions sur le **{self.guide.name}**.",

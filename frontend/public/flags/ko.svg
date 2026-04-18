@@ -1,41 +1,46 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600">
-  <rect fill="#fff" width="900" height="600"/>
-  <g transform="translate(450,300)">
-    <!-- Taegeuk (yin-yang) -->
-    <circle r="150" fill="#cd2e3a"/>
-    <path d="M0-150A150 150 0 0 1 0 150A75 75 0 0 1 0 0A75 75 0 0 0 0-150" fill="#0047a0"/>
-    <!-- Trigrams -->
-    <g fill="none" stroke="#000" stroke-width="24" stroke-linecap="butt">
-      <!-- Geon (top-left: heaven ☰) -->
-      <g transform="rotate(56.31)">
-        <line x1="-205" y1="-108" x2="-120" y2="-108"/>
-        <line x1="-205" y1="-150" x2="-120" y2="-150"/>
-        <line x1="-205" y1="-192" x2="-120" y2="-192"/>
-      </g>
-      <!-- Gon (bottom-right: earth ☷) -->
-      <g transform="rotate(56.31) translate(0,0) scale(-1,-1)">
-        <line x1="-205" y1="-108" x2="-168" y2="-108"/>
-        <line x1="-157" y1="-108" x2="-120" y2="-108"/>
-        <line x1="-205" y1="-150" x2="-168" y2="-150"/>
-        <line x1="-157" y1="-150" x2="-120" y2="-150"/>
-        <line x1="-205" y1="-192" x2="-168" y2="-192"/>
-        <line x1="-157" y1="-192" x2="-120" y2="-192"/>
-      </g>
-      <!-- Gam (top-right: water ☵) -->
-      <g transform="rotate(-56.31) scale(-1,1)">
-        <line x1="-205" y1="-108" x2="-168" y2="-108"/>
-        <line x1="-157" y1="-108" x2="-120" y2="-108"/>
-        <line x1="-205" y1="-150" x2="-120" y2="-150"/>
-        <line x1="-205" y1="-192" x2="-168" y2="-192"/>
-        <line x1="-157" y1="-192" x2="-120" y2="-192"/>
-      </g>
-      <!-- Ri (bottom-left: fire ☲) -->
-      <g transform="rotate(-56.31)">
-        <line x1="-205" y1="-108" x2="-120" y2="-108"/>
-        <line x1="-205" y1="-150" x2="-168" y2="-150"/>
-        <line x1="-157" y1="-150" x2="-120" y2="-150"/>
-        <line x1="-205" y1="-192" x2="-120" y2="-192"/>
-      </g>
+  <rect width="900" height="600" fill="#fff"/>
+
+  <!-- Taegeuk: yin-yang tilted so the boundary runs along the Gam↔Ri diagonal -->
+  <g transform="translate(450 300) rotate(-33.69)">
+    <circle r="150" fill="#c60c30"/>
+    <path d="M 0 -150 A 150 150 0 0 1 0 150 A 75 75 0 0 1 0 0 A 75 75 0 0 0 0 -150 Z" fill="#003478"/>
+  </g>
+
+  <!-- Trigrams, black bars; each group is translated to its corner and rotated to aim at the Taegeuk -->
+  <g fill="#000">
+    <!-- Geon ☰ (upper hoist / top-left): three solid bars -->
+    <g transform="translate(162.1 108.1) rotate(-56.31)">
+      <rect x="-60" y="-37.5" width="120" height="15"/>
+      <rect x="-60" y="-7.5" width="120" height="15"/>
+      <rect x="-60" y="22.5" width="120" height="15"/>
+    </g>
+
+    <!-- Ri ☲ (lower hoist / bottom-left): solid, broken, solid -->
+    <g transform="translate(162.1 491.9) rotate(-123.69)">
+      <rect x="-60" y="-37.5" width="120" height="15"/>
+      <rect x="-60" y="-7.5" width="47.5" height="15"/>
+      <rect x="12.5" y="-7.5" width="47.5" height="15"/>
+      <rect x="-60" y="22.5" width="120" height="15"/>
+    </g>
+
+    <!-- Gam ☵ (upper fly / top-right): broken, solid, broken -->
+    <g transform="translate(737.9 108.1) rotate(-33.69)">
+      <rect x="-60" y="-37.5" width="47.5" height="15"/>
+      <rect x="12.5" y="-37.5" width="47.5" height="15"/>
+      <rect x="-60" y="-7.5" width="120" height="15"/>
+      <rect x="-60" y="22.5" width="47.5" height="15"/>
+      <rect x="12.5" y="22.5" width="47.5" height="15"/>
+    </g>
+
+    <!-- Gon ☷ (lower fly / bottom-right): three broken bars -->
+    <g transform="translate(737.9 491.9) rotate(33.69)">
+      <rect x="-60" y="-37.5" width="47.5" height="15"/>
+      <rect x="12.5" y="-37.5" width="47.5" height="15"/>
+      <rect x="-60" y="-7.5" width="47.5" height="15"/>
+      <rect x="12.5" y="-7.5" width="47.5" height="15"/>
+      <rect x="-60" y="22.5" width="47.5" height="15"/>
+      <rect x="12.5" y="22.5" width="47.5" height="15"/>
     </g>
   </g>
 </svg>
