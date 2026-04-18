@@ -51,8 +51,8 @@ log = logging.getLogger("auris")
 # Build fingerprint — printed at worker boot so prod logs show exactly
 # which commit is running. Bump this string when making a fix whose
 # deployment you need to verify quickly from the logs.
-BUILD_MARKER = "BUILD-2026-04-18-hardtimeout-v2"
-log.info("=== %s booting (commit=cc11548+) ===", BUILD_MARKER)
+BUILD_MARKER = "BUILD-2026-04-18-responder-drain-v3"
+log.info("=== %s booting ===", BUILD_MARKER)
 
 BACKEND_DIR = Path(__file__).parent
 PROJECT_ROOT = BACKEND_DIR.parent

@@ -252,44 +252,88 @@ def stream_answer(
         model, len(prompt), len(evidence_block),
     )
 
-    call_started = _time.perf_counter()
-    try:
-        stream = client.models.generate_content_stream(
-            model=model,
-            contents=prompt,
-            config=_build_config(system_instruction, max_tokens),
-        )
-    except Exception as exc:
-        log.error("[RESPONDER] generate_content_stream FAILED: %s", exc)
-        raise
-    log.info(
-        "[RESPONDER] generate_content_stream returned in %dms, starting iteration",
-        int((_time.perf_counter() - call_started) * 1000),
-    )
+    # Drain the Gemini iterator in a daemon thread + queue so the
+    # wallclock / silence caps actually fire. The SDK's `for chunk in
+    # stream` blocks on a network socket — our wallclock checks used to
+    # run only BETWEEN iterations, so a silent stream hung forever.
+    import queue as _queue
+    import threading as _threading
+
+    _STREAM_WALLCLOCK_CAP = 35.0   # hard total cap
+    _STREAM_SILENCE_CAP = 12.0     # max silence between chunks
+
+    chunk_queue: "_queue.Queue[tuple[str, object]]" = _queue.Queue(maxsize=128)
+
+    def _drain() -> None:
+        call_started = _time.perf_counter()
+        try:
+            stream = client.models.generate_content_stream(
+                model=model,
+                contents=prompt,
+                config=_build_config(system_instruction, max_tokens),
+            )
+            log.info(
+                "[RESPONDER] generate_content_stream returned in %dms (inside drain thread)",
+                int((_time.perf_counter() - call_started) * 1000),
+            )
+            for chunk in stream:
+                chunk_queue.put(("chunk", chunk))
+        except Exception as exc:
+            log.error("[RESPONDER] drain thread CRASH: %s", exc)
+            chunk_queue.put(("error", exc))
+        finally:
+            chunk_queue.put(("done", None))
+
+    _threading.Thread(
+        target=_drain, name="responder-drain", daemon=True,
+    ).start()
 
     iter_started = _time.perf_counter()
+    last_chunk_at = iter_started
     chunk_count = 0
     first_text_at = None
     last_log_at = iter_started
-    for chunk in stream:
+    while True:
         now = _time.perf_counter()
+        if now - iter_started > _STREAM_WALLCLOCK_CAP:
+            log.warning(
+                "[RESPONDER] WALLCLOCK CAP hit after %.1fs chunks=%d — abandoning",
+                now - iter_started, chunk_count,
+            )
+            return
+        if now - last_chunk_at > _STREAM_SILENCE_CAP:
+            log.warning(
+                "[RESPONDER] SILENCE CAP hit (%.1fs no chunk) — abandoning",
+                now - last_chunk_at,
+            )
+            return
+        try:
+            kind, payload = chunk_queue.get(timeout=0.5)
+        except _queue.Empty:
+            continue
+        if kind == "done":
+            log.info("[RESPONDER] drain reported done after %dms", int((_time.perf_counter() - iter_started) * 1000))
+            break
+        if kind == "error":
+            log.error("[RESPONDER] drain reported error: %s", payload)
+            return
         chunk_count += 1
-        text = _extract_chunk_text(chunk)
+        last_chunk_at = _time.perf_counter()
+        text = _extract_chunk_text(payload)
         if text:
             if first_text_at is None:
-                first_text_at = now - iter_started
+                first_text_at = last_chunk_at - iter_started
                 log.info(
                     "[RESPONDER] FIRST TEXT chunk after %dms (iter #%d)",
                     int(first_text_at * 1000), chunk_count,
                 )
             yield text
-        # Periodic progress log so prod doesn't look silent for long pauses.
-        if now - last_log_at > 5.0:
+        if last_chunk_at - last_log_at > 5.0:
             log.info(
                 "[RESPONDER] still streaming... elapsed=%.1fs chunks=%d",
-                now - iter_started, chunk_count,
+                last_chunk_at - iter_started, chunk_count,
             )
-            last_log_at = now
+            last_log_at = last_chunk_at
     log.info(
         "[RESPONDER] stream iteration DONE elapsed=%dms total_chunks=%d",
         int((_time.perf_counter() - iter_started) * 1000), chunk_count,
