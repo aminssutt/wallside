@@ -50,7 +50,7 @@ from urllib.request import Request, urlopen
 # Path setup
 # ---------------------------------------------------------------------------
 
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.config import CHUNK_SIZE, CHUNK_OVERLAP, DATA_DIR
 

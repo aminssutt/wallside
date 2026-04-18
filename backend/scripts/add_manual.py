@@ -15,9 +15,9 @@ import sys
 import json
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from index_manuals import (
+from scripts.index_manuals import (
     index_single_manual,
     MANUALS_DIR,
     IMAGES_DIR,
