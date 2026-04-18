@@ -1,0 +1,40 @@
+networks:
+  dokploy-network:
+    external: true
+  internal:
+    driver: bridge
+
+services:
+  app:
+    build:
+      context: .
+      args:
+        VITE_API_URL: ${VITE_API_URL:-/api}
+    expose:
+      - "3000"
+    networks:
+      dokploy-network:
+        aliases:
+          - carchat-backend
+      internal:
+        aliases:
+          - carchat-backend
+    environment:
+      - PORT=3000
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - LLM_MODEL=${LLM_MODEL:-models/gemini-2.5-flash}
+      - LLM_PLANNER_MODEL=${LLM_PLANNER_MODEL:-}
+      - LLM_TIMEOUT_SECONDS=${LLM_TIMEOUT_SECONDS:-35}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-https://carchat.online,https://www.carchat.online}
+      - MAX_MESSAGE_LENGTH=${MAX_MESSAGE_LENGTH:-3000}
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:3000/api/health')"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
