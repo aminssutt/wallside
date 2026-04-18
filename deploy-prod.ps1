@@ -58,7 +58,7 @@ cd '__REMOTE_DIR__'
 if [ ! -f '__REMOTE_DIR__/.env.prod' ]; then echo '.env.prod missing on server'; exit 1; fi
 docker build --build-arg VITE_API_URL=__API_URL__ -t '__IMAGE_NAME__' .
 docker rm -f '__CONTAINER_NAME__' >/dev/null 2>&1 || true
-docker run -d --name '__CONTAINER_NAME__' --restart unless-stopped --env-file '__REMOTE_DIR__/.env.prod' -p 127.0.0.1:5002:5002 '__IMAGE_NAME__'
+docker run -d --name '__CONTAINER_NAME__' --restart unless-stopped --env-file '__REMOTE_DIR__/.env.prod' -p 127.0.0.1:5002:3000 '__IMAGE_NAME__'
 health_ok=0
 for i in $(seq 1 120); do
   if curl -fsS http://127.0.0.1:5002/api/health >/dev/null; then health_ok=1; break; fi
