@@ -865,8 +865,14 @@ def web_search_results(
     query: str,
     max_results: int = WEB_MAX_RESULTS,
     time_budget_seconds: float = ENRICHMENT_TIME_BUDGET_SECONDS,
+    region: Optional[str] = None,
 ) -> List[Dict[str, str]]:
-    """Fetch lightweight web snippets for enrichment only."""
+    """Fetch lightweight web snippets for enrichment only.
+
+    ``region`` overrides the default ``WEB_SEARCH_REGION`` (e.g. ``fr-fr``,
+    ``kr-kr``, ``en-us``) so callers can tune locale relevance per
+    user language. Falls back to the env default when not provided.
+    """
     if not ENABLE_WEB_ENRICHMENT or DDGS is None:
         return []
 
@@ -875,6 +881,7 @@ def web_search_results(
     seen_domains = set()
     started_at = time.perf_counter()
     request_timeout = max(1, int(min(8, max(1.0, float(time_budget_seconds or 0.0)))))
+    effective_region = region or WEB_SEARCH_REGION
 
     ddgs_failed = False
     try:
@@ -883,7 +890,7 @@ def web_search_results(
         except TypeError:
             ddgs_ctx = DDGS()
         with ddgs_ctx as ddgs:
-            results = ddgs.text(query, max_results=max(1, max_results * 3), region=WEB_SEARCH_REGION)
+            results = ddgs.text(query, max_results=max(1, max_results * 3), region=effective_region)
             for item in results:
                 if (time.perf_counter() - started_at) > max(0.2, time_budget_seconds):
                     break
@@ -1067,9 +1074,16 @@ def _bounded_web_search_results(
 
 
 def youtube_video_suggestion(
-    query: str, time_budget_seconds: float = ENRICHMENT_TIME_BUDGET_SECONDS
+    query: str,
+    time_budget_seconds: float = ENRICHMENT_TIME_BUDGET_SECONDS,
+    region: Optional[str] = None,
 ) -> Dict[str, str]:
-    """Return one relevant YouTube video. No API key required."""
+    """Return one relevant YouTube video. No API key required.
+
+    Searches YouTube globally by default. ``region`` can be passed to
+    bias DuckDuckGo's YouTube lookups (fr-fr, kr-kr, en-us...). ``wt-wt``
+    (worldwide) keeps English / Korean / other languages visible.
+    """
     if not ENABLE_WEB_ENRICHMENT:
         return {}
 
@@ -1077,12 +1091,18 @@ def youtube_video_suggestion(
     seen_urls = set()
 
     started_at = time.perf_counter()
+    # Default to worldwide so a Renault Clio owner asking in French still
+    # finds a Korean or English tutorial when no French one exists.
+    effective_region = region or "wt-wt"
 
     if DDGS is not None and ENABLE_DEEP_WEB_ENRICHMENT:
         try:
             search_queries = [
                 f"site:youtube.com/watch {query}",
                 f"{query} tutorial",
+                f"{query} tutoriel",      # FR
+                f"{query} how to",        # EN
+                f"{query} \ud29c\ud1a0\ub9ac\uc5bc",  # KO (튜토리얼)
                 f"{query} review",
             ]
             request_timeout = max(1, int(min(6, max(1.0, float(time_budget_seconds or 0.0)))))
@@ -1094,7 +1114,7 @@ def youtube_video_suggestion(
                 for search_query in search_queries:
                     if (time.perf_counter() - started_at) > max(0.2, time_budget_seconds):
                         break
-                    results = ddgs.text(search_query, max_results=10, region=WEB_SEARCH_REGION)
+                    results = ddgs.text(search_query, max_results=10, region=effective_region)
                     for item in results:
                         if (time.perf_counter() - started_at) > max(0.2, time_budget_seconds):
                             break

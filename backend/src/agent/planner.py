@@ -42,15 +42,23 @@ _PLANNER_SYSTEM_PROMPT = (
     "1. Always call search_manual first for factual vehicle questions.\n"
     "2. Call search_web in parallel when the question is likely outside the "
     "owner's manual (recalls, known bugs, community fixes, real-world "
-    "prices, regulations, or anything time-sensitive).\n"
-    "3. Call search_youtube only when the user asks how to perform a "
-    "hands-on procedure or when a walkthrough clearly helps.\n"
-    "4. Skip tools that make no sense: do NOT call any tool for pure "
+    "prices, regulations, or anything time-sensitive). The tool already "
+    "boosts manufacturer sites (audi.fr, bmw.com, hyundai.co.kr...) — you "
+    "don't need to add site: yourself.\n"
+    "3. You MAY emit up to TWO search_web calls when a second angle would "
+    "clearly help: e.g. one in English using the technical term "
+    "('towing capacity') PLUS one in the user's language using local "
+    "wording ('capacité de remorquage'). Pass the ``language`` argument "
+    "('en', 'fr', 'ko', ...) so each query is routed to the right region.\n"
+    "4. Call search_youtube only when the user asks how to perform a "
+    "hands-on procedure or when a walkthrough clearly helps. YouTube "
+    "stays worldwide by default — no need to force a language.\n"
+    "5. Skip tools that make no sense: do NOT call any tool for pure "
     "greetings ('hi', 'thanks') or pure meta questions about your "
     "capabilities.\n"
-    "5. You may call at most 3 tools in total. Prefer fewer when the manual "
-    "alone is likely sufficient.\n"
-    "6. Reformulate queries so they are specific: always include the vehicle "
+    "6. You may call at most 4 tool invocations in total across all "
+    "tools. Prefer fewer when the manual alone is likely sufficient.\n"
+    "7. Reformulate queries so they are specific: always include the vehicle "
     "make and model in web/youtube queries."
 )
 
@@ -131,8 +139,9 @@ def plan_tool_calls(
         log.info("Planner returned no tool calls; falling back to default plan.")
         return _default_plan(question)
 
-    # Hard cap at 3 calls to protect latency even if the planner over-asks.
-    return calls[:3]
+    # Hard cap at 4 calls to protect latency even if the planner over-asks.
+    # The responder prompt assumes we never fan out too far.
+    return calls[:4]
 
 
 # ---------------------------------------------------------------------------
