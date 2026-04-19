@@ -1,25 +1,16 @@
-"""Responder stage of the agent.
+"""Responder prompt + citation helpers.
 
-Consumes the tool results produced by the orchestrator and asks the main
-Gemini model for a final, user-facing answer. Two entry points are exposed:
-
-* ``compose_answer`` — blocking, returns the full string (used by the sync
-  chat endpoint).
-* ``stream_answer`` — generator yielding text deltas (used by the streaming
-  endpoint so the UI can render tokens as they arrive).
-
-The responder NEVER invokes tools itself: all tool work has already been
-done by the orchestrator. This keeps the responder deterministic and its
-latency predictable.
+The actual network call to Gemini lives in ``async_pipeline.py``
+(``_stream_answer_async``). This module now only exposes the pure
+prompt-construction helpers (system instruction, evidence block, user
+prompt) and the citation collection / rendering utilities. Keeping them
+here avoids a circular import with the async pipeline.
 """
 from __future__ import annotations
 
 import logging
-from typing import Iterable, Iterator, List, Sequence
+from typing import Iterable, List, Sequence
 
-from google.genai import types as genai_types
-
-from ..config import LLM_TIMEOUT_SECONDS
 from .safety import SAFETY_GUARDRAIL, sanitize_tool_text
 from .tools import Citation, ToolResult
 
@@ -182,125 +173,6 @@ def build_user_prompt(
     return "\n\n---\n\n".join(parts)
 
 
-def _build_config(system_instruction: str, max_tokens: int) -> genai_types.GenerateContentConfig:
-    return genai_types.GenerateContentConfig(
-        system_instruction=system_instruction,
-        temperature=0.15,
-        max_output_tokens=max_tokens,
-        http_options=genai_types.HttpOptions(timeout=LLM_TIMEOUT_SECONDS * 1000),
-    )
-
-
-def compose_answer(
-    client,
-    *,
-    model: str,
-    vehicle_name: str,
-    lang: str,
-    question: str,
-    history_block: str,
-    tool_results: Sequence[ToolResult],
-    max_tokens: int = _DEFAULT_MAX_TOKENS,
-    safety_notice: str = "",
-) -> str:
-    """Blocking response. Returns the raw text the model produced."""
-    system_instruction = build_system_instruction(vehicle_name, lang, safety_notice)
-    evidence_block = build_evidence_block(tool_results)
-    prompt = build_user_prompt(
-        question=question,
-        history_block=history_block,
-        evidence_block=evidence_block,
-    )
-
-    try:
-        response = client.models.generate_content(
-            model=model,
-            contents=prompt,
-            config=_build_config(system_instruction, max_tokens),
-        )
-    except Exception as exc:
-        log.error("Responder call failed: %s", exc)
-        raise
-
-    return (getattr(response, "text", "") or "").strip()
-
-
-def stream_answer(
-    client,
-    *,
-    model: str,
-    vehicle_name: str,
-    lang: str,
-    question: str,
-    history_block: str,
-    tool_results: Sequence[ToolResult],
-    max_tokens: int = _DEFAULT_MAX_TOKENS,
-    safety_notice: str = "",
-) -> Iterator[str]:
-    """Streaming response. Yields text deltas as Gemini emits them."""
-    import time as _time
-
-    system_instruction = build_system_instruction(vehicle_name, lang, safety_notice)
-    evidence_block = build_evidence_block(tool_results)
-    prompt = build_user_prompt(
-        question=question,
-        history_block=history_block,
-        evidence_block=evidence_block,
-    )
-
-    # Drain the Gemini iterator in a daemon thread + queue so the
-    # wallclock / silence caps actually fire. The SDK's `for chunk in
-    # stream` blocks on a network socket — wallclock checks placed
-    # between iterations would never run if the stream stalls silently.
-    import queue as _queue
-    import threading as _threading
-
-    _STREAM_WALLCLOCK_CAP = 35.0   # hard total cap
-    _STREAM_SILENCE_CAP = 12.0     # max silence between chunks
-
-    chunk_queue: "_queue.Queue[tuple[str, object]]" = _queue.Queue(maxsize=128)
-
-    def _drain() -> None:
-        try:
-            stream = client.models.generate_content_stream(
-                model=model,
-                contents=prompt,
-                config=_build_config(system_instruction, max_tokens),
-            )
-            for chunk in stream:
-                chunk_queue.put(("chunk", chunk))
-        except Exception as exc:
-            chunk_queue.put(("error", exc))
-        finally:
-            chunk_queue.put(("done", None))
-
-    _threading.Thread(
-        target=_drain, name="responder-drain", daemon=True,
-    ).start()
-
-    iter_started = _time.perf_counter()
-    last_chunk_at = iter_started
-    while True:
-        now = _time.perf_counter()
-        if now - iter_started > _STREAM_WALLCLOCK_CAP:
-            log.warning("responder stream wallclock cap hit after %.1fs", now - iter_started)
-            return
-        if now - last_chunk_at > _STREAM_SILENCE_CAP:
-            log.warning("responder stream silence cap hit (%.1fs)", now - last_chunk_at)
-            return
-        try:
-            kind, payload = chunk_queue.get(timeout=0.5)
-        except _queue.Empty:
-            continue
-        if kind == "done":
-            break
-        if kind == "error":
-            log.error("responder drain error: %s", payload)
-            return
-        last_chunk_at = _time.perf_counter()
-        text = _extract_chunk_text(payload)
-        if text:
-            yield text
 
 
 def _extract_chunk_text(chunk) -> str:

@@ -1,25 +1,17 @@
-"""Planner stage of the agent.
+"""Planner prompt + response parsing helpers.
 
-Given the user question, the guide metadata and the recent history, ask a
-small Gemini model to choose which tools to invoke and with what arguments.
-
-Latency budget: ~600-1200 ms. We use a compact prompt and force the model
-into tool-call mode so the response is deterministic JSON rather than prose.
+The async agent in :mod:`.async_pipeline` handles the actual Gemini call.
+This module owns the planner system prompt, the model-name resolver, and
+the response parser / default-plan fallback.
 """
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+import os
+from typing import Any, Dict, List
 
-from google.genai import types as genai_types
-
-from ..config import LLM_TIMEOUT_SECONDS
-from .safety import SAFETY_GUARDRAIL
-from .schemas import TOOL_NAMES, build_tool_declarations
+from .schemas import TOOL_NAMES
 from .tools import ToolCall
-
-if TYPE_CHECKING:  # pragma: no cover
-    from google.genai import Client as GenAIClient
 
 log = logging.getLogger("auris.agent.planner")
 
@@ -28,7 +20,6 @@ log = logging.getLogger("auris.agent.planner")
 # planner-specific env var is not set, so deployments without a secondary
 # model continue to work.
 def _resolve_planner_model(default_model: str) -> str:
-    import os
     env_value = os.getenv("LLM_PLANNER_MODEL", "").strip()
     model = env_value or default_model
     return model.replace("models/", "", 1)
@@ -62,91 +53,6 @@ _PLANNER_SYSTEM_PROMPT = (
     "make and model in web/youtube queries."
 )
 
-
-def plan_tool_calls(
-    client: "GenAIClient",
-    *,
-    question: str,
-    vehicle_name: str,
-    lang: str,
-    history_block: str,
-    default_model: str,
-    timeout_seconds: Optional[int] = None,
-    safety_notice: str = "",
-) -> List[ToolCall]:
-    """Ask the planner model which tools to run.
-
-    Returns an ordered list of tool calls. An empty list is a valid outcome
-    and means the responder should answer from history alone (e.g. for
-    a pure greeting).
-
-    ``safety_notice`` is injected into the planner system prompt when the
-    safety triage flagged soft-injection hints in the user question.
-    """
-    model = _resolve_planner_model(default_model)
-    tools = build_tool_declarations()
-
-    lang_hint = {
-        "fr": "The user writes in French.",
-        "en": "The user writes in English.",
-        "ko": "The user writes in Korean.",
-    }.get(lang, "The user may write in French, English or Korean.")
-
-    history_line = (
-        f"Recent conversation (most recent last):\n{history_block}"
-        if history_block
-        else "No prior conversation."
-    )
-
-    system_instruction = _PLANNER_SYSTEM_PROMPT + SAFETY_GUARDRAIL
-    if safety_notice:
-        system_instruction += f"\n\n{safety_notice}"
-
-    prompt = (
-        f"Vehicle: {vehicle_name}\n"
-        f"{lang_hint}\n"
-        f"{history_line}\n\n"
-        f"User question: {question}\n\n"
-        "Choose the tool calls that will gather the evidence needed to "
-        "answer. Return only function calls — no prose."
-    )
-
-    try:
-        response = client.models.generate_content(
-            model=model,
-            contents=prompt,
-            config=genai_types.GenerateContentConfig(
-                system_instruction=system_instruction,
-                temperature=0.0,
-                tools=tools,
-                tool_config=genai_types.ToolConfig(
-                    function_calling_config=genai_types.FunctionCallingConfig(
-                        mode="ANY",
-                        allowed_function_names=list(TOOL_NAMES),
-                    ),
-                ),
-                http_options=genai_types.HttpOptions(
-                    timeout=(timeout_seconds or LLM_TIMEOUT_SECONDS) * 1000,
-                ),
-            ),
-        )
-    except Exception as exc:
-        log.warning("Planner call failed (model=%s): %s", model, exc)
-        return _default_plan(question)
-
-    calls = _extract_tool_calls(response)
-    if not calls:
-        log.info("Planner returned no tool calls; falling back to default plan.")
-        return _default_plan(question)
-
-    # Hard cap at 4 calls to protect latency even if the planner over-asks.
-    # The responder prompt assumes we never fan out too far.
-    return calls[:4]
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
 
 def _extract_tool_calls(response: Any) -> List[ToolCall]:
     calls: List[ToolCall] = []

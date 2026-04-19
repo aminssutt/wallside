@@ -464,17 +464,16 @@ async def _run_tools_async(
             ))
             continue
         t0 = time.perf_counter()
-        log.info("[TOOL %s] START", call.name)
         try:
             result = await asyncio.wait_for(
                 handler(chatbot, call.args),
                 timeout=_TOOLS_BATCH_TIMEOUT,
             )
-            log.info("[TOOL %s] DONE %dms ok=%s", call.name,
-                     int((time.perf_counter() - t0) * 1000), result.ok)
+            log.debug("tool %s done %dms ok=%s", call.name,
+                      int((time.perf_counter() - t0) * 1000), result.ok)
             results.append(result)
         except asyncio.TimeoutError:
-            log.warning("[TOOL %s] OUTER TIMEOUT after %dms", call.name,
+            log.warning("tool %s outer timeout after %dms", call.name,
                         int((time.perf_counter() - t0) * 1000))
             results.append(ToolResult(
                 name=call.name, ok=False,
@@ -482,7 +481,7 @@ async def _run_tools_async(
                 error="outer_timeout",
             ))
         except Exception as exc:
-            log.exception("[TOOL %s] CRASH %dms: %s", call.name,
+            log.exception("tool %s crashed after %dms: %s", call.name,
                           int((time.perf_counter() - t0) * 1000), exc)
             results.append(ToolResult(
                 name=call.name, ok=False,
@@ -609,7 +608,7 @@ async def stream_agent_async(
     history = chatbot._get_session_history(session_id)
     history_block = _build_history_block(history)
     slug = chatbot.guide.slug
-    log.info("[AGENT %s] ENTER q=%r lang=%s", slug, question[:60], lang)
+    log.debug("agent enter slug=%s qlen=%d lang=%s", slug, len(question), lang)
 
     # ---- Safety triage (sync, cheap) ---------------------------------
     verdict = assess_input_safety(
@@ -632,7 +631,6 @@ async def stream_agent_async(
     # ---- Planner ----------------------------------------------------
     yield {"type": "status", "step": "planning"}
     plan_started = time.perf_counter()
-    log.info("[AGENT %s] planner START", slug)
     tool_calls = await _plan_async(
         chatbot.client,
         question=question,
@@ -643,8 +641,8 @@ async def stream_agent_async(
         safety_notice=verdict.soft_notice,
     )
     timings["plan_ms"] = int((time.perf_counter() - plan_started) * 1000)
-    log.info("[AGENT %s] planner DONE %dms -> %s", slug, timings["plan_ms"],
-             [c.name for c in tool_calls])
+    log.debug("agent planner slug=%s %dms -> %s", slug, timings["plan_ms"],
+              [c.name for c in tool_calls])
 
     # ---- Tools ------------------------------------------------------
     yield {
@@ -652,17 +650,15 @@ async def stream_agent_async(
         "tool_calls": [{"name": c.name, "args": c.args} for c in tool_calls],
     }
     tools_started = time.perf_counter()
-    log.info("[AGENT %s] tools START %s", slug, [c.name for c in tool_calls])
     tool_results = await _run_tools_async(chatbot, tool_calls)
     timings["tools_ms"] = int((time.perf_counter() - tools_started) * 1000)
-    log.info("[AGENT %s] tools DONE %dms -> %s", slug, timings["tools_ms"],
-             [f"{r.name}:ok={r.ok}" for r in tool_results])
+    log.debug("agent tools slug=%s %dms -> %s", slug, timings["tools_ms"],
+              [f"{r.name}:ok={r.ok}" for r in tool_results])
 
     # ---- Responder --------------------------------------------------
     yield {"type": "status", "step": "generating"}
     pieces: List[str] = []
     respond_started = time.perf_counter()
-    log.info("[AGENT %s] responder START", slug)
     first_chunk = False
     try:
         async for delta in _stream_answer_async(
@@ -677,15 +673,13 @@ async def stream_agent_async(
         ):
             if not first_chunk:
                 first_chunk = True
-                log.info("[AGENT %s] responder FIRST-CHUNK %dms", slug,
-                         int((time.perf_counter() - respond_started) * 1000))
+                log.debug("agent responder slug=%s first_chunk %dms", slug,
+                          int((time.perf_counter() - respond_started) * 1000))
             pieces.append(delta)
             yield {"type": "chunk", "text": delta}
     except Exception as exc:
         log.error("responder failed slug=%s: %s", slug, exc)
     timings["respond_ms"] = int((time.perf_counter() - respond_started) * 1000)
-    log.info("[AGENT %s] responder DONE %dms chunks=%d", slug,
-             timings["respond_ms"], len(pieces))
 
     answer = "".join(pieces).strip()
     if not answer:
@@ -749,37 +743,33 @@ def stream_agent_sync(
     WATCHDOG_SECONDS = 55.0
 
     async def _driver() -> None:
-        log.info("[BRIDGE %s] async driver STARTED", slug)
         try:
             async for event in stream_agent_async(
                 chatbot, question=question, lang=lang, session_id=session_id,
             ):
                 if stop_event.is_set():
-                    log.info("[BRIDGE %s] stop_event set — leaving async driver", slug)
                     break
                 event_queue.put(event)
         except Exception as exc:
-            log.exception("[BRIDGE %s] async driver CRASH: %s", slug, exc)
+            log.exception("agent bridge driver crashed slug=%s: %s", slug, exc)
         finally:
-            log.info("[BRIDGE %s] async driver EXIT", slug)
             event_queue.put(_SENTINEL)
 
     def _run_loop() -> None:
-        log.info("[BRIDGE %s] worker thread STARTED", slug)
         try:
             asyncio.run(_driver())
         except Exception as exc:
-            log.exception("[BRIDGE %s] event loop CRASH: %s", slug, exc)
+            log.exception("agent bridge loop crashed slug=%s: %s", slug, exc)
             event_queue.put(_SENTINEL)
-        log.info("[BRIDGE %s] worker thread EXIT", slug)
 
     def _watchdog() -> None:
         stopped = stop_event.wait(WATCHDOG_SECONDS)
         if not stopped:
-            log.warning("[BRIDGE %s] WATCHDOG triggered after %.0fs — forcing end",
-                        slug, WATCHDOG_SECONDS)
+            log.warning(
+                "agent watchdog fired slug=%s after %.0fs — forcing end",
+                slug, WATCHDOG_SECONDS,
+            )
             stop_event.set()
-            # Unblock any queue.get on the consumer side.
             try:
                 event_queue.put_nowait(_SENTINEL)
             except queue.Full:

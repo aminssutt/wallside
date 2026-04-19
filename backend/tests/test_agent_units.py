@@ -18,12 +18,20 @@ BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
+import asyncio
+
 from src.agent.responder import (
     build_evidence_block,
     collect_citations,
     render_sources_block,
 )
-from src.agent.tools import Citation, ToolCall, ToolResult, run_tools_in_parallel
+from src.agent.tools import Citation, ToolCall, ToolResult
+from src.agent.async_pipeline import _run_tools_async
+
+
+def run_tools_in_parallel(chatbot, calls):
+    """Sync shim that drives the async dispatcher for tests."""
+    return asyncio.run(_run_tools_async(chatbot, calls))
 
 
 # ---------------------------------------------------------------------------
