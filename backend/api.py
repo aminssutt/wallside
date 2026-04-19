@@ -21,6 +21,7 @@ from flask import Flask, request, jsonify, redirect, send_from_directory, Respon
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from src.guide_manager import guide_manager
 from src.guide_chatbot import get_guide_chatbot, prewarm_guide_chatbots
@@ -57,6 +58,13 @@ FRONTEND_DIST_DIR = Path(
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 1 * 1024 * 1024  # 1 MB max request body
+
+# Traefik / Dokploy terminate TLS and forward the real client IP in
+# X-Forwarded-For. Without ProxyFix, flask_limiter keys every request on
+# the proxy's IP and a single reverse-proxy address shares the whole
+# per-minute budget across all users (or an attacker can forge the
+# header freely). x_for=1 trusts exactly one hop, which is our setup.
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
 
 CORS(app, resources={r"/api/*": {"origins": ALLOWED_ORIGINS}})
 
@@ -247,6 +255,9 @@ def _normalize_pdf_name(name: str) -> str:
     return re.sub(r"[-_\s]+", " ", clean).strip()
 
 
+_SAFE_FILENAME_RE = re.compile(r'^[\w\s.\-()]+\.pdf$', re.IGNORECASE)
+
+
 def _find_guide_pdf(slug: str, filename: Optional[str] = None) -> Optional[Path]:
     """Best-effort fuzzy lookup of the source PDF for a guide.
 
@@ -259,8 +270,21 @@ def _find_guide_pdf(slug: str, filename: Optional[str] = None) -> Optional[Path]
     guide_name = guide.name if guide else slug.replace("-", " ")
 
     targets: List[str] = []
-    if filename and ".." not in filename:
-        targets.append(_normalize_pdf_name(filename))
+    # Strict filename guard: must be a plain ``name.pdf`` with no path
+    # separators or traversal tokens. Anything else is dropped (fuzzy
+    # lookup by guide name still works). Previously a ``".." not in``
+    # check caught literal ``..`` but missed URL-encoded / backslash
+    # variants that the ``<path:filename>`` converter happily passes
+    # through.
+    if filename:
+        clean = filename.strip()
+        if (
+            clean
+            and "/" not in clean and "\\" not in clean
+            and ".." not in clean
+            and _SAFE_FILENAME_RE.match(clean)
+        ):
+            targets.append(_normalize_pdf_name(clean))
     targets.append(_normalize_pdf_name(guide_name))
     slug_normalized = slug.replace("-", " ")
 
@@ -294,6 +318,16 @@ def serve_guide_pdf(slug, filename=None):
 
     pdf_path = _find_guide_pdf(slug, filename=filename)
     if pdf_path is not None:
+        # Defense in depth: confirm the resolved path is still inside
+        # one of the whitelisted PDF_DIRS. _find_guide_pdf already
+        # scopes its rglob to PDF_DIRS, but belt-and-braces catches
+        # any future regression before the blob reaches the client.
+        resolved = pdf_path.resolve()
+        if not any(
+            str(resolved).startswith(str(d.resolve()) + os.sep)
+            for d in PDF_DIRS if d.exists()
+        ):
+            return jsonify({"error": "PDF not found"}), 404
         resp = send_from_directory(
             str(pdf_path.parent), pdf_path.name, mimetype="application/pdf"
         )
@@ -351,9 +385,22 @@ def _parse_chat_request(slug: str):
     if lang and lang not in ('fr', 'en', 'ko'):
         lang = None
 
-    session_id = data.get('session_id') or "default"
-    if len(session_id) > 64 or not _SESSION_ID_RE.match(session_id):
-        session_id = "default"
+    # Validate session_id strictly. Previously an invalid or missing id
+    # collapsed to a shared ``"default"`` bucket — two unrelated clients
+    # hitting the same guide without a session_id would pollute each
+    # other's history. Reject malformed ids with 400; mint a UUID when
+    # the caller sends none so each session still gets an isolated bucket.
+    raw_session_id = data.get('session_id')
+    if raw_session_id is None or raw_session_id == "":
+        import uuid
+        session_id = uuid.uuid4().hex
+    else:
+        session_id = str(raw_session_id)
+        if len(session_id) > 64 or not _SESSION_ID_RE.match(session_id):
+            return None, (jsonify({
+                "success": False,
+                "error": "Invalid session_id",
+            }), 400)
 
     return {
         "guide": guide,
