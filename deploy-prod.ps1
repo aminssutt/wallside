@@ -93,4 +93,4 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Remove-Item -Force $archive
-Write-Host "Done. App is updated on https://carchat.online"
+Write-Host "Done. App is updated on https://wallside.online"

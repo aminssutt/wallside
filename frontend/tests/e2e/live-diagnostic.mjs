@@ -1,6 +1,6 @@
 import { chromium } from '@playwright/test'
 
-const BASE_URL = 'https://carchat.online'
+const BASE_URL = 'https://wallside.online'
 const MAX_CASE_TIMEOUT_MS = 90_000
 const FIRST_TEXT_TIMEOUT_MS = 30_000
 const STABLE_WINDOW_MS = 3_000

@@ -1,4 +1,4 @@
-"""Tool-calling agent for the CarChat vehicle assistant.
+"""Tool-calling agent for the Wallside vehicle assistant.
 
 The public surface is deliberately small: external code (``guide_chatbot``
 and the Flask API) should only call ``run_agent`` (sync) or ``stream_agent``

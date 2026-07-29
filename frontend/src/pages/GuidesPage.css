@@ -81,7 +81,7 @@
   .guides-home-trigger:hover { transform: translateY(-1px); opacity: 0.9; }
 }
 .guides-home-trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 10px; }
-.guides-home-trigger img { width: min(128px, 26vw); height: auto; object-fit: contain; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.4)); }
+.guides-home-trigger img { width: 72px; height: 72px; object-fit: contain; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.4)); }
 
 /* -- language dropdown (desktop) --------------------------------------- */
 
@@ -677,7 +677,7 @@
 
 @media (max-width: 700px) {
   .guides-header { padding: 14px 12px 6px; align-items: center; }
-  .guides-home-trigger img { width: min(108px, 34vw); }
+  .guides-home-trigger img { width: 58px; height: 58px; }
   .guides-content { padding: 0 12px 16px; }
   .brand-selection-title { font-size: clamp(1rem, 5.4vw, 1.4rem); }
   .brand-selection-subtitle { font-size: 0.8rem; margin-bottom: 20px; }

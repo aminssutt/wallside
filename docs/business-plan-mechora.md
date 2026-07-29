@@ -234,7 +234,7 @@ L'offre Entreprise inclut : acces illimite pour toute l'equipe, API dediee, supp
 | Poste | Cout mensuel | Detail |
 |---|---|---|
 | Hebergement serveur (VPS/Docker) | ~30EUR | Dokploy / Railway / VPS OVH |
-| Domaine carchat.online | ~1EUR | Renouvellement annuel |
+| Domaine wallside.online | ~1EUR | Renouvellement annuel |
 | Google API (base gratuite) | 0-15EUR | Tier gratuit generous puis pay-as-you-go |
 | **Total fixe** | **~45EUR/mois** | |
 
@@ -557,7 +557,7 @@ Alfa Romeo, Alpine, Audi, BMW, Chevrolet, Citroen, Cupra, DS, Dacia, Fiat, Ford,
 
 | Ressource | URL |
 |---|---|
-| Production | https://carchat.online |
+| Production | https://wallside.online |
 | Repository | GitHub (prive) |
 | Contact | Landing page, section Contact |
 

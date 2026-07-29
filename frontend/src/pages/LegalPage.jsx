@@ -24,8 +24,8 @@ function MentionsLegales() {
 
       <h3>Editeur du site</h3>
       <ul>
-        <li>Nom du site : CarChat</li>
-        <li>URL : <a href="https://carchat.online" target="_blank" rel="noopener noreferrer">carchat.online</a></li>
+        <li>Nom du site : Wallside</li>
+        <li>URL : <a href="https://wallside.online" target="_blank" rel="noopener noreferrer">wallside.online</a></li>
         <li>Responsable de la publication : Lakhdar Berache (entrepreneur individuel)</li>
         <li>Adresse e-mail : <a href="mailto:lakhdarberache@gmail.com">lakhdarberache@gmail.com</a></li>
       </ul>
@@ -39,7 +39,7 @@ function MentionsLegales() {
 
       <h3>Nature du service</h3>
       <p>
-        CarChat est un assistant technique automobile base sur
+        Wallside est un assistant technique automobile base sur
         l'intelligence artificielle. Le site utilise l'IA (Gemini de Google)
         pour fournir des reponses basees sur les manuels constructeurs
         automobiles. Les reponses generees sont fournies a titre purement
@@ -59,9 +59,9 @@ function CGU() {
       <h3>Article 1 — Objet</h3>
       <p>
         Les presentes Conditions Generales d'Utilisation (CGU) ont pour objet
-        de definir les modalites d'acces et d'utilisation du service CarChat,
-        accessible a l'adresse <a href="https://carchat.online" target="_blank" rel="noopener noreferrer">carchat.online</a>.
-        CarChat est un assistant technique automobile base sur l'intelligence
+        de definir les modalites d'acces et d'utilisation du service Wallside,
+        accessible a l'adresse <a href="https://wallside.online" target="_blank" rel="noopener noreferrer">wallside.online</a>.
+        Wallside est un assistant technique automobile base sur l'intelligence
         artificielle, concu pour repondre aux questions relatives a
         l'utilisation et l'entretien des vehicules.
       </p>
@@ -76,13 +76,13 @@ function CGU() {
 
       <h3>Article 3 — Limitations de responsabilite</h3>
       <p>
-        Les reponses fournies par CarChat sont generees par intelligence
+        Les reponses fournies par Wallside sont generees par intelligence
         artificielle et sont communiquees a titre informatif uniquement.
         Elles ne sauraient en aucun cas se substituer a l'avis d'un
         professionnel de l'automobile (mecanicien, concessionnaire, expert).
       </p>
       <p>
-        CarChat ne garantit pas l'exactitude, l'exhaustivite ou
+        Wallside ne garantit pas l'exactitude, l'exhaustivite ou
         l'actualite des reponses fournies par l'IA. L'utilisateur
         utilise le service sous sa propre responsabilite.
       </p>
@@ -91,7 +91,7 @@ function CGU() {
       <p>
         Les manuels techniques et guides constructeurs utilises comme
         source de donnees restent la propriete exclusive de leurs
-        constructeurs respectifs. Le contenu du site CarChat (design,
+        constructeurs respectifs. Le contenu du site Wallside (design,
         textes, logo) est la propriete de Lakhdar Berache, sauf
         mention contraire.
       </p>
@@ -124,7 +124,7 @@ function PolitiqueConfidentialite() {
 
       <h3>1. Donnees collectees</h3>
       <p>
-        CarChat collecte un minimum de donnees necessaires au
+        Wallside collecte un minimum de donnees necessaires au
         fonctionnement du service :
       </p>
       <ul>
@@ -143,14 +143,14 @@ function PolitiqueConfidentialite() {
 
       <h3>2. Absence de compte utilisateur</h3>
       <p>
-        Aucune creation de compte n'est requise. CarChat ne collecte
+        Aucune creation de compte n'est requise. Wallside ne collecte
         ni nom, ni adresse e-mail, ni aucune autre donnee
         d'identification personnelle.
       </p>
 
       <h3>3. Cookies et traceurs</h3>
       <p>
-        CarChat n'utilise aucun cookie de tracking. Aucun outil
+        Wallside n'utilise aucun cookie de tracking. Aucun outil
         d'analyse tiers (Google Analytics ou equivalent) n'est
         integre au site. Seul le localStorage du navigateur est
         utilise pour stocker la preference de langue.

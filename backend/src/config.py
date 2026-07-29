@@ -106,8 +106,8 @@ PREWARM_GUIDES = [
 
 # CORS
 _DEFAULT_ORIGINS = [
-    "https://carchat.online",
-    "https://www.carchat.online",
+    "https://wallside.online",
+    "https://www.wallside.online",
     "http://localhost:5173",
     "http://localhost:5174",
     "http://localhost:5175",

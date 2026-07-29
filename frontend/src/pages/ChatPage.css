@@ -156,8 +156,8 @@
 }
 
 .chat-brand img {
-  width: min(100px, 22vw);
-  height: auto;
+  width: 64px;
+  height: 64px;
   object-fit: contain;
   filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.4));
 }
@@ -1787,8 +1787,8 @@ button.bot-source-link:focus-visible,
   }
 
   .chat-brand img {
-    width: min(90px, 26vw);
-    height: auto;
+    width: 54px;
+    height: 54px;
   }
 
   .chat-brand p {

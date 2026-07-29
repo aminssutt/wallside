@@ -1,4 +1,4 @@
-# CarChat — Assistant documentaire intelligent pour véhicules
+# Wallside — Assistant documentaire intelligent pour véhicules
 
 Application full-stack qui transforme des manuels constructeur PDF (entretien,
 dépannage, fonctionnalités) en assistant conversationnel spécialisé par
@@ -169,4 +169,4 @@ Production : Dokploy (Docker Compose).
 
 ## Auteur
 
-Lakhdar Berache — [carchat.online](https://carchat.online)
+Lakhdar Berache — [wallside.online](https://wallside.online)

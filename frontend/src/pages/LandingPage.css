@@ -1,5 +1,5 @@
 /* ============================================================
-   CarChat Landing Page — Premium Automotive Design System
+   Wallside Landing Page — Premium Automotive Design System
    ============================================================ */
 
 .landing {
@@ -253,10 +253,18 @@
 
 .nav__logo {
   height: 64px;
-  width: auto;
+  width: 64px;
   object-fit: contain;
   filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.4));
   transition: opacity 0.2s;
+}
+
+.nav__brand-name {
+  color: var(--text-primary);
+  font-family: var(--font-heading);
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
 }
 
 .nav__brand:hover .nav__logo {
@@ -590,14 +598,29 @@
 }
 
 .hero__title-wrap {
+  display: flex;
+  align-items: center;
+  gap: clamp(14px, 2vw, 28px);
   will-change: transform, filter;
 }
 
 .hero__title-logo {
-  max-width: 540px;
-  height: auto;
+  width: clamp(150px, 18vw, 240px);
+  height: clamp(150px, 18vw, 240px);
+  object-fit: contain;
   display: block;
   filter: drop-shadow(0 0 40px rgba(200, 168, 78, 0.15));
+}
+
+.hero__brand-name {
+  margin: 0;
+  color: var(--text-primary);
+  font-family: var(--font-heading);
+  font-size: clamp(3rem, 6.5vw, 6.4rem);
+  font-weight: 700;
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+  text-shadow: 0 0 40px rgba(200, 168, 78, 0.14);
 }
 
 .hero__subtitle {
@@ -1680,10 +1703,11 @@
 .chat-demo__dots span:nth-child(3) { background: rgba(39, 201, 63, 0.6); }
 
 .chat-demo__logo {
-  height: 18px;
-  width: auto;
+  height: 26px;
+  width: 26px;
+  object-fit: contain;
   margin-left: auto;
-  opacity: 0.6;
+  opacity: 0.82;
 }
 
 .chat-demo__body {
@@ -1796,11 +1820,26 @@
   gap: 14px;
 }
 
+.footer__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .footer__logo {
-  max-width: 140px;
-  height: auto;
+  width: 84px;
+  height: 84px;
+  object-fit: contain;
   display: block;
   opacity: 0.9;
+}
+
+.footer__brand-name {
+  color: var(--text-primary);
+  font-family: var(--font-heading);
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
 }
 
 .footer__bio {
@@ -1913,6 +1952,7 @@
 @media (max-width: 1024px) {
   .nav__logo {
     height: 56px;
+    width: 56px;
   }
 
   .features__grid {
@@ -1968,8 +2008,12 @@
   }
 
   .hero__title-logo {
-    max-width: 320px;
-    margin: 0 auto;
+    width: clamp(130px, 32vw, 190px);
+    height: clamp(130px, 32vw, 190px);
+  }
+
+  .hero__title-wrap {
+    justify-content: center;
   }
 
   .features__grid {
@@ -2081,6 +2125,11 @@
 
   .nav__logo {
     height: 46px;
+    width: 46px;
+  }
+
+  .nav__brand-name {
+    font-size: 1rem;
   }
 
   .feature-card__content {
