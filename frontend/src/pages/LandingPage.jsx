@@ -699,7 +699,6 @@ export default function LandingPage() {
         <div className="nav__inner">
           <button type="button" className="nav__brand" onClick={() => navigate('/')} aria-label="Wallside home">
             <img className="nav__logo" src="/wallside-logo.png" alt="Wallside" />
-            <span className="nav__brand-name">Wallside</span>
           </button>
 
           <ul className="nav__links">
@@ -804,15 +803,17 @@ export default function LandingPage() {
 
         <div className="hero__content">
           <div className="hero__text">
-            {/* Logo reveal */}
+            {/* Animated wordmark */}
             <Motion.div
               className="hero__title-wrap"
-              initial={{ opacity: 0, scale: 0.9, filter: 'blur(20px)' }}
-              animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
-              transition={{ duration: 1.2, ease: [0.25, 0.1, 0.25, 1] }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.2 }}
             >
-              <img src="/wallside-logo.png" alt="Wallside" className="hero__title-logo" />
-              <h1 className="hero__brand-name">{t.heroTitle}</h1>
+              <h1 className="hero__brand-name">
+                <span className="hero__brand-text">{t.heroTitle}</span>
+                <span className="hero__typing-caret" aria-hidden="true" />
+              </h1>
             </Motion.div>
 
             {/* Subtitle with word reveal */}
