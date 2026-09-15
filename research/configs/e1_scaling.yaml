@@ -1,0 +1,16 @@
+# E1 - How does document-identification accuracy fall as the searched corpus grows?
+# Gold manual + N-1 distractors (random vs hard = same brand / most similar manuals), 5 seeds per tier.
+name: e1_scaling
+retrievers:
+  - bm25
+  - dense:gemini-embedding-001
+  - rrf(bm25,dense:gemini-embedding-001)
+  - dense:bge-m3
+  - dense:multilingual-e5-large-instruct
+  - rrf(bm25,dense:bge-m3)
+variants: [native_plain, native_model, native_full]
+scopes: [manual, vehicle, global, tiers]
+tiers: [1, 2, 5, 10, 20, 50, 100, 165]
+strategies: [random, hard]
+seeds: 5
+split: test

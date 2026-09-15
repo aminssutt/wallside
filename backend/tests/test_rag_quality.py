@@ -12,10 +12,6 @@ import re
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Force UTF-8 output on Windows
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
-sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
-
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 load_dotenv(BACKEND_DIR / ".env")
 
@@ -167,7 +163,7 @@ TEST_CASES = [
     # ---- LANGUAGE HANDLING ----
     {
         "slug": "hyundai-tucson-2024",
-        "question": "\\ube0c\\ub808\\uc774\\ud06c \\uc2dc\\uc2a4\\ud15c\\uc740 \\uc5b4\\ub5bb\\uac8c \\uc791\\ub3d9\\ud558\\ub098\\uc694?",
+        "question": "\ube0c\ub808\uc774\ud06c \uc2dc\uc2a4\ud15c\uc740 \uc5b4\ub5bb\uac8c \uc791\ub3d9\ud558\ub098\uc694?",
         "lang": "ko",
         "category": "language",
         "expect_keywords": [],  # Korean response expected
@@ -339,6 +335,9 @@ def evaluate_test(test: dict, response: str) -> dict:
 # ============================================================
 
 def main():
+    # Force UTF-8 console output on Windows (kept out of import time so pytest collection is not broken).
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
     print("=" * 70)
     print("  MECHORA - RAG QUALITY TEST SUITE")
     print("=" * 70)

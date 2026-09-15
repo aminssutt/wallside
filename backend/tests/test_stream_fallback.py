@@ -38,6 +38,8 @@ def _parse_sse_events(raw_text: str):
 
 @pytest.fixture
 def client(monkeypatch):
+    # These tests exercise the legacy stream path; a local .env with AGENT_ENABLED=1 must not reroute them.
+    monkeypatch.setenv("AGENT_ENABLED", "0")
     guide = SimpleNamespace(name="Guide Test", is_indexed=True)
     monkeypatch.setattr(api.guide_manager, "get_guide", lambda slug: guide)
     return api.app.test_client()

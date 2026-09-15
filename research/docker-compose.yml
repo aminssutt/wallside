@@ -1,0 +1,24 @@
+# Research harness. Separate from the root docker-compose.yml (production / Dokploy).
+#   docker compose -f research/docker-compose.yml run --rm ragscale corpus
+#   docker compose -f research/docker-compose.yml run --rm ragscale run configs/e1_scaling.yaml
+#   docker compose -f research/docker-compose.yml run --rm --entrypoint pytest ragscale -q
+services:
+  ragscale:
+    build:
+      context: .
+      args:
+        WITH_LOCAL_MODELS: ${WITH_LOCAL_MODELS:-0}
+    image: wallside-ragscale:latest
+    env_file:
+      - path: ../.env
+        required: false
+    environment:
+      # Parallel numpy/BM25 threads inside the Colima VM
+      OMP_NUM_THREADS: ${OMP_NUM_THREADS:-4}
+    volumes:
+      - ./data:/app/research/data
+      - ./datasets:/app/research/datasets
+      - ./results:/app/research/results
+      - ./configs:/app/research/configs:ro
+      # Production indexes + guide grouping code, read-only
+      - ../backend:/app/backend:ro

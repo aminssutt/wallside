@@ -1,0 +1,20 @@
+# E2 - Which retrieval techniques keep finding the right document at full scale (165 manuals)?
+# Tuned/validated on the dev split first (see protocol), reported on test.
+name: e2_techniques
+retrievers:
+  - bm25
+  - bm25_stem
+  - dense:gemini-embedding-001
+  - dense:bge-m3
+  - dense:multilingual-e5-large-instruct
+  - rrf(bm25,dense:gemini-embedding-001)
+  - rrf(bm25,dense:bge-m3)
+  - rrf(bm25,dense:gemini-embedding-001,dense:bge-m3)
+  - name_boost(dense:gemini-embedding-001)
+  - doc_router(dense:gemini-embedding-001)
+  - name_router(rrf(bm25,dense:gemini-embedding-001))
+  - rerank(rrf(bm25,dense:gemini-embedding-001))
+  - rerank(name_router(rrf(bm25,dense:gemini-embedding-001)))
+variants: [native_plain, native_model, native_full, cross_plain]
+scopes: [vehicle, global]
+split: test

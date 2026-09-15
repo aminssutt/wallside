@@ -28,3 +28,7 @@ node_modules
 
 start-dev.cmd
 start-dev.ps1
+
+.env
+research/data
+research/.venv

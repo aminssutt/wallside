@@ -111,3 +111,9 @@ backend/[0-9]
 backend/[0-9][0-9]
 backend/[0-9][0-9][0-9]
 backend/DuckDuckGo
+
+# ================================
+# Research harness (large derived data)
+# ================================
+research/data/
+research/.venv/
