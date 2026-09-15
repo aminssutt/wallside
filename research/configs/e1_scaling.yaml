@@ -1,14 +1,19 @@
 # E1 - How does document-identification accuracy fall as the searched corpus grows?
 # Gold manual + N-1 distractors (random vs hard = same brand / most similar manuals), 5 seeds per tier.
+# API-free retrievers; Gemini-embedding variants are in e1_scaling_api.yaml.
 name: e1_scaling
+dataset: questions_v1
 retrievers:
-  - bm25
-  - dense:gemini-embedding-001
-  - rrf(bm25,dense:gemini-embedding-001)
+  - bm25_stem
+  - bm25_stem+ctx
   - dense:bge-m3
+  - dense:bge-m3+ctx
   - dense:multilingual-e5-large-instruct
-  - rrf(bm25,dense:bge-m3)
-variants: [native_plain, native_model, native_full]
+  - rrf(bm25_stem,dense:bge-m3)
+  - rrf(bm25_stem+ctx,dense:bge-m3+ctx)
+  - name_router(rrf(bm25_stem,dense:bge-m3))
+  - hnsw(dense:bge-m3)
+variants: [native_plain, native_brand, native_model, native_full]
 scopes: [manual, vehicle, global, tiers]
 tiers: [1, 2, 5, 10, 20, 50, 100, 165]
 strategies: [random, hard]

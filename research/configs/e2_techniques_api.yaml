@@ -1,0 +1,13 @@
+# E2 additions that need the Gemini API (query embeddings).
+name: e2_techniques
+dataset: questions_v1
+retrievers:
+  - dense:gemini-embedding-001
+  - rrf(bm25_stem,dense:gemini-embedding-001)
+  - rrf(bm25_stem,dense:gemini-embedding-001,dense:bge-m3)
+  - name_boost(dense:gemini-embedding-001)
+  - name_router(rrf(bm25_stem,dense:gemini-embedding-001))
+  - rerank(rrf(bm25_stem,dense:gemini-embedding-001))
+variants: [native_plain, native_model, native_full, cross_plain]
+scopes: [vehicle, global]
+split: test

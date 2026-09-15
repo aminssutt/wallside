@@ -3,6 +3,9 @@ import tempfile
 
 # Indexes built by tests must never land in research/data.
 os.environ.setdefault("RAGSCALE_DATA_DIR", tempfile.mkdtemp(prefix="ragscale-test-"))
+os.environ.setdefault("RAGSCALE_DATASETS_DIR", tempfile.mkdtemp(prefix="ragscale-test-datasets-"))
+os.environ.setdefault("RAGSCALE_RESULTS_DIR", tempfile.mkdtemp(prefix="ragscale-test-results-"))
+os.environ["RAGSCALE_OFFLINE"] = "1"
 
 import numpy as np
 import pandas as pd

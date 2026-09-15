@@ -1,20 +1,25 @@
 # E2 - Which retrieval techniques keep finding the right document at full scale (165 manuals)?
-# Tuned/validated on the dev split first (see protocol), reported on test.
+# Configurations are chosen on the dev split (dev_*.yaml), reported here on test. API-free.
 name: e2_techniques
+dataset: questions_v1
 retrievers:
   - bm25
   - bm25_stem
-  - dense:gemini-embedding-001
+  - bm25_stem+ctx
+  - rm3(bm25)
   - dense:bge-m3
+  - dense:bge-m3+ctx
   - dense:multilingual-e5-large-instruct
-  - rrf(bm25,dense:gemini-embedding-001)
-  - rrf(bm25,dense:bge-m3)
-  - rrf(bm25,dense:gemini-embedding-001,dense:bge-m3)
-  - name_boost(dense:gemini-embedding-001)
-  - doc_router(dense:gemini-embedding-001)
-  - name_router(rrf(bm25,dense:gemini-embedding-001))
-  - rerank(rrf(bm25,dense:gemini-embedding-001))
-  - rerank(name_router(rrf(bm25,dense:gemini-embedding-001)))
+  - rrf(bm25_stem,dense:bge-m3)
+  - rrf(bm25_stem+ctx,dense:bge-m3+ctx)
+  - wsum(bm25_stem+ctx,dense:bge-m3+ctx;w=0.3|0.7)
+  - rrf(bm25_stem,dense:bge-m3,dense:multilingual-e5-large-instruct)
+  - doc_router(dense:bge-m3+ctx)
+  - name_boost(dense:bge-m3)
+  - name_router(rrf(bm25_stem,dense:bge-m3))
+  - rerank(rrf(bm25_stem,dense:bge-m3))
+  - rerank(name_router(rrf(bm25_stem,dense:bge-m3)))
+  - m3rerank(rrf(bm25_stem,dense:bge-m3))
 variants: [native_plain, native_model, native_full, cross_plain]
 scopes: [vehicle, global]
 split: test

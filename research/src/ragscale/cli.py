@@ -98,6 +98,19 @@ def _cmd_best(args: argparse.Namespace) -> None:
         print(table.round(3).to_string(index=False))
 
 
+def _cmd_breakdown(args: argparse.Namespace) -> None:
+    import pandas as pd
+
+    from .experiments.analysis import breakdown
+
+    where = {"scope": args.scope, "variant": args.variant}
+    if args.retriever:
+        where["retriever"] = args.retriever
+    table = breakdown(args.name, args.by, args.metric, where)
+    with pd.option_context("display.width", 200, "display.max_rows", 500, "display.max_colwidth", 60):
+        print(table.round(3).to_string(index=False))
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="ragscale")
     parser.add_argument("-v", "--verbose", action="store_true")
@@ -140,6 +153,15 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--n-manuals", type=int, default=0)
     p.add_argument("--strategy", default="")
     p.set_defaults(func=_cmd_best)
+
+    p = sub.add_parser("breakdown", help="Metric by question stratum (specificity, question_type, overlap_bin, ...)")
+    p.add_argument("name")
+    p.add_argument("--by", default="specificity")
+    p.add_argument("--metric", default="doc_hit@1")
+    p.add_argument("--scope", default="global")
+    p.add_argument("--variant", default="native_plain")
+    p.add_argument("--retriever", default=None)
+    p.set_defaults(func=_cmd_breakdown)
 
     p = sub.add_parser("analyze", help="Summarize a run with 95%% confidence intervals")
     p.add_argument("name")

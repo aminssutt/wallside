@@ -1,0 +1,14 @@
+# E1 with the production embedding model (query encoding needs the Gemini API).
+name: e1_scaling
+dataset: questions_v1
+retrievers:
+  - dense:gemini-embedding-001
+  - rrf(bm25_stem,dense:gemini-embedding-001)
+  - name_boost(dense:gemini-embedding-001)
+  - hnsw(dense:gemini-embedding-001)
+variants: [native_plain, native_brand, native_model, native_full]
+scopes: [manual, vehicle, global, tiers]
+tiers: [1, 2, 5, 10, 20, 50, 100, 165]
+strategies: [random, hard]
+seeds: 5
+split: test

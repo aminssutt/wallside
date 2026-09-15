@@ -240,6 +240,39 @@ def extract_pdf_pypdf(pdf_path: Path):
     return documents, total_pages
 
 
+_READABILITY_WORDS = frozenset(
+    "le la les des du de est et pour dans une un sur avec par vous votre pas sont "
+    "the and is for in with to of your you are be this that on".split()
+)
+# Real FR/EN prose is ~30-40% function words. Fonts with a broken ToUnicode map (e.g. Kia's
+# KiaSignatureOTF, Identity-H) make pypdf emit shifted-alphabet text ("UUIFPDDVQBOU") with almost none.
+MIN_READABLE_RATIO = 0.05
+
+
+def readability_ratio(docs) -> float:
+    tokens = re.findall(r"[a-zà-ÿ]+", " ".join(d.page_content for d in docs[:200]).lower())
+    if len(tokens) < 50:
+        return 1.0
+    return sum(t in _READABILITY_WORDS for t in tokens) / len(tokens)
+
+
+def extract_pdf_pymupdf(pdf_path: Path):
+    import fitz
+    from langchain_core.documents import Document
+
+    documents = []
+    with fitz.open(str(pdf_path)) as pdf:
+        total_pages = pdf.page_count
+        for i, page in enumerate(pdf):
+            text = page.get_text()
+            if text and text.strip():
+                documents.append(Document(
+                    page_content=text,
+                    metadata={"source_file": pdf_path.name, "page": i + 1, "total_pages": total_pages},
+                ))
+    return documents, total_pages
+
+
 def _ocr_runtime_ready() -> Tuple[bool, str]:
     missing = []
     if importlib.util.find_spec("fitz") is None:
@@ -309,6 +342,10 @@ def extract_pdf_with_fallback(
     ocr_max_pages: int,
 ):
     docs, total_pages = extract_pdf_pypdf(pdf_path)
+    if docs and readability_ratio(docs) < MIN_READABLE_RATIO and importlib.util.find_spec("fitz") is not None:
+        mu_docs, mu_pages = extract_pdf_pymupdf(pdf_path)
+        if mu_docs and readability_ratio(mu_docs) > readability_ratio(docs):
+            return mu_docs, mu_pages, "pymupdf", "pypdf_unreadable_font_encoding"
     if docs:
         return docs, total_pages, "pypdf", ""
 

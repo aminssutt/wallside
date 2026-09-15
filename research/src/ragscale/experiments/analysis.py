@@ -127,3 +127,36 @@ def best_retrievers(summary: pd.DataFrame, metric: str, scope: str, variant: str
         sub = sub[sub["strategy"] == strategy]
     cols = ["retriever", metric, f"{metric}_lo", f"{metric}_hi", "n_questions"]
     return sub.sort_values(metric, ascending=False)[cols].reset_index(drop=True)
+
+
+def question_features(dataset: str) -> pd.DataFrame:
+    """Per-question covariates for stratified analysis."""
+    from ..dataset.generate import read_jsonl
+
+    rows = []
+    for r in read_jsonl(paths.DATASETS_DIR / f"{dataset}.jsonl"):
+        overlap = r["lexical_overlap_plain"]
+        rows.append({
+            "qid": r["qid"], "manual": r["manual"], "manual_lang": r["manual_lang"],
+            "question_type": r["question_type"], "specificity": r["specificity"],
+            "overlap_bin": "low (<0.34)" if overlap < 0.34 else ("mid" if overlap < 0.67 else "high (>=0.67)"),
+            "has_equivalents": bool(r["equivalent_rows"]),
+        })
+    return pd.DataFrame(rows)
+
+
+def breakdown(run: str, by: str, metric: str, where: dict, dataset: str | None = None) -> pd.DataFrame:
+    """Metric per retriever x stratum (e.g. by specificity) on one condition, with 95% CIs."""
+    df = load_run(run)
+    for k, v in where.items():
+        df = df[df[k] == v]
+    if dataset is None:
+        spec = json.loads((paths.RUNS_DIR / run / "spec.json").read_text())
+        dataset = spec.get("dataset", "questions_v1")
+    pq = per_question(df, [metric]).merge(question_features(dataset), on="qid")
+    out = []
+    for (retriever, stratum), g in pq.groupby(["retriever", by]):
+        ci = mean_ci(g[metric].to_numpy())
+        out.append({"retriever": retriever, by: stratum, metric: ci["mean"], "ci_low": ci["ci_low"],
+                    "ci_high": ci["ci_high"], "n": ci["n"]})
+    return pd.DataFrame(out).sort_values(["retriever", by]).reset_index(drop=True)

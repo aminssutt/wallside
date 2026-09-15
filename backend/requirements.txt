@@ -29,3 +29,6 @@ flask-limiter>=3.5.0
 # Server WSGI pour production
 gunicorn>=21.0.0
 gevent>=24.0
+
+# PDF text extraction fallback for fonts pypdf cannot decode (and OCR rendering)
+pymupdf>=1.24

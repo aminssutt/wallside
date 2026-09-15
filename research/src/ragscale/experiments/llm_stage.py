@@ -69,7 +69,7 @@ class LLMStageSpec:
     n_questions: int = 300
     variant: str = "native_plain"
     retrieval_run: str = "e2_techniques"
-    retriever: str = "rrf(bm25,dense:gemini-embedding-001)"
+    retriever: str = "rrf(bm25_stem,dense:bge-m3)"
     scope: str = "global"
     context_ks: list[int] = field(default_factory=lambda: [1, 3, 5, 10, 20])
     position_k: list[int] = field(default_factory=lambda: [5, 20])
