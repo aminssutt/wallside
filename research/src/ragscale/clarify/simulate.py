@@ -204,11 +204,16 @@ class ClarificationSimulator:
             level = max(level, ATTRIBUTES.index(attr) + 1)
             known = answer  # the most specific answer subsumes the previous ones
         dlg.final_query = f"{query.text} [{ANSWER_PREFIX[lang]}{known}]" if known else query.text
+        if dlg.turns:
+            gold_display = self.catalog.vehicle_display[self.catalog.vehicle_of(record["manual"])]
+            first = dlg.turns[0]
+            gold_value = gold_display[f"{first.attribute}_display"]
+            dlg.metrics["gold_in_options"] = float(gold_value in first.options)
         ranking = Ranking(ranking.rows[:20], ranking.scores[:20])
         m = query_metrics(ranking.rows, gold, self.corpus.row_manual_idx, self._page_start, self._page_end,
                           self._manual_vehicle, self._manual_brand)
-        dlg.metrics = {k: m[k] for k in ("doc_hit@1", "chunk_hit@5", "chunk_hit@5_lenient", "page_hit@5",
-                                          "confusion_same_brand", "confusion_other_brand")}
+        dlg.metrics.update({k: m[k] for k in ("doc_hit@1", "chunk_hit@5", "chunk_hit@5_lenient", "page_hit@5",
+                                               "confusion_same_brand", "confusion_other_brand")})
         dlg.metrics["answer_found@5"] = max(m["chunk_hit@5_lenient"],
                                             self._semantic_hit(ranking.rows[:5], record) if record["specificity"] == "generic" else 0.0)
         if len(ranking.rows):

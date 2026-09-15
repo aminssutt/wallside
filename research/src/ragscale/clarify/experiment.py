@@ -144,6 +144,8 @@ class ClarifyExperiment:
                 ci = mean_ci(g[m].to_numpy())
                 row[m], row[f"{m}_lo"], row[f"{m}_hi"] = ci["mean"], ci["ci_low"], ci["ci_high"]
             row["avg_turns"] = g["turns"].mean()
+            asked = g[g["turns"] > 0]
+            row["gold_in_options@3"] = float(asked["gold_in_options"].mean()) if "gold_in_options" in g and len(asked) else np.nan
             row["ask_rate"] = g["first_turn_asked"].mean()
             needed, not_needed = g[g["needs"]], g[~g["needs"]]
             row["missed_clarification"] = float((~needed["first_turn_asked"]).mean()) if len(needed) else np.nan

@@ -91,8 +91,12 @@ def squash_ws(text: str) -> str:
     return _WS_RE.sub(" ", text or "").strip()
 
 
-# Brand names that are also everyday words ("seat belt", "smart key", "mini display", "ram", "alpine road").
+# Brand and model names that are also everyday FR/EN words ("seat belt", "smart key", "ranger le coffre",
+# "espace de chargement", "focus", "swift"): they only count when capitalized (or with their brand).
 COMMON_WORD_BRANDS = frozenset({"seat", "smart", "mini", "ram", "genesis", "alpine", "lotus", "jaguar", "ora", "nio", "rover"})
+COMMON_WORD_MODELS = frozenset({"ranger", "espace", "rafale", "focus", "swift", "partner", "spring", "leaf", "avenger",
+                                "puma", "panda", "jogger", "uno", "austral", "levante", "fiesta", "scenic", "civic",
+                                "colt", "mustang", "kangoo", "zoe", "leon", "ibiza", "tipo", "juke", "outback", "forester"})
 
 
 def mentions_name(text: str, name_key: str) -> bool:
@@ -103,7 +107,7 @@ def mentions_name(text: str, name_key: str) -> bool:
     padded = f" {normalize_for_match(text)} "
     if f" {name_key} " not in padded:
         return False
-    if name_key not in COMMON_WORD_BRANDS:
+    if name_key not in COMMON_WORD_BRANDS and name_key not in COMMON_WORD_MODELS:
         return True
     words = re.findall(r"[\w-]+", text)
     return any(fold(w) == name_key and w[:1].isupper() for w in words[1:])

@@ -158,3 +158,13 @@ def test_common_word_brands_need_capitalization(text, brand, expected):
     from ragscale.text import mentions_name
 
     assert mentions_name(text, brand) is expected
+
+
+@pytest.mark.parametrize("query,expected", [
+    ("Où ranger la plage arrière sur ma Formentor ?", ["formentor"]),
+    ("Comment régler le siège de mon Ford Ranger ?", ["ranger"]),
+    ("Le Ranger a-t-il une prise 12 V ?", ["ranger"]),
+])
+def test_common_word_models_are_not_routed_from_verbs(query, expected):
+    corpus = _names_corpus([("formentor", "Cupra Formentor (2021)", "Cupra"), ("ranger", "Ford Ranger (2023)", "Ford")])
+    assert NameRouter(corpus, FixedScores(corpus, {})).route(query) == expected

@@ -8,7 +8,7 @@ import numpy as np
 
 from ..corpus import Corpus
 from ..dataset.names import name_forms
-from ..text import normalize_for_match
+from ..text import COMMON_WORD_MODELS, mentions_name, normalize_for_match
 from .base import Query, Ranking, Retriever, ScoringRetriever, topk_in_mask
 
 
@@ -84,6 +84,8 @@ class NameRouter(Retriever):
                 # Contiguous phrase: "classe a" must not match "classe c ... a".
                 if f" {key['model']} " not in padded or (key["needs_brand"] and not has_brand):
                     continue
+                if key["model"] in COMMON_WORD_MODELS and not has_brand and not mentions_name(text, key["model"]):
+                    continue  # "ranger le coffre" is not a Ford Ranger
                 score = (len(key["model"].split()) + 0.5 * has_brand + 0.25 * len(key["years"] & q)
                          + 0.1 * len(key["generic_words"] & q))  # "Palisade ... Infotainment System" -> that manual
             elif has_brand and key["generic_words"] & q:

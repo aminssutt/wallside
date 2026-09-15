@@ -1,12 +1,11 @@
 # E1 - How does document-identification accuracy fall as the searched corpus grows?
 # Gold manual + N-1 distractors (random vs hard = same brand / most similar manuals), 5 seeds per tier.
 # API-free retrievers chosen on the dev split (dev_lexical, dev_dense, dev_ctx, dev_strip).
-name: e1_scaling
-dataset: questions_v1
+name: e1_scaling_partial
+dataset: questions_v1_partial
 retrievers:
   - bm25_stem
   - dense:bge-m3
-  - dense:multilingual-e5-large-instruct
   - wsum(bm25_stem,dense:bge-m3;w=0.3|0.7)
   - wsum(bm25_stem+ctx,dense:bge-m3+ctx;w=0.3|0.7)
   - rrf(bm25_stem,dense:bge-m3)
