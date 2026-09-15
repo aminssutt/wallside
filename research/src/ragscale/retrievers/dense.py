@@ -145,13 +145,35 @@ class DenseRetriever(ScoringRetriever):
                     self.gemini = Gemini()
                 vecs = self.gemini.embed(todo, GEMINI_DOC_MODEL, task_type="RETRIEVAL_QUERY")
             else:
-                spec = LOCAL_MODELS[base_model(self.model)]
-                vecs = load_st_model(base_model(self.model)).encode(
-                    [spec.query_prefix + t for t in todo], batch_size=spec.batch_size,
-                    normalize_embeddings=True, convert_to_numpy=True, show_progress_bar=False,
-                ).astype(np.float32)
+                vecs = self._encode_local_cached(todo)
             self._query_cache.update(zip(todo, vecs))
         return np.stack([self._query_cache[q.text] for q in queries])
+
+    def _encode_local_cached(self, texts: list[str]) -> np.ndarray:
+        """Local query embeddings persisted on disk: reruns (and torch-free processes) skip the encoder."""
+        import hashlib
+        import sqlite3
+
+        name = base_model(self.model)
+        db_path = paths.CACHE_DIR / f"query-emb-{name}.sqlite"
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        with sqlite3.connect(str(db_path)) as db:
+            db.execute("CREATE TABLE IF NOT EXISTS e (k TEXT PRIMARY KEY, v BLOB)")
+            keys = [hashlib.sha1(t.encode()).hexdigest() for t in texts]
+            found = {}
+            for i in range(0, len(keys), 900):
+                part = keys[i : i + 900]
+                found.update(db.execute(f"SELECT k, v FROM e WHERE k IN ({','.join('?' * len(part))})", part).fetchall())
+            missing = [t for t, k in zip(texts, keys) if k not in found]
+            if missing:
+                spec = LOCAL_MODELS[name]
+                new = load_st_model(name).encode([spec.query_prefix + t for t in missing], batch_size=spec.batch_size,
+                                                 normalize_embeddings=True, convert_to_numpy=True,
+                                                 show_progress_bar=False).astype(np.float32)
+                rows = [(hashlib.sha1(t.encode()).hexdigest(), v.tobytes()) for t, v in zip(missing, new)]
+                db.executemany("INSERT OR REPLACE INTO e VALUES (?, ?)", rows)
+                found.update(rows)
+        return np.stack([np.frombuffer(found[k], dtype=np.float32) for k in keys])
 
     def prepare(self, queries: list[Query]) -> None:
         """Encode all queries up front (one parallel API pass instead of per-batch calls)."""
@@ -173,18 +195,21 @@ class FilteredANN(Retriever):
         self.index = self._load_or_build(m, ef_construction)
 
     def _load_or_build(self, m: int, ef_construction: int):
+        import sys
+
         import faiss
 
-        path = paths.DATA_DIR / "indexes" / f"hnsw{m}-efc{ef_construction}-{self.dense.model}-{corpus_fingerprint(self.corpus.chunks)}.faiss"
-        if path.exists():
-            return faiss.read_index(str(path))
-        log.info("Building HNSW index for %s", self.dense.model)
-        index = faiss.IndexHNSWFlat(self.dense.doc_matrix.shape[1], m, faiss.METRIC_INNER_PRODUCT)
-        index.hnsw.efConstruction = ef_construction
-        index.add(self.dense.doc_matrix)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        faiss.write_index(index, str(path))
-        return index
+        path = hnsw_path(self.corpus, self.dense.model, m, ef_construction)
+        if not path.exists():
+            # faiss and torch each ship an OpenMP runtime; building a multi-threaded HNSW in a process where
+            # torch is loaded crashes on macOS, so the build runs in a clean subprocess.
+            import subprocess
+
+            log.info("Building HNSW index for %s in a subprocess", self.dense.model)
+            subprocess.run([sys.executable, "-m", "ragscale.retrievers.dense", self.dense.model, str(m), str(ef_construction)],
+                           check=True)
+        faiss.omp_set_num_threads(1)  # single-query searches; avoids the same OpenMP clash at query time
+        return faiss.read_index(str(path))
 
     def search(self, queries, masks, k):
         import faiss
@@ -202,3 +227,26 @@ class FilteredANN(Retriever):
                 row.append(Ranking(ids[0][keep].astype(np.int64), scores[0][keep].astype(np.float32)))
             out.append(row)
         return out
+
+
+def hnsw_path(corpus: Corpus, model: str, m: int, ef_construction: int):
+    return paths.DATA_DIR / "indexes" / f"hnsw{m}-efc{ef_construction}-{model}-{corpus_fingerprint(corpus.chunks)}.faiss"
+
+
+def _build_hnsw_main(model: str, m: int, ef_construction: int) -> None:
+    import faiss
+
+    corpus = Corpus.load()
+    matrix = np.ascontiguousarray(corpus.load_embeddings(model), dtype=np.float32)
+    index = faiss.IndexHNSWFlat(matrix.shape[1], m, faiss.METRIC_INNER_PRODUCT)
+    index.hnsw.efConstruction = ef_construction
+    index.add(matrix)
+    path = hnsw_path(corpus, model, m, ef_construction)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    faiss.write_index(index, str(path))
+
+
+if __name__ == "__main__":
+    import sys
+
+    _build_hnsw_main(sys.argv[1], int(sys.argv[2]), int(sys.argv[3]))
