@@ -2,7 +2,8 @@
 
 Order of checks (cheap and deterministic first; mirrors the answer/clarify/abstain framing of
 CRAG, Yan et al. 2024, and "Clarify, Abstain or Answer?", Baan et al. 2026):
-  1. off-topic            -> abstain   (too few query words belong to the manuals' vocabulary)
+  1. off-topic            -> abstain   (max dense similarity to the corpus below the 1st percentile of in-domain
+                                        questions; lexical vocabulary coverage as a fallback without a dense model)
   2. unknown brand named  -> abstain   (a car brand with no manual in the corpus)
   3. exactly one vehicle  -> answer    (search restricted to that vehicle's manuals)
   4. otherwise            -> clarify if the detector says the answer depends on the vehicle, else answer
@@ -45,11 +46,24 @@ class Decision:
 
 class ClarifyAgent:
     def __init__(self, corpus: Corpus, catalog: VehicleCatalog, retriever: Retriever, signals: SignalExtractor,
-                 detector: Detector, threshold: float = 0.5, min_domain_coverage: float = 0.5, min_doc_freq: int = 30):
+                 detector: Detector, threshold: float = 0.5, min_domain_coverage: float = 0.5, min_doc_freq: int = 30,
+                 dense=None, ood_similarity: float | None = None):
         self.corpus, self.catalog, self.detector, self.threshold = corpus, catalog, detector, threshold
         self.sim = ClarificationSimulator(corpus, catalog, retriever, signals)
         self.min_domain_coverage = min_domain_coverage
         self.vocabulary = self._domain_vocabulary(min_doc_freq)
+        self.dense, self.ood_similarity = dense, ood_similarity
+
+    def max_similarity(self, text: str, lang: str) -> float:
+        q = self.dense.encode_queries([Query("ood", text, lang)])
+        return float((q @ self.dense.doc_matrix.T).max())
+
+    @staticmethod
+    def calibrate_ood(dense, queries: list[Query], percentile: float = 1.0) -> float:
+        """Threshold = low percentile of the max corpus similarity of in-domain questions (no OOD data needed)."""
+        vecs = dense.encode_queries(queries)
+        best = np.concatenate([(vecs[i : i + 64] @ dense.doc_matrix.T).max(axis=1) for i in range(0, len(vecs), 64)])
+        return float(np.percentile(best, percentile))
 
     def _domain_vocabulary(self, min_doc_freq: int) -> set[str]:
         from collections import Counter
@@ -77,8 +91,14 @@ class ClarifyAgent:
         unknown = sorted(b for b in ABSENT_BRANDS if f" {b} " in norm)
         if unknown:
             return Decision("abstain", f"no manual for brand '{unknown[0]}'", **base)
-        if coverage < self.min_domain_coverage and not routed and not feats["mentions_brand"]:
-            return Decision("abstain", f"off-topic (domain coverage {coverage:.2f})", **base)
+        if not routed and not feats["mentions_brand"]:
+            if self.dense is not None and self.ood_similarity is not None:
+                sim = self.max_similarity(text, lang)
+                base["signals"]["max_similarity"] = sim
+                if sim < self.ood_similarity:
+                    return Decision("abstain", f"off-topic (max similarity {sim:.3f} < {self.ood_similarity:.3f})", **base)
+            elif coverage < self.min_domain_coverage:
+                return Decision("abstain", f"off-topic (domain coverage {coverage:.2f})", **base)
         p = self.detector.proba(feats)
         base["p_needs_clarification"] = p
         vehicles = sorted({self.catalog.vehicle_of(m) for m in routed})

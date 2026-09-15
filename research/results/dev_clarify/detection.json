@@ -1,29 +1,29 @@
 {
-  "n_dev": 64,
-  "n_test": 176,
-  "positive_rate_test": 0.30113636363636365,
+  "n_dev": 844,
+  "n_test": 1716,
+  "positive_rate_test": 0.3321678321678322,
   "classifier": {
-    "roc_auc": 0.8642429820524621,
-    "avg_precision": 0.649430721565187,
-    "precision@0.5": 0.6075949367088608,
-    "recall@0.5": 0.9056603773584906,
-    "f1@0.5": 0.7272727272727273
+    "roc_auc": 0.857691130093996,
+    "avg_precision": 0.6478727983149588,
+    "precision@0.5": 0.6363636363636364,
+    "recall@0.5": 0.9947368421052631,
+    "f1@0.5": 0.7761806981519507
   },
   "name_rule": {
-    "precision": 0.6022727272727273,
-    "recall": 1.0,
-    "f1": 0.75177304964539
+    "precision": 0.6356502242152466,
+    "recall": 0.9947368421052631,
+    "f1": 0.7756497948016415
   },
   "coefficients": {
-    "router_n_vehicles": -0.309,
-    "router_unique": -0.309,
-    "mentions_brand": 0.32,
-    "vehicle_entropy": 0.09,
-    "top1_vehicle_share": -0.335,
-    "vehicle_margin": -0.253,
-    "n_vehicles_top10": 0.598,
-    "n_brands_top10": 0.301,
-    "passage_agreement": 0.286,
-    "query_tokens": -0.282
+    "router_n_vehicles": -0.053,
+    "router_unique": -2.807,
+    "mentions_brand": -0.056,
+    "vehicle_entropy": -0.178,
+    "top1_vehicle_share": 0.095,
+    "vehicle_margin": -0.421,
+    "n_vehicles_top10": -0.497,
+    "n_brands_top10": 0.406,
+    "passage_agreement": -0.295,
+    "query_tokens": 0.098
   }
 }

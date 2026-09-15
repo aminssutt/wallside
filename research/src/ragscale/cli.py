@@ -128,6 +128,18 @@ def _cmd_clarify(args: argparse.Namespace) -> None:
         print(out["policies"][cols].round(3).to_string(index=False))
 
 
+def _cmd_examples(args: argparse.Namespace) -> None:
+    import pandas as pd
+
+    from .clarify.experiment import run_examples
+
+    table = run_examples(args.run, args.retriever, args.dense)
+    cols = ["id", "query", "expected", "predicted", "question", "options", "reason", "top_manual"]
+    with pd.option_context("display.width", 250, "display.max_colwidth", 55):
+        print(table[cols].to_string(index=False))
+    print(f"action accuracy: {table['correct_action'].mean():.3f} ({int(table['correct_action'].sum())}/{len(table)})")
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="ragscale")
     parser.add_argument("-v", "--verbose", action="store_true")
@@ -184,6 +196,12 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("config")
     p.add_argument("--max-questions", type=int, default=None)
     p.set_defaults(func=_cmd_clarify)
+
+    p = sub.add_parser("examples", help="Answer/clarify/abstain decisions on handcrafted example queries")
+    p.add_argument("run", help="E4 results directory holding signals.csv (detector trained on its dev split)")
+    p.add_argument("--retriever", default="bm25_stem")
+    p.add_argument("--dense", default=None, help="local dense model for off-topic detection, e.g. bge-m3")
+    p.set_defaults(func=_cmd_examples)
 
     p = sub.add_parser("analyze", help="Summarize a run with 95%% confidence intervals")
     p.add_argument("name")

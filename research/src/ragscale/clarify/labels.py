@@ -74,7 +74,15 @@ class VehicleCatalog:
         """Display names of a vehicle, taken from its owner's manual (the manual whose slug is the vehicle slug)."""
         out: dict[str, dict[str, str]] = {}
         for m, k in sorted(self.manual_keys.items(), key=lambda kv: kv[0] != kv[1]["vehicle"]):
-            out.setdefault(k["vehicle"], k)
+            out.setdefault(k["vehicle"], {**k, "lang": self.corpus.manual_meta[m]["lang"]})
+        # Distinct vehicles with the same display name (the French and English Peugeot 508 (2019) manuals are
+        # registered as two vehicles by the app) must remain distinguishable as clarification options.
+        counts: dict[str, int] = {}
+        for k in out.values():
+            counts[k["full_display"]] = counts.get(k["full_display"], 0) + 1
+        for k in out.values():
+            if counts[k["full_display"]] > 1:
+                k["full_display"] = f"{k['full_display']} [{k['lang'].upper()}]"
         return out
 
 

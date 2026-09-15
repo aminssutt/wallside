@@ -1,0 +1,6 @@
+{
+  "retriever": "bm25_stem",
+  "dense_ood_model": null,
+  "ood_similarity_threshold": null,
+  "action_accuracy": 0.8
+}

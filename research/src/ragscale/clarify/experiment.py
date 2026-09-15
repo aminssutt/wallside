@@ -85,6 +85,20 @@ class ClarifyExperiment:
             auc = roc_auc_score(y_test, x) if y_test.nunique() > 1 else float("nan")
             per_signal.append({"signal": f, "auc": max(auc, 1 - auc), "direction": "+" if auc >= 0.5 else "-",
                                "coef": detector.coefficients()[f]})
+        # Sub-task: among queries that ARE ambiguous, can model-free signals tell a generic answer from a
+        # vehicle-specific one (i.e. whether asking is worth it)?
+        amb_dev, amb_test = dev[dev["n_candidates"] > 1], test[test["n_candidates"] > 1]
+        generic_feats = [f for f in FEATURES if f not in ("router_n_vehicles", "router_unique")]
+        genericity = {"n_test": int(len(amb_test)), "vehicle_specific_share": float(amb_test["answer_depends"].mean())}
+        if amb_test["answer_depends"].nunique() > 1 and amb_dev["answer_depends"].nunique() > 1:
+            gdet = Detector()
+            gdet.model.fit(amb_dev[generic_feats].to_numpy(), amb_dev["answer_depends"].astype(int).to_numpy())
+            gp = gdet.model.predict_proba(amb_test[generic_feats].to_numpy())[:, 1]
+            genericity["classifier_auc"] = float(roc_auc_score(amb_test["answer_depends"].astype(int), gp))
+            genericity["signal_auc"] = {
+                f: float(max(a, 1 - a)) for f in generic_feats if amb_test[f].nunique() > 1
+                for a in [roc_auc_score(amb_test["answer_depends"].astype(int), amb_test[f])]
+            }
         rule = (test["router_unique"] == 0).astype(int)
         summary = {
             "n_dev": int(len(dev)), "n_test": int(len(test)), "positive_rate_test": float(y_test.mean()),
@@ -94,6 +108,7 @@ class ClarifyExperiment:
             "name_rule": {"precision": float(precision_score(y_test, rule)), "recall": float(recall_score(y_test, rule)),
                           "f1": float(f1_score(y_test, rule))},
             "coefficients": detector.coefficients(),
+            "genericity_among_ambiguous": genericity,
         }
         return detector, summary, pd.DataFrame(per_signal).sort_values("auc", ascending=False)
 
@@ -150,6 +165,7 @@ class ClarifyExperiment:
         overall.to_csv(self.out_dir / "policies.csv", index=False)
         by_variant.to_csv(self.out_dir / "policies_by_variant.csv", index=False)
         (self.out_dir / "detection.json").write_text(json.dumps(det_summary, indent=2))
+        signal_figure(det_summary, per_signal, self.out_dir / "signal_auc.png")
         (self.out_dir / "spec.json").write_text(json.dumps(asdict(self.spec), indent=2))
         for strategy in self.spec.question_strategies:
             sub = pd.concat([overall[overall["strategy"] == "none"], overall[overall["strategy"] == strategy]])
@@ -163,22 +179,92 @@ def pareto_figure(overall: pd.DataFrame, out, title: str = "") -> None:
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    fig, ax = plt.subplots(figsize=(6.5, 4.5))
+    from ..experiments import plotstyle as ps
+
+    fig, ax = plt.subplots(figsize=(7, 4.6))
+    ps.apply(ax)
     clf = overall[overall["policy"].str.startswith("classifier")].sort_values("avg_turns")
-    ax.plot(clf["avg_turns"], clf["doc_hit@1"], "-o", color="#4C72B0", label="classifier (threshold sweep)")
-    for _, r in clf.iterrows():
-        ax.annotate(r["policy"].split("@")[1], (r["avg_turns"], r["doc_hit@1"]), textcoords="offset points", xytext=(4, -10), fontsize=7)
-    markers = {"never": ("s", "#C44E52"), "always": ("^", "#8172B2"), "name_rule": ("D", "#55A868"), "oracle": ("*", "#222222")}
-    for pol, (mk, col) in markers.items():
+    col = ps.color_for("classifier (threshold sweep)")
+    ax.plot(clf["avg_turns"], clf["doc_hit@1"], "-o", color=col, label="classifier (threshold sweep)", **ps.LINE)
+    for pol, marker in (("never", "s"), ("always", "^"), ("name_rule", "D"), ("oracle", "*")):
         r = overall[overall["policy"] == pol]
-        if len(r):
-            ax.errorbar(r["avg_turns"], r["doc_hit@1"], yerr=[r["doc_hit@1"] - r["doc_hit@1_lo"], r["doc_hit@1_hi"] - r["doc_hit@1"]],
-                        fmt=mk, color=col, markersize=9, label=pol, capsize=3)
-    ax.set_xlabel("average clarifying questions per query")
+        if not len(r):
+            continue
+        c = ps.color_for(pol)
+        lo, hi = r["doc_hit@1"] - r["doc_hit@1_lo"], r["doc_hit@1_hi"] - r["doc_hit@1"]
+        ax.errorbar(r["avg_turns"].to_numpy(), r["doc_hit@1"].to_numpy(), yerr=[lo.to_numpy(), hi.to_numpy()], fmt=marker, color=c, markersize=9,
+                    markeredgecolor=ps.SURFACE, capsize=3, label=pol)
+        ax.annotate(pol, (float(r["avg_turns"].iloc[0]), float(r["doc_hit@1"].iloc[0])), textcoords="offset points",
+                    xytext=(8, 4), fontsize=8, color=ps.INK_SECONDARY)
+    ax.set_ylim(0, 1.02)
+    ax.set_xlabel("clarifying questions per query (average)")
     ax.set_ylabel("right manual at rank 1 (doc_hit@1)")
-    ax.set_title("Accuracy vs. clarification cost" + (f" ({title})" if title else ""))
-    ax.grid(alpha=0.3)
-    ax.legend(fontsize=8, loc="lower right")
+    ax.set_title("Accuracy vs. clarification cost" + (f" - {title}" if title else ""), fontsize=10)
+    ax.legend(fontsize=8, loc="lower right", frameon=False)
     fig.tight_layout()
-    fig.savefig(out, dpi=150)
+    fig.savefig(out, dpi=160, facecolor=ps.SURFACE)
     plt.close(fig)
+
+
+def signal_figure(detection: dict, per_signal: pd.DataFrame, out) -> None:
+    """Paired bars: AUC of each signal for detecting ambiguity vs. detecting a vehicle-specific answer."""
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    from ..experiments import plotstyle as ps
+
+    gen = detection.get("genericity_among_ambiguous", {}).get("signal_auc", {})
+    sig = per_signal.set_index("signal")["auc"]
+    names = [s for s in sig.index if s in gen]
+    y = range(len(names))
+    fig, ax = plt.subplots(figsize=(7, 0.42 * len(names) + 1.4))
+    ps.apply(ax)
+    h = 0.38
+    c1, c2 = ps.color_for("needs clarification (ambiguity)"), ps.color_for("answer is vehicle-specific (among ambiguous)")
+    ax.barh([i - h / 2 for i in y], [sig[n] for n in names], height=h - 0.04, color=c1, label="ambiguity detection")
+    ax.barh([i + h / 2 for i in y], [gen[n] for n in names], height=h - 0.04, color=c2, label="generic vs vehicle-specific")
+    for i, n in enumerate(names):
+        ax.text(sig[n] + 0.005, i - h / 2, f"{sig[n]:.2f}", va="center", fontsize=7, color=ps.INK_SECONDARY)
+        ax.text(gen[n] + 0.005, i + h / 2, f"{gen[n]:.2f}", va="center", fontsize=7, color=ps.INK_SECONDARY)
+    ax.axvline(0.5, color=ps.BASELINE, linewidth=1)
+    ax.set_yticks(list(y), names, fontsize=8)
+    ax.invert_yaxis()
+    ax.set_xlim(0.45, 1.0)
+    ax.set_xlabel("ROC-AUC on test (0.5 = chance)")
+    ax.set_title("Which signals detect what?", fontsize=10)
+    ax.legend(fontsize=8, loc="lower right", frameon=False)
+    fig.tight_layout()
+    fig.savefig(out, dpi=160, facecolor=ps.SURFACE)
+    plt.close(fig)
+
+
+def run_examples(run_name: str, retriever_spec: str, dense_model: str | None = None,
+                 examples_file: str = "clarification_examples.jsonl", dataset: str | None = None) -> pd.DataFrame:
+    """Evaluate the answer/clarify/abstain agent on handcrafted examples, with the detector trained on the
+    dev signals of `run_name` and (optionally) a dense model for off-topic detection calibrated on dev questions."""
+    from ..retrievers.base import Query
+    from .decide import ClarifyAgent, evaluate_examples
+
+    out_dir = paths.RESULTS_DIR / run_name
+    signals_df = pd.read_csv(out_dir / "signals.csv")
+    dev = signals_df[signals_df["split"] == "dev"]
+    detector = Detector().fit(dev[FEATURES].to_numpy(), dev["needs_clarification"].astype(int).to_numpy())
+    corpus = Corpus.load()
+    registry = Registry(corpus)
+    catalog = VehicleCatalog(corpus)
+    dense, ood = None, None
+    if dense_model:
+        dense = registry.get(f"dense:{dense_model}")
+        dev_queries = [Query(f"dev{i}", t, "fr") for i, t in enumerate(dev["query"].unique())]
+        ood = ClarifyAgent.calibrate_ood(dense, dev_queries, percentile=1.0)
+    agent = ClarifyAgent(corpus, catalog, registry.get(retriever_spec), SignalExtractor(corpus, catalog), detector,
+                         dense=dense, ood_similarity=ood)
+    examples = read_jsonl(paths.DATASETS_DIR / examples_file)
+    table = pd.DataFrame(evaluate_examples(agent, examples))
+    table.to_csv(out_dir / "examples.csv", index=False)
+    (out_dir / "examples_meta.json").write_text(json.dumps({"retriever": retriever_spec, "dense_ood_model": dense_model,
+                                                            "ood_similarity_threshold": ood,
+                                                            "action_accuracy": float(table["correct_action"].mean())}, indent=2))
+    return table

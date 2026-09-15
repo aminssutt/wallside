@@ -22,5 +22,5 @@
     "max_entropy"
   ],
   "max_turns": 3,
-  "max_questions": 60
+  "max_questions": null
 }

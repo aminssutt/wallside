@@ -73,32 +73,41 @@ def compare(df: pd.DataFrame, baseline: str, metric: str, where: dict) -> pd.Dat
     return res
 
 
-def scaling_figure(summary: pd.DataFrame, metric: str, variant: str, out: Path, title: str = "") -> None:
+def scaling_figure(summary: pd.DataFrame, metric: str, variant: str, out: Path, title: str = "",
+                   retrievers: list[str] | None = None) -> None:
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
+    from . import plotstyle as ps
+
     tiers = summary[(summary["scope"] == "tier") & (summary["variant"] == variant)]
+    if retrievers:
+        tiers = tiers[tiers["retriever"].isin(retrievers)]
+    names = sorted(tiers["retriever"].unique())[: ps.MAX_SERIES]
     strategies = sorted(tiers["strategy"].dropna().unique())
-    fig, axes = plt.subplots(1, len(strategies), figsize=(6 * len(strategies), 4.5), sharey=True, squeeze=False)
+    fig, axes = plt.subplots(1, len(strategies), figsize=(6 * len(strategies), 4.6), sharey=True, squeeze=False)
     for ax, strat in zip(axes[0], strategies):
-        for retr, g in tiers[tiers["strategy"] == strat].groupby("retriever"):
-            g = g.sort_values("n_manuals")
-            ax.plot(g["n_manuals"], g[metric], marker="o", label=retr)
-            ax.fill_between(g["n_manuals"], g[f"{metric}_lo"], g[f"{metric}_hi"], alpha=0.15)
+        ps.apply(ax)
+        for retr in names:
+            g = tiers[(tiers["strategy"] == strat) & (tiers["retriever"] == retr)].sort_values("n_manuals")
+            col = ps.color_for(retr)
+            ax.fill_between(g["n_manuals"], g[f"{metric}_lo"], g[f"{metric}_hi"], color=col, alpha=0.12, linewidth=0)
+            ax.plot(g["n_manuals"], g[metric], "-o", color=col, label=retr, **ps.LINE)
         ax.set_xscale("log")
         ax.set_xticks(sorted(tiers["n_manuals"].unique()))
         ax.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
-        ax.set_xlabel("manuals in the searched corpus")
-        ax.set_title(f"{strat} distractors")
-        ax.grid(alpha=0.3)
+        ax.set_ylim(0, 1.02)
+        ax.set_xlabel("manuals in the searched corpus (log scale)")
+        ax.set_title(f"{strat} distractors", fontsize=10)
     axes[0][0].set_ylabel(metric)
-    axes[0][-1].legend(fontsize=7, loc="lower left")
-    fig.suptitle(title or f"{metric} vs corpus size ({variant})")
-    fig.tight_layout()
+    handles, labels = axes[0][-1].get_legend_handles_labels()
+    fig.legend(handles, labels, loc="lower center", ncol=min(4, len(labels)), fontsize=8, frameon=False)
+    fig.suptitle(title or f"{metric} vs corpus size - {variant}", color=ps.INK)
+    fig.tight_layout(rect=(0, 0.08 + 0.04 * (len(labels) > 4), 1, 1))
     out.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(out, dpi=150)
+    fig.savefig(out, dpi=160, facecolor=ps.SURFACE)
     plt.close(fig)
 
 
