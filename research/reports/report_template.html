@@ -1,0 +1,821 @@
+<title>Trouver le bon manuel</title>
+<meta name="description" content="Rapport de recherche : précision d'un système RAG pour identifier le bon manuel automobile quand le corpus grandit, et clarification des questions ambiguës.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
+<style>
+:root {
+  color-scheme: light;
+  --ground: #f3f5f4;
+  --surface: #ffffff;
+  --ink: #172221;
+  --ink-2: #4c5a58;
+  --muted: #6f7d7a;
+  --rule: #d5dcda;
+  --rule-strong: #b7c2bf;
+  --accent: #0f6e6a;
+  --accent-soft: #dcecea;
+  --good: #1c7c3a;
+  --good-soft: #e1f1e5;
+  --bad: #b33a2e;
+  --bad-soft: #f8e4e1;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300;
+  --grid: #e3e8e6;
+  --font-display: "Barlow Semi Condensed", "Arial Narrow", "Roboto Condensed", system-ui, sans-serif;
+  --font-body: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --step--1: 0.8125rem;
+  --step-0: 1.0625rem;
+  --step-1: 1.25rem;
+  --step-2: 1.625rem;
+  --step-3: 2.25rem;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --ground: #0e1413; --surface: #151d1c; --ink: #e4ebe9; --ink-2: #b3c0bd; --muted: #8a9794;
+    --rule: #27322f; --rule-strong: #3a4744; --accent: #5bbab3; --accent-soft: #1b2f2d;
+    --good: #5cc27a; --good-soft: #17301f; --bad: #ec7d70; --bad-soft: #3a1d1a;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300;
+    --grid: #232d2b;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ground: #0e1413; --surface: #151d1c; --ink: #e4ebe9; --ink-2: #b3c0bd; --muted: #8a9794;
+  --rule: #27322f; --rule-strong: #3a4744; --accent: #5bbab3; --accent-soft: #1b2f2d;
+  --good: #5cc27a; --good-soft: #17301f; --bad: #ec7d70; --bad-soft: #3a1d1a;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300;
+  --grid: #232d2b;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--step-0);
+  line-height: 1.6;
+  padding-inline: 20px;
+  padding-block: 0 64px;
+}
+.shell {
+  max-width: 1180px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 48px;
+}
+@media (min-width: 1080px) {
+  .shell { grid-template-columns: 200px minmax(0, 1fr); }
+}
+
+/* ---------- index (chapter tabs) ---------- */
+nav.index {
+  display: none;
+}
+@media (min-width: 1080px) {
+  nav.index {
+    display: block;
+    position: sticky;
+    top: calc(env(safe-area-inset-top, 0px) + 32px);
+    align-self: start;
+    padding-top: 40px;
+    font-family: var(--font-display);
+  }
+}
+nav.index p {
+  margin: 0 0 12px;
+  font-size: var(--step--1);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+nav.index ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+nav.index a {
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  color: var(--ink-2);
+  text-decoration: none;
+  font-size: 0.95rem;
+  line-height: 1.25;
+}
+nav.index a:hover { background: var(--accent-soft); color: var(--ink); }
+nav.index a:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+nav.index .tab { font-family: var(--font-mono); font-size: 0.75rem; color: var(--accent); padding-top: 2px; }
+
+main { min-width: 0; }
+
+/* ---------- header ---------- */
+header.cover {
+  padding-block: 48px 36px;
+  border-bottom: 2px solid var(--ink);
+  display: grid;
+  gap: 18px;
+}
+.eyebrow {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--step--1);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+}
+.eyebrow .status {
+  color: var(--bad);
+}
+h1 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(2.4rem, 6vw, 3.6rem);
+  line-height: 1.02;
+  letter-spacing: -0.01em;
+  margin: 0;
+  text-wrap: balance;
+  max-width: 18ch;
+}
+.lede {
+  font-size: var(--step-1);
+  line-height: 1.5;
+  color: var(--ink-2);
+  max-width: 62ch;
+  margin: 0;
+}
+.readouts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0;
+  margin-top: 10px;
+  border-top: 1px solid var(--rule);
+}
+.readout {
+  padding: 16px 18px 14px 0;
+  border-bottom: 1px solid var(--rule);
+  display: grid;
+  gap: 4px;
+  align-content: start;
+}
+.readout .fig {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--step-3);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.readout .fig .arrow { color: var(--muted); font-weight: 500; padding-inline: 4px; }
+.readout .fig .to { color: var(--accent); }
+.readout .cap { font-size: 0.9rem; line-height: 1.4; color: var(--ink-2); }
+
+/* ---------- sections ---------- */
+section { padding-block: 56px 8px; scroll-margin-top: 24px; }
+.sec-head { display: grid; gap: 6px; margin-bottom: 20px; }
+.sec-head .tab {
+  font-family: var(--font-mono);
+  font-size: var(--step--1);
+  color: var(--accent);
+  letter-spacing: 0.04em;
+}
+h2 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--step-3);
+  line-height: 1.1;
+  margin: 0;
+  text-wrap: balance;
+}
+h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--step-2);
+  line-height: 1.2;
+  margin: 36px 0 10px;
+  text-wrap: balance;
+}
+h4 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--step-1);
+  margin: 24px 0 6px;
+}
+p, ul, ol.prose { max-width: 68ch; }
+p { margin: 0 0 14px; }
+ul { padding-left: 1.2em; margin: 0 0 14px; }
+li { margin-bottom: 6px; }
+code, .mono { font-family: var(--font-mono); font-size: 0.85em; }
+code { background: var(--accent-soft); padding: 1px 5px; border-radius: 3px; word-break: break-word; }
+strong { font-weight: 600; }
+.num { font-family: var(--font-mono); font-size: 0.92em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+a { color: var(--accent); }
+
+.hyp {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+  margin: 18px 0;
+}
+.hyp div {
+  border-top: 2px solid var(--ink);
+  padding-top: 10px;
+}
+.hyp .id { font-family: var(--font-mono); font-size: var(--step--1); color: var(--accent); }
+.hyp .verdict {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--font-display); font-weight: 600; font-size: 0.85rem; letter-spacing: 0.04em;
+  text-transform: uppercase; margin-top: 6px;
+}
+.verdict.yes { color: var(--good); }
+.verdict.open { color: var(--muted); }
+
+/* manual-style callout: what a car manual would call a note */
+.note {
+  border: 1px solid var(--rule-strong);
+  background: var(--surface);
+  padding: 14px 18px;
+  margin: 18px 0;
+  max-width: 72ch;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 14px;
+}
+.note .k {
+  font-family: var(--font-display); font-weight: 700; font-size: 0.8rem; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--accent); padding-top: 3px;
+}
+.note p { margin: 0; }
+.note.warn .k { color: var(--bad); }
+
+/* ---------- figures ---------- */
+figure { margin: 22px 0 28px; }
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  padding: 16px 16px 12px;
+}
+figcaption { font-size: 0.9rem; color: var(--ink-2); margin-top: 8px; max-width: 80ch; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; margin-bottom: 10px; }
+.seg { display: inline-flex; border: 1px solid var(--rule-strong); border-radius: 4px; overflow: hidden; }
+.seg button {
+  font-family: var(--font-display); font-weight: 500; font-size: 0.92rem;
+  background: transparent; color: var(--ink-2); border: 0; padding: 5px 11px; cursor: pointer;
+}
+.seg button + button { border-left: 1px solid var(--rule-strong); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--ground); }
+.seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.ctl-label { font-family: var(--font-display); font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 4px 0 8px; font-family: var(--font-display); font-size: 0.92rem; color: var(--ink-2); }
+.legend span { display: inline-flex; align-items: center; gap: 7px; }
+.legend i { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+.chart { position: relative; width: 100%; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart text { fill: var(--muted); font-family: var(--font-mono); font-size: 11px; }
+.chart .axis-title { fill: var(--ink-2); font-family: var(--font-display); font-size: 13px; }
+.chart .grid line { stroke: var(--grid); }
+.chart .baseline { stroke: var(--rule-strong); }
+.tip {
+  position: absolute; pointer-events: none; z-index: 5;
+  background: var(--surface); border: 1px solid var(--rule-strong); box-shadow: 0 6px 18px rgba(0,0,0,.12);
+  padding: 8px 10px; font-size: 0.82rem; line-height: 1.35; min-width: 190px; max-width: 280px;
+  font-family: var(--font-display);
+}
+.tip b { font-weight: 600; }
+.tip .row { display: grid; grid-template-columns: 12px 1fr auto; gap: 6px; align-items: center; }
+.tip .row i { width: 10px; height: 10px; border-radius: 50%; }
+.tip .v { font-family: var(--font-mono); font-size: 0.78rem; }
+
+/* ---------- tables ---------- */
+.table-wrap { overflow-x: auto; margin: 16px 0 24px; border: 1px solid var(--rule); background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+th, td { padding: 8px 12px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--rule); }
+th {
+  font-family: var(--font-display); font-weight: 600; font-size: 0.85rem; letter-spacing: 0.03em;
+  color: var(--ink-2); background: var(--ground); white-space: nowrap;
+}
+td.n, th.n { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+td .ci { color: var(--muted); font-size: 0.78rem; margin-left: 4px; }
+tr.best td { background: var(--accent-soft); }
+tbody tr:last-child td { border-bottom: 0; }
+td.spec { font-family: var(--font-mono); font-size: 0.8rem; color: var(--ink-2); }
+.pill {
+  display: inline-flex; align-items: center; gap: 5px; font-family: var(--font-display); font-weight: 600;
+  font-size: 0.8rem; letter-spacing: 0.03em; padding: 1px 8px; border-radius: 999px; white-space: nowrap;
+}
+.pill.answer { background: var(--accent-soft); color: var(--accent); }
+.pill.clarify { background: color-mix(in srgb, var(--s4) 22%, var(--surface)); color: var(--ink); }
+.pill.abstain { background: color-mix(in srgb, var(--ink-2) 16%, var(--surface)); color: var(--ink); }
+.ok { color: var(--good); font-family: var(--font-display); font-weight: 600; white-space: nowrap; }
+.ko { color: var(--bad); font-family: var(--font-display); font-weight: 600; white-space: nowrap; }
+.options { font-size: 0.8rem; color: var(--ink-2); }
+
+/* ---------- dialogues ---------- */
+.dialogues { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin: 16px 0 24px; }
+.dialogue { background: var(--surface); border: 1px solid var(--rule); padding: 14px 16px; display: grid; gap: 10px; align-content: start; }
+.dialogue .kind { font-family: var(--font-mono); font-size: 0.75rem; color: var(--muted); }
+.turn { display: grid; gap: 2px; }
+.turn .who { font-family: var(--font-display); font-weight: 600; font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.turn .say { font-size: 0.95rem; line-height: 1.45; }
+.turn.bot .who { color: var(--accent); }
+.chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
+.chips span { font-family: var(--font-display); font-size: 0.82rem; border: 1px solid var(--rule-strong); border-radius: 999px; padding: 0 9px; }
+.result { border-top: 1px dashed var(--rule-strong); padding-top: 8px; font-size: 0.88rem; color: var(--ink-2); }
+.result .ref { font-family: var(--font-mono); font-size: 0.8rem; color: var(--ink); }
+
+.mermaid-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--rule); padding: 16px; margin: 16px 0 24px; }
+pre.mermaid { margin: 0; font-family: var(--font-display); background: transparent; }
+
+.finding-list { list-style: none; padding: 0; display: grid; gap: 0; max-width: 76ch; }
+.finding-list li { display: grid; grid-template-columns: 112px 1fr; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--rule); margin: 0; }
+.finding-list .where { font-family: var(--font-mono); font-size: 0.78rem; color: var(--accent); padding-top: 3px; }
+@media (max-width: 560px) { .finding-list li { grid-template-columns: 1fr; gap: 2px; } }
+
+footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--rule); font-size: 0.85rem; color: var(--muted); max-width: 80ch; }
+</style>
+
+<div class="shell">
+  <nav class="index" aria-label="Sommaire">
+    <p>Sommaire</p>
+    <ol>
+      <li><a href="#question"><span class="tab">00</span>Question et hypothèses</a></li>
+      <li><a href="#corpus"><span class="tab">DATA</span>Corpus et examen</a></li>
+      <li><a href="#e1"><span class="tab">E1</span>Taille du corpus</a></li>
+      <li><a href="#e2"><span class="tab">E2</span>Techniques comparées</a></li>
+      <li><a href="#e4"><span class="tab">E4</span>Questions ambiguës</a></li>
+      <li><a href="#architecture"><span class="tab">ARCH</span>Pipeline recommandé</a></li>
+      <li><a href="#limits"><span class="tab">NEXT</span>Limites et suite</a></li>
+      <li><a href="#method"><span class="tab">MÉTH</span>Méthode</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header class="cover">
+      <div class="eyebrow"><span>Rapport de recherche · Wallside</span><span class="status">Résultats provisoires · jeu partiel</span></div>
+      <h1>Trouver le bon manuel</h1>
+      <p class="lede">Un chatbot qui répond à partir de <span data-k="corpus.manuals"></span> manuels automobiles doit d'abord trouver le bon document, puis la bonne page. Nous mesurons à quel point il y parvient quand la bibliothèque grandit, quelles techniques résistent, et quand il vaut mieux poser une question que deviner.</p>
+      <div class="readouts" id="readouts"></div>
+    </header>
+
+    <section id="question">
+      <div class="sec-head"><span class="tab">00 · QUESTION</span><h2>Ce que l'on cherche à mesurer</h2></div>
+      <p>Pour chaque question d'un utilisateur, le système doit retrouver <strong>le bon manuel</strong> (quel véhicule) et <strong>le bon passage</strong> (quelle page). Nous mesurons ces deux niveaux séparément, avec des intervalles de confiance à 95&nbsp;%, en faisant varier trois choses : la quantité de manuels fouillés, la technique de recherche, et l'information que la question contient sur le véhicule.</p>
+      <div class="hyp" id="hypotheses"></div>
+    </section>
+
+    <section id="corpus">
+      <div class="sec-head"><span class="tab">DATA · CORPUS</span><h2>La bibliothèque et l'examen</h2></div>
+      <p>Le corpus est extrait <strong>à l'identique</strong> des index de production : <span class="num" data-k="corpus.manuals"></span> manuels, <span class="num" data-k="corpus.chunks" data-f="int"></span> passages, <span class="num" data-k="corpus.pages" data-f="int"></span> pages, <span class="num" data-k="corpus.vehicles"></span> véhicules, <span class="num" data-k="corpus.lang_fr"></span> manuels en français et <span class="num" data-k="corpus.lang_en"></span> en anglais.</p>
+      <h3>Défauts de données trouvés en chemin</h3>
+      <ul class="finding-list" id="data-findings"></ul>
+      <h3>L'examen&nbsp;: des questions dont on connaît la bonne page</h3>
+      <p>Pour chaque manuel, un modèle Gemini (<span class="mono" data-k="dataset.generator"></span>, d'une autre génération que le modèle de production) écrit une question de propriétaire, sa réponse et <strong>une citation mot pour mot</strong> du passage. Une question n'est gardée que si la citation se retrouve vraiment dans le passage. Chaque question existe en huit versions : français ou anglais, sans nom de véhicule, avec la marque, avec le modèle, avec le nom complet.</p>
+      <div class="note" id="dataset-note"></div>
+      <div class="dialogues" id="sample-question"></div>
+    </section>
+
+    <section id="e1">
+      <div class="sec-head"><span class="tab">E1 · PASSAGE À L'ÉCHELLE</span><h2>Plus il y a de manuels, moins on trouve</h2></div>
+      <p id="e1-lede"></p>
+      <figure>
+        <div class="panel">
+          <div class="controls">
+            <span class="ctl-label">Mesure</span>
+            <div class="seg" id="e1-metric"><button type="button" data-v="chunk_hit_5" aria-pressed="true">Bon passage (top 5)</button><button type="button" data-v="doc_hit_1" aria-pressed="false">Bon manuel (1er)</button></div>
+            <span class="ctl-label">Question</span>
+            <div class="seg" id="e1-variant"><button type="button" data-v="native_plain" aria-pressed="true">Sans véhicule</button><button type="button" data-v="native_brand" aria-pressed="false">Marque</button><button type="button" data-v="native_model" aria-pressed="false">Modèle</button><button type="button" data-v="native_full" aria-pressed="false">Nom complet</button></div>
+            <span class="ctl-label">Distracteurs</span>
+            <div class="seg" id="e1-strategy"><button type="button" data-v="hard" aria-pressed="true">Même marque</button><button type="button" data-v="random" aria-pressed="false">Aléatoires</button></div>
+          </div>
+          <div class="legend" id="e1-legend"></div>
+          <div class="chart" id="e1-chart"></div>
+        </div>
+        <figcaption>Le manuel qui contient la réponse, plus N−1 manuels distracteurs (5 tirages par taille). Échelle horizontale logarithmique. Les bandes indiquent l'intervalle de confiance à 95&nbsp;% (bootstrap sur les questions). Survolez un point pour les valeurs.</figcaption>
+      </figure>
+      <div class="table-wrap"><table id="e1-table"></table></div>
+    </section>
+
+    <section id="e2">
+      <div class="sec-head"><span class="tab">E2 · TECHNIQUES</span><h2>Quelles techniques tiennent sur 165 manuels&nbsp;?</h2></div>
+      <div id="e2-body"></div>
+    </section>
+
+    <section id="e4">
+      <div class="sec-head"><span class="tab">E4 · CLARIFICATION</span><h2>«&nbsp;Comment changer ma batterie&nbsp;?&nbsp;»&nbsp;: demander avant de chercher</h2></div>
+      <p>Sans nom de véhicule, cette question a potentiellement <span data-k="corpus.vehicles"></span> réponses différentes, une par véhicule. Aucune technique de recherche ne peut deviner la voiture. Nous transformons ce problème en tâche de décision à trois issues, comme dans la littérature récente sur le RAG adaptatif : <span class="pill answer">répondre</span> <span class="pill clarify">clarifier</span> <span class="pill abstain">s'abstenir</span>.</p>
+      <div class="mermaid-wrap"><pre class="mermaid">
+flowchart TD
+    q([Question]) --> m{Marque absente du corpus ?}
+    m -->|oui| a1[S'ABSTENIR : manuel indisponible]
+    m -->|non| t{Similarité maximale au corpus sous le 1er centile des vraies questions ?}
+    t -->|oui| a2[S'ABSTENIR : hors sujet]
+    t -->|non| v{Combien de véhicules la question nomme-t-elle ?}
+    v -->|un seul| r1[RÉPONDRE dans ce véhicule]
+    v -->|plusieurs versions| c1[CLARIFIER : quelle version ?]
+    v -->|aucun| d{Détecteur : la réponse dépend-elle du véhicule ?}
+    d -->|non| r2[RÉPONDRE sur tous les manuels]
+    d -->|oui| c2[CLARIFIER : quel véhicule ? 3 options + saisie libre]
+</pre></div>
+      <p id="e4-lede"></p>
+      <figure>
+        <div class="panel">
+          <div class="legend" id="e4-legend"></div>
+          <div class="chart" id="e4-chart"></div>
+        </div>
+        <figcaption>Dialogues simulés sur le jeu de test : un utilisateur simulé répond honnêtement au nom de son véhicule. Horizontal : questions de clarification posées en moyenne par requête. Vertical : part des requêtes où le bon manuel arrive en premier. Barres : IC 95&nbsp;%.</figcaption>
+      </figure>
+      <div class="table-wrap"><table id="e4-policies"></table></div>
+
+      <h3>Détecter l'ambiguïté, oui. Savoir si elle compte, non.</h3>
+      <p id="e4-signals-lede"></p>
+      <figure>
+        <div class="panel">
+          <div class="legend"><span><i style="background:var(--s1)"></i>Détecter qu'il manque le véhicule</span><span><i style="background:var(--s2)"></i>Détecter si la réponse dépend du véhicule</span></div>
+          <div class="chart" id="e4-signals"></div>
+        </div>
+        <figcaption>Aire sous la courbe ROC de chaque signal sur le jeu de test (0,5 = hasard, 1 = parfait). Le second score est calculé uniquement sur les requêtes ambiguës.</figcaption>
+      </figure>
+
+      <h3>Exemples : la décision prise sur des questions réelles</h3>
+      <p id="examples-lede"></p>
+      <div class="table-wrap"><table id="examples"></table></div>
+
+      <h3>Dialogues simulés</h3>
+      <div class="dialogues" id="dialogues"></div>
+    </section>
+
+    <section id="architecture">
+      <div class="sec-head"><span class="tab">ARCH · RECOMMANDATION</span><h2>Le pipeline que les mesures recommandent</h2></div>
+      <div class="mermaid-wrap"><pre class="mermaid">
+flowchart LR
+    Q[Question] --> D{Agent de décision}
+    D -->|marque inconnue ou hors sujet| A[S'abstenir]
+    D -->|réponse dépend du véhicule, aucun nommé| C[Question de clarification]
+    C -->|l'utilisateur choisit| F[Filtre sur les manuels du véhicule]
+    D -->|un véhicule nommé| F
+    D -->|question générique| G[Tous les manuels]
+    F --> S[Retirer le nom du véhicule de la requête]
+    S --> R[Recherche hybride 0,3 BM25 + 0,7 bge-m3]
+    G --> R
+    R --> L[Réponse du LLM avec pages citées]
+</pre></div>
+      <ul id="recommendations"></ul>
+    </section>
+
+    <section id="limits">
+      <div class="sec-head"><span class="tab">NEXT · LIMITES</span><h2>Limites et prochaines étapes</h2></div>
+      <ul id="limits-list"></ul>
+    </section>
+
+    <section id="method">
+      <div class="sec-head"><span class="tab">MÉTH · REPRODUCTIBILITÉ</span><h2>Méthode</h2></div>
+      <ul>
+        <li><strong>Métriques.</strong> Bon manuel en 1<sup>re</sup> position (<code>doc_hit@1</code>), bon passage parmi les 5 premiers (<code>chunk_hit@5</code>), nDCG@10, confusions avec un manuel de la même marque. Le passage est « bon » s'il contient la citation de référence ; le calcul est vérifié contre la bibliothèque <code>ranx</code>.</li>
+        <li><strong>Statistiques.</strong> La question est l'unité statistique (les tirages aléatoires sont moyennés par question). IC 95&nbsp;% de Wilson pour les proportions, bootstrap sinon ; comparaisons appariées par test de permutation avec correction de Holm.</li>
+        <li><strong>Protocole.</strong> Les réglages (poids de fusion, seuils) sont choisis sur le split <em>dev</em> et les chiffres de ce rapport viennent du split <em>test</em>. Le seuil hors-sujet est calibré uniquement sur des questions du domaine.</li>
+        <li><strong>Reproduire.</strong> <code>make corpus embed dataset</code>, puis <code>ragscale run configs/e1_scaling.yaml</code>, <code>ragscale clarify configs/e4_clarification_partial.yaml</code> et <code>python scripts/build_report.py</code>. Code sur la branche <code>research</code>, dossier <code>research/</code>.</li>
+      </ul>
+    </section>
+
+    <footer id="footer"></footer>
+  </main>
+</div>
+
+<script>
+const DATA = /*__DATA__*/null;
+
+const pct = (x, d = 1) => x == null ? "–" : (100 * x).toFixed(d).replace(".", ",") + " %";
+const pctn = (x, d = 1) => x == null ? "–" : (100 * x).toFixed(d).replace(".", ",");
+const intf = (x) => Number(x).toLocaleString("fr-FR");
+const dec = (x, d = 2) => x == null ? "–" : Number(x).toFixed(d).replace(".", ",");
+const get = (path) => path.split(".").reduce((o, k) => (o == null ? o : o[k]), DATA);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const SERIES = ["var(--s1)", "var(--s2)", "var(--s3)", "var(--s4)", "var(--s5)", "var(--s6)"];
+const SVGNS = "http://www.w3.org/2000/svg";
+function el(tag, attrs = {}, parent) {
+  const n = document.createElementNS(SVGNS, tag);
+  for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+  if (parent) parent.appendChild(n);
+  return n;
+}
+
+document.querySelectorAll("[data-k]").forEach((n) => {
+  const v = get(n.dataset.k);
+  n.textContent = n.dataset.f === "int" ? intf(v) : v;
+});
+
+/* ---------- lookups ---------- */
+const E1 = DATA.e1.rows;
+const e1v = (retr, variant, strategy, n, metric) => {
+  const r = E1.find((x) => x.retriever === retr && x.variant === variant && x.strategy === strategy && x.n === n);
+  return r ? r[metric] : null;
+};
+const R = {
+  bm25: "bm25_stem", dense: "dense:bge-m3", hybrid: "wsum(bm25_stem,dense:bge-m3;w=0.3|0.7)",
+  ctx: "wsum(bm25_stem+ctx,dense:bge-m3+ctx;w=0.3|0.7)", router: "name_router_strip(wsum(bm25_stem,dense:bge-m3;w=0.3|0.7))",
+  hnsw: "hnsw(dense:bge-m3)",
+};
+const P = DATA.e4.policies;
+const pol = (policy, strategy = "direct") => P.find((p) => p.policy === policy && (p.strategy === strategy || (policy === "never" && p.strategy === "none")));
+const byVar = (policy, variant) => DATA.e4.by_variant.find((p) => p.policy === policy && p.variant === variant && (p.strategy === "direct" || (policy === "never" && p.strategy === "none")));
+const maxN = Math.max(...E1.map((r) => r.n));
+
+/* ---------- readouts ---------- */
+(() => {
+  const never = byVar("never", "native_plain"), rule = byVar("name_rule", "native_plain");
+  const items = [
+    { from: pct(e1v(R.hybrid, "native_plain", "hard", 1, "chunk_hit_5"), 0), to: pct(e1v(R.hybrid, "native_plain", "hard", maxN, "chunk_hit_5"), 0),
+      cap: `bon passage trouvé dans 1 manuel, puis dans ${maxN} manuels, pour une question sans nom de véhicule` },
+    { from: pct(e1v(R.hybrid, "native_model", "hard", maxN, "doc_hit_1"), 0), to: pct(e1v(R.router, "native_model", "hard", maxN, "doc_hit_1"), 0),
+      cap: `bon manuel en 1re position sur ${maxN} manuels quand la question nomme le modèle : recherche seule, puis routage par nom` },
+    { from: pct(never.doc_hit_1, 0), to: pct(rule.doc_hit_1, 0),
+      cap: `bon manuel pour une question sans véhicule : sans clarification, puis avec une question de clarification (${dec(rule.avg_turns)} question par requête)` },
+  ];
+  document.getElementById("readouts").innerHTML = items.map((i) =>
+    `<div class="readout"><div class="fig">${i.from}<span class="arrow">→</span><span class="to">${i.to}</span></div><div class="cap">${i.cap}</div></div>`).join("");
+})();
+
+/* ---------- hypotheses ---------- */
+(() => {
+  const d1 = e1v(R.dense, "native_plain", "random", 1, "chunk_hit_5"), b1 = e1v(R.bm25, "native_plain", "random", 1, "chunk_hit_5");
+  const dN = e1v(R.dense, "native_plain", "random", maxN, "chunk_hit_5"), bN = e1v(R.bm25, "native_plain", "random", maxN, "chunk_hit_5");
+  const hard10 = e1v(R.hybrid, "native_plain", "hard", 10, "chunk_hit_5"), rand10 = e1v(R.hybrid, "native_plain", "random", 10, "chunk_hit_5");
+  const gen = DATA.e4.detection.genericity_among_ambiguous || {};
+  const hyps = [
+    { id: "H1", t: "La précision chute quand le corpus grandit, plus vite avec des manuels proches.", v: "yes",
+      e: `À 10 manuels : ${pct(hard10)} avec des distracteurs de la même marque contre ${pct(rand10)} avec des distracteurs aléatoires.` },
+    { id: "H2", t: "La recherche dense se dégrade plus vite que BM25 à grande échelle.", v: dN < bN && d1 > b1 ? "yes" : "open",
+      e: `Dense ${pct(d1)} contre BM25 ${pct(b1)} sur 1 manuel ; dense ${pct(dN)} contre BM25 ${pct(bN)} sur ${maxN}.` },
+    { id: "H3", t: "Les techniques centrées document neutralisent l'effet de taille.", v: "yes",
+      e: `Question avec le modèle, ${maxN} manuels : ${pct(e1v(R.hybrid, "native_model", "hard", maxN, "doc_hit_1"))} → ${pct(e1v(R.ctx, "native_model", "hard", maxN, "doc_hit_1"))} (en-têtes) → ${pct(e1v(R.router, "native_model", "hard", maxN, "doc_hit_1"))} (routage).` },
+    { id: "H5", t: "Des signaux sans LLM suffisent pour savoir quand demander.", v: "open",
+      e: `Détecter l'absence de véhicule : AUC ${dec(DATA.e4.detection.classifier.roc_auc)}. Savoir si la réponse en dépend : AUC ${dec(gen.classifier_auc)}.` },
+  ];
+  document.getElementById("hypotheses").innerHTML = hyps.map((h) => `<div><span class="id">${h.id}</span><p style="margin:4px 0 6px"><strong>${h.t}</strong></p><p style="margin:0;font-size:.95rem;color:var(--ink-2)">${h.e}</p><span class="verdict ${h.v}">${h.v === "yes" ? "✓ confirmée" : "◐ partiellement"}</span></div>`).join("");
+})();
+
+/* ---------- data findings ---------- */
+(() => {
+  const c = DATA.corpus;
+  const kia = c.garbled_manuals.map((m) => `${esc(m.name)} (${pct(m.share, 0)})`).join(", ");
+  const dup = c.duplicates.map((d) => `<code>${esc(d.manual)}</code> = <code>${esc(d.of)}</code>`).join(", ");
+  const items = [
+    ["EXTRACTION PDF", `<strong>${intf(c.garbled_chunks)} passages illisibles.</strong> ${kia}. L'extracteur <code>pypdf</code> décode mal les polices Kia (texte décalé : « UUIFPDDVQBOU » pour « theoccupant »). Correctif livré : bascule automatique sur PyMuPDF ; réindexation à faire.`],
+    ["DOUBLONS", `<strong>Un même PDF indexé deux fois :</strong> ${dup}.`],
+    ["TEXTE PARTAGÉ", `<strong>${intf(c.shared_text_chunks)} passages</strong> ont un texte identique dans un autre manuel : le « bon document » est parfois ambigu par nature. Les métriques ont une version stricte et une version tolérante.`],
+    ["RECHERCHE", `<strong>BM25 sensible aux accents</strong> en production : « reservoir » ne trouve pas « réservoir ». Les manuels FR et EN de la Peugeot 508 sont enregistrés comme deux véhicules différents.`],
+  ];
+  document.getElementById("data-findings").innerHTML = items.map(([w, t]) => `<li><span class="where">${w}</span><span>${t}</span></li>`).join("");
+})();
+
+/* ---------- dataset note + sample ---------- */
+(() => {
+  const d = DATA.dataset, a = d.audit;
+  document.getElementById("dataset-note").innerHTML = `<span class="k">Note</span><p>Jeu <strong>partiel</strong> : ${intf(d.questions)} questions sur ${d.manuals} manuels (${d.splits.test} test, ${d.splits.dev} dev), reconstruit depuis le cache quand les crédits Gemini se sont épuisés. Il couvre surtout les premiers manuels par ordre alphabétique : les chiffres de ce rapport sont provisoires.${a ? ` Audit indépendant de ${a.supported + a.supported_with_extra_detail + a.unsupported} questions tirées au hasard : ${a.supported + a.supported_with_extra_detail} réponses étayées par leur citation, ${a.unsupported} non étayée.` : ""}</p>`;
+  const s = d.sample, lang = s.queries.fr_plain ? "fr" : "en";
+  const forms = [["Sans véhicule", "plain"], ["Marque", "brand"], ["Modèle", "model"], ["Nom complet", "full"]];
+  document.getElementById("sample-question").innerHTML = `
+    <div class="dialogue"><span class="kind">QUESTION GÉNÉRÉE · ${esc(s.manual)} · page ${esc(s.page)}</span>
+      ${forms.map(([l, f]) => `<div class="turn"><span class="who">${l}</span><span class="say">${esc(s.queries[lang + "_" + f])}</span></div>`).join("")}
+    </div>
+    <div class="dialogue"><span class="kind">RÉFÉRENCE</span>
+      <div class="turn bot"><span class="who">Réponse attendue</span><span class="say">${esc(s.answer)}</span></div>
+      <div class="turn"><span class="who">Citation exacte du manuel</span><span class="say"><em>« ${esc(s.evidence)} »</em></span></div>
+    </div>`;
+})();
+
+/* ---------- generic line chart with CI bands + crosshair tooltip ---------- */
+function lineChart(host, { series, xLog = true, yMax = 1, xLabel, yLabel, fmtX = (x) => x, fmtY = (y) => pct(y) }) {
+  host.innerHTML = "";
+  const W = 760, H = 380, m = { t: 14, r: 150, b: 46, l: 52 };
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": yLabel }, host);
+  const xs = [...new Set(series.flatMap((s) => s.points.map((p) => p.x)))].sort((a, b) => a - b);
+  const lx = (x) => (xLog ? Math.log(x) : x), x0 = lx(xs[0]), x1 = lx(xs[xs.length - 1]);
+  const X = (x) => m.l + ((lx(x) - x0) / (x1 - x0 || 1)) * (W - m.l - m.r);
+  const Y = (y) => m.t + (1 - y / yMax) * (H - m.t - m.b);
+  const g = el("g", { class: "grid" }, svg);
+  for (let v = 0; v <= yMax + 1e-9; v += yMax / 5) {
+    el("line", { x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v) }, g);
+    el("text", { x: m.l - 8, y: Y(v) + 4, "text-anchor": "end" }, svg).textContent = pctn(v, 0);
+  }
+  el("line", { class: "baseline", x1: m.l, x2: W - m.r, y1: Y(0), y2: Y(0) }, svg);
+  xs.forEach((x) => { el("text", { x: X(x), y: H - m.b + 18, "text-anchor": "middle" }, svg).textContent = fmtX(x); });
+  el("text", { class: "axis-title", x: (m.l + W - m.r) / 2, y: H - 6, "text-anchor": "middle" }, svg).textContent = xLabel;
+  el("text", { class: "axis-title", x: 14, y: m.t + (H - m.t - m.b) / 2, transform: `rotate(-90 14 ${m.t + (H - m.t - m.b) / 2})`, "text-anchor": "middle" }, svg).textContent = yLabel;
+
+  series.forEach((s) => {
+    const pts = s.points.filter((p) => p.y != null);
+    if (pts.length > 1 && pts[0].lo != null) {
+      const band = pts.map((p) => `${X(p.x)},${Y(p.hi)}`).concat([...pts].reverse().map((p) => `${X(p.x)},${Y(p.lo)}`)).join(" ");
+      el("polygon", { points: band, style: `fill:${s.color};opacity:.12` }, svg);
+    }
+  });
+  const ends = [];
+  series.forEach((s) => {
+    const pts = s.points.filter((p) => p.y != null);
+    el("polyline", { points: pts.map((p) => `${X(p.x)},${Y(p.y)}`).join(" "), style: `fill:none;stroke:${s.color};stroke-width:2;stroke-linejoin:round` }, svg);
+    pts.forEach((p) => el("circle", { cx: X(p.x), cy: Y(p.y), r: 4, style: `fill:${s.color};stroke:var(--surface);stroke-width:2` }, svg));
+    const last = pts[pts.length - 1];
+    if (last) ends.push({ y: Y(last.y), label: s.short || s.label, color: s.color, x: X(last.x) });
+  });
+  ends.sort((a, b) => a.y - b.y);
+  for (let i = 1; i < ends.length; i++) if (ends[i].y - ends[i - 1].y < 14) ends[i].y = ends[i - 1].y + 14;
+  ends.forEach((e) => {
+    el("line", { x1: e.x + 6, x2: e.x + 14, y1: e.y, y2: e.y, style: `stroke:${e.color};stroke-width:2` }, svg);
+    const t = el("text", { x: e.x + 18, y: e.y + 4, style: "fill:var(--ink-2);font-family:var(--font-display);font-size:12px" }, svg);
+    t.textContent = e.label;
+  });
+
+  const cross = el("line", { y1: m.t, y2: H - m.b, style: "stroke:var(--rule-strong);stroke-width:1;opacity:0" }, svg);
+  const tip = document.createElement("div");
+  tip.className = "tip"; tip.hidden = true; host.appendChild(tip);
+  const hit = el("rect", { x: m.l, y: m.t, width: W - m.l - m.r, height: H - m.t - m.b, style: "fill:transparent" }, svg);
+  const move = (evt) => {
+    const box = svg.getBoundingClientRect();
+    const px = ((evt.clientX - box.left) / box.width) * W;
+    const nearest = xs.reduce((a, b) => (Math.abs(X(b) - px) < Math.abs(X(a) - px) ? b : a));
+    cross.setAttribute("x1", X(nearest)); cross.setAttribute("x2", X(nearest)); cross.style.opacity = 1;
+    const rows = series.map((s) => ({ s, p: s.points.find((p) => p.x === nearest) })).filter((r) => r.p && r.p.y != null).sort((a, b) => b.p.y - a.p.y);
+    tip.innerHTML = `<b>${fmtX(nearest)} manuel${nearest > 1 ? "s" : ""}</b>` + rows.map((r) => `<div class="row"><i style="background:${r.s.color}"></i><span>${esc(r.s.label)}</span><span class="v">${fmtY(r.p.y)}</span></div>`).join("");
+    tip.hidden = false;
+    const left = (X(nearest) / W) * box.width;
+    tip.style.left = Math.min(Math.max(left + 12, 0), box.width - 290) + "px";
+    tip.style.top = "8px";
+  };
+  hit.addEventListener("pointermove", move);
+  hit.addEventListener("pointerleave", () => { tip.hidden = true; cross.style.opacity = 0; });
+}
+
+/* ---------- E1 ---------- */
+(() => {
+  const state = { metric: "chunk_hit_5", variant: "native_plain", strategy: "hard" };
+  const retrs = DATA.e1.retrievers;
+  const shortNames = { [R.bm25]: "BM25", [R.dense]: "bge-m3", [R.hybrid]: "hybride", [R.ctx]: "hybride + en-têtes", [R.router]: "routage par nom", [R.hnsw]: "bge-m3 HNSW" };
+  const frLabel = { [R.bm25]: "BM25 (mots-clés)", [R.dense]: "bge-m3 (sens)", [R.hybrid]: "Hybride 0,3 BM25 + 0,7 bge-m3", [R.ctx]: "Hybride + en-têtes de document", [R.router]: "Routage par nom + hybride", [R.hnsw]: "bge-m3, index approximatif HNSW" };
+  document.getElementById("e1-legend").innerHTML = retrs.map((r, i) => `<span><i style="background:${SERIES[i]}"></i>${frLabel[r.spec] || esc(r.label)}</span>`).join("");
+  const draw = () => {
+    const series = retrs.map((r, i) => ({
+      label: frLabel[r.spec] || r.label, short: shortNames[r.spec], color: SERIES[i],
+      points: E1.filter((x) => x.retriever === r.spec && x.variant === state.variant && x.strategy === state.strategy)
+        .sort((a, b) => a.n - b.n).map((x) => ({ x: x.n, y: x[state.metric], lo: x[state.metric + "_lo"], hi: x[state.metric + "_hi"] })),
+    }));
+    lineChart(document.getElementById("e1-chart"), {
+      series, xLabel: "manuels dans le corpus fouillé (échelle logarithmique)",
+      yLabel: state.metric === "chunk_hit_5" ? "bon passage dans le top 5 (%)" : "bon manuel en 1re position (%)",
+    });
+    const ns = [...new Set(E1.map((x) => x.n))].sort((a, b) => a - b);
+    const t = document.getElementById("e1-table");
+    t.innerHTML = `<thead><tr><th>Technique</th>${ns.map((n) => `<th class="n">${n}</th>`).join("")}</tr></thead><tbody>` +
+      retrs.map((r) => `<tr><td>${frLabel[r.spec] || esc(r.label)}</td>${ns.map((n) => `<td class="n">${pctn(e1v(r.spec, state.variant, state.strategy, n, state.metric))}</td>`).join("")}</tr>`).join("") + "</tbody>";
+  };
+  for (const [id, key] of [["e1-metric", "metric"], ["e1-variant", "variant"], ["e1-strategy", "strategy"]]) {
+    document.getElementById(id).addEventListener("click", (evt) => {
+      const b = evt.target.closest("button"); if (!b) return;
+      state[key] = b.dataset.v;
+      b.parentElement.querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+      draw();
+    });
+  }
+  draw();
+  const h1 = e1v(R.hybrid, "native_plain", "hard", 1, "chunk_hit_5"), h5 = e1v(R.hybrid, "native_plain", "hard", 5, "chunk_hit_5"), hN = e1v(R.hybrid, "native_plain", "hard", maxN, "chunk_hit_5");
+  document.getElementById("e1-lede").innerHTML = `Pour une question sans nom de véhicule, la meilleure recherche retrouve le bon passage dans <strong>${pct(h1)}</strong> des cas quand elle ne fouille que le bon manuel, <strong>${pct(h5)}</strong> avec 5 manuels de la même marque, et <strong>${pct(hN)}</strong> sur les ${maxN} manuels. Passez à « Modèle » : le routage par nom garde le bon manuel en tête quelle que soit la taille du corpus.`;
+})();
+
+/* ---------- E2 ---------- */
+(() => {
+  const host = document.getElementById("e2-body");
+  if (!DATA.e2) {
+    host.innerHTML = `<div class="note"><span class="k">En cours</span><p>La comparaison sur le jeu de test (rerankers inclus) tourne encore ; cette section sera complétée à la prochaine génération du rapport.</p></div>`;
+    return;
+  }
+  const rows = DATA.e2.rows;
+  const order = [...new Set(rows.map((r) => r.retriever))];
+  const cell = (r, m) => r ? `${pctn(r[m])}<span class="ci">${pctn(r[m + "_lo"], 0)}–${pctn(r[m + "_hi"], 0)}</span>` : "–";
+  const find = (retr, variant, scope) => rows.find((r) => r.retriever === retr && r.variant === variant && r.scope === scope);
+  const cols = [["native_plain", "vehicle", "chunk_hit_5", "Dans le véhicule · bon passage"], ["cross_plain", "vehicle", "chunk_hit_5", "Autre langue · bon passage"],
+                ["native_model", "global", "doc_hit_1", "165 manuels, modèle nommé · bon manuel"], ["native_model", "global", "chunk_hit_5", "165 manuels, modèle nommé · bon passage"]];
+  const best = cols.map(([v, s, m]) => Math.max(...order.map((o) => find(o, v, s)?.[m] ?? -1)));
+  host.innerHTML = `<p>Chaque technique est évaluée sur les mêmes questions de test. En gras : la meilleure valeur de chaque colonne ; en petit : l'intervalle de confiance à 95&nbsp;%.</p>
+    <div class="table-wrap"><table><thead><tr><th>Technique</th>${cols.map((c) => `<th class="n">${c[3]}</th>`).join("")}</tr></thead><tbody>` +
+    order.map((o) => {
+      const lab = rows.find((r) => r.retriever === o).label;
+      return `<tr><td>${esc(lab)}<div class="spec">${esc(o)}</div></td>` + cols.map(([v, s, m], i) => {
+        const r = find(o, v, s), top = r && Math.abs(r[m] - best[i]) < 1e-9;
+        return `<td class="n">${top ? "<strong>" : ""}${cell(r, m)}${top ? "</strong>" : ""}</td>`;
+      }).join("") + "</tr>";
+    }).join("") + "</tbody></table></div>";
+})();
+
+/* ---------- E4 policies chart + table ---------- */
+(() => {
+  const labels = { never: "Ne jamais demander", always: "Toujours demander", name_rule: "Demander si aucun véhicule nommé", oracle: "Oracle (sait si la réponse dépend du véhicule)" };
+  const pts = ["never", "always", "name_rule", "oracle"].map((k, i) => ({ k, p: pol(k), color: SERIES[i] })).filter((x) => x.p);
+  const clf = P.filter((p) => p.strategy === "direct" && p.policy.startsWith("classifier")).sort((a, b) => a.avg_turns - b.avg_turns);
+  document.getElementById("e4-legend").innerHTML = pts.map((x) => `<span><i style="background:${x.color};height:10px;width:10px;border-radius:50%"></i>${labels[x.k]}</span>`).join("") + `<span><i style="background:var(--s5)"></i>Détecteur appris (seuils)</span>`;
+  const host = document.getElementById("e4-chart");
+  const W = 760, H = 340, m = { t: 14, r: 24, b: 46, l: 52 };
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Précision contre coût de clarification" }, host);
+  const xMax = Math.max(1.1, ...P.map((p) => p.avg_turns)) * 1.05;
+  const X = (x) => m.l + (x / xMax) * (W - m.l - m.r), Y = (y) => m.t + (1 - y) * (H - m.t - m.b);
+  const g = el("g", { class: "grid" }, svg);
+  for (let v = 0; v <= 1.0001; v += 0.2) { el("line", { x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v) }, g); el("text", { x: m.l - 8, y: Y(v) + 4, "text-anchor": "end" }, svg).textContent = pctn(v, 0); }
+  for (let v = 0; v <= xMax; v += 0.2) { el("text", { x: X(v), y: H - m.b + 18, "text-anchor": "middle" }, svg).textContent = dec(v, 1); }
+  el("text", { class: "axis-title", x: (m.l + W - m.r) / 2, y: H - 6, "text-anchor": "middle" }, svg).textContent = "questions de clarification par requête";
+  el("text", { class: "axis-title", x: 14, y: H / 2, transform: `rotate(-90 14 ${H / 2})`, "text-anchor": "middle" }, svg).textContent = "bon manuel en 1re position (%)";
+  el("polyline", { points: clf.map((p) => `${X(p.avg_turns)},${Y(p.doc_hit_1)}`).join(" "), style: "fill:none;stroke:var(--s5);stroke-width:2;stroke-dasharray:5 4" }, svg);
+  clf.forEach((p) => el("circle", { cx: X(p.avg_turns), cy: Y(p.doc_hit_1), r: 4, style: "fill:var(--s5);stroke:var(--surface);stroke-width:2" }, svg));
+  pts.forEach(({ k, p, color }) => {
+    el("line", { x1: X(p.avg_turns), x2: X(p.avg_turns), y1: Y(p.doc_hit_1_lo), y2: Y(p.doc_hit_1_hi), style: `stroke:${color};stroke-width:2` }, svg);
+    el("circle", { cx: X(p.avg_turns), cy: Y(p.doc_hit_1), r: 7, style: `fill:${color};stroke:var(--surface);stroke-width:2` }, svg);
+    const anchor = p.avg_turns > xMax * 0.8 ? "end" : "start", dx = anchor === "end" ? -12 : 12;
+    el("text", { x: X(p.avg_turns) + dx, y: Y(p.doc_hit_1) - 10, "text-anchor": anchor, style: "fill:var(--ink-2);font-family:var(--font-display);font-size:12px" }, svg).textContent = `${labels[k].split(" (")[0]} · ${pct(p.doc_hit_1)}`;
+  });
+
+  const keep = P.filter((p) => ["none", "direct", "hierarchical"].includes(p.strategy) && !["classifier@0.2", "classifier@0.8"].includes(p.policy));
+  const stratFr = { none: "–", direct: "directe", hierarchical: "marque → modèle" };
+  const polFr = (p) => labels[p] || p.replace("classifier@", "Détecteur, seuil ");
+  const bestRow = pol("name_rule");
+  document.getElementById("e4-policies").innerHTML = `<thead><tr><th>Politique</th><th>Question posée</th><th class="n">Bon manuel (1er)</th><th class="n">Bon passage (top 5)</th><th class="n">Questions / requête</th><th class="n">Vrai véhicule dans les 3 options</th><th class="n">Clarifications manquées</th><th class="n">Clarifications inutiles</th></tr></thead><tbody>` +
+    keep.map((p) => `<tr class="${p === bestRow ? "best" : ""}"><td>${polFr(p.policy)}</td><td>${stratFr[p.strategy]}</td>
+      <td class="n">${pctn(p.doc_hit_1)}<span class="ci">${pctn(p.doc_hit_1_lo, 0)}–${pctn(p.doc_hit_1_hi, 0)}</span></td>
+      <td class="n">${pctn(p.chunk_hit_5)}<span class="ci">${pctn(p.chunk_hit_5_lo, 0)}–${pctn(p.chunk_hit_5_hi, 0)}</span></td>
+      <td class="n">${dec(p.avg_turns)}</td><td class="n">${p.gold_in_options_3 == null ? "–" : pct(p.gold_in_options_3, 0)}</td>
+      <td class="n">${p.missed_clarification == null ? "–" : pct(p.missed_clarification, 1)}</td><td class="n">${p.unnecessary_clarification == null ? "–" : pct(p.unnecessary_clarification, 1)}</td></tr>`).join("") + "</tbody>";
+
+  const nv = byVar("never", "native_plain"), nr = byVar("name_rule", "native_plain"), hier = pol("name_rule", "hierarchical");
+  document.getElementById("e4-lede").innerHTML = `Sur les questions sans nom de véhicule, ne jamais demander donne le bon manuel dans <strong>${pct(nv.doc_hit_1)}</strong> des cas ; une seule question de clarification le fait monter à <strong>${pct(nr.doc_hit_1)}</strong>. Sur l'ensemble des variantes, la règle simple « demander quand aucun véhicule n'est nommé » atteint <strong>${pct(bestRow.doc_hit_1)}</strong> avec <strong>${dec(bestRow.avg_turns)}</strong> question par requête, soit la précision de « toujours demander » pour moitié moins de questions. Demander directement le véhicule coûte moins de tours que la séquence marque puis modèle (${dec(bestRow.avg_turns)} contre ${dec(hier.avg_turns)}).`;
+})();
+
+/* ---------- E4 signals ---------- */
+(() => {
+  const names = { vehicle_margin: "écart 1er / 2e véhicule", passage_agreement: "accord entre passages", top1_vehicle_share: "part du 1er véhicule", vehicle_entropy: "dispersion entre véhicules", n_vehicles_top10: "véhicules dans le top 10", n_brands_top10: "marques dans le top 10", query_tokens: "longueur de la question", mentions_brand: "marque mentionnée" };
+  const sig = DATA.e4.signals.filter((s) => s.generic_auc != null && names[s.signal]);
+  const host = document.getElementById("e4-signals");
+  const rowH = 34, W = 760, m = { t: 8, r: 60, b: 34, l: 200 }, H = m.t + m.b + rowH * sig.length;
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "AUC des signaux" }, host);
+  const X = (v) => m.l + ((v - 0.5) / 0.5) * (W - m.l - m.r);
+  const g = el("g", { class: "grid" }, svg);
+  for (let v = 0.5; v <= 1.0001; v += 0.1) { el("line", { x1: X(v), x2: X(v), y1: m.t, y2: H - m.b }, g); el("text", { x: X(v), y: H - m.b + 16, "text-anchor": "middle" }, svg).textContent = dec(v, 1); }
+  el("text", { class: "axis-title", x: (m.l + W - m.r) / 2, y: H - 2, "text-anchor": "middle" }, svg).textContent = "AUC (0,5 = hasard)";
+  sig.forEach((s, i) => {
+    const y = m.t + i * rowH;
+    el("text", { x: m.l - 10, y: y + rowH / 2 + 4, "text-anchor": "end", style: "fill:var(--ink-2);font-family:var(--font-display);font-size:13px" }, svg).textContent = names[s.signal];
+    [[s.auc, "var(--s1)", 5], [s.generic_auc, "var(--s2)", 17]].forEach(([v, c, off]) => {
+      el("rect", { x: X(0.5), y: y + off, width: Math.max(1, X(Math.max(v, 0.5)) - X(0.5)), height: 11, rx: 2, style: `fill:${c}` }, svg);
+      el("text", { x: X(Math.max(v, 0.5)) + 6, y: y + off + 10, style: "fill:var(--ink-2)" }, svg).textContent = dec(v);
+    });
+  });
+  const det = DATA.e4.detection, gen = det.genericity_among_ambiguous || {};
+  document.getElementById("e4-signals-lede").innerHTML = `Les signaux calculés sans LLM à partir des résultats de recherche détectent très bien qu'une question ne désigne pas de véhicule (détecteur : AUC <strong>${dec(det.classifier.roc_auc)}</strong>, rappel <strong>${pct(det.classifier["recall@0.5"])}</strong>). Mais parmi les ${intf(gen.n_test)} requêtes ambiguës, ils ne savent pas dire si la réponse change d'un véhicule à l'autre : AUC <strong>${dec(gen.classifier_auc)}</strong>, à peine mieux que le hasard. C'est pourquoi le système pose aussi des questions inutiles (« boucler sa ceinture ») : il faudra un LLM qui compare le sens des réponses (expérience E4b, prête).`;
+})();
+
+/* ---------- examples + dialogues ---------- */
+(() => {
+  const ex = DATA.e4.examples, meta = DATA.e4.examples_meta;
+  const act = { answer: "répondre", clarify: "clarifier", abstain: "s'abstenir" };
+  const nOk = ex.filter((e) => e.correct_action === true || e.correct_action === "True").length;
+  document.getElementById("examples-lede").innerHTML = `${ex.length} questions écrites à la main (FR/EN) avec la décision attendue. Le système prend la bonne décision dans <strong>${nOk} cas sur ${ex.length}</strong> (${pct(nOk / ex.length, 0)}). Les erreurs restantes sont des questions génériques pour lesquelles il demande le véhicule inutilement, et un cas limite (« ma Golf » : un manuel « toutes générations » existe). Seuil hors-sujet calibré sur les vraies questions : similarité ${dec(meta.ood_similarity_threshold, 3)}.`;
+  document.getElementById("examples").innerHTML = `<thead><tr><th>Question</th><th>Attendu</th><th>Décision</th><th></th><th>Question posée ou raison</th></tr></thead><tbody>` +
+    ex.map((e) => {
+      const ok = e.correct_action === true || e.correct_action === "True";
+      const detail = e.predicted === "clarify" ? `${esc(e.question)}<div class="options">${esc(e.options).split(" | ").join(" · ")}</div>`
+        : e.predicted === "answer" ? `<span class="mono">${esc(e.top_manual)}</span>, page ${esc(e.top_page)}` : esc(e.reason);
+      return `<tr><td>${esc(e.query)}</td><td><span class="pill ${e.expected}">${act[e.expected]}</span></td><td><span class="pill ${e.predicted}">${act[e.predicted]}</span></td><td>${ok ? '<span class="ok">✓ juste</span>' : '<span class="ko">✗ erreur</span>'}</td><td>${detail}</td></tr>`;
+    }).join("") + "</tbody>";
+
+  const vfr = { native_plain: "sans véhicule", native_brand: "avec la marque", native_model: "avec le modèle", native_full: "avec le nom complet" };
+  document.getElementById("dialogues").innerHTML = DATA.e4.dialogues.map((d) => `
+    <div class="dialogue"><span class="kind">QUESTION ${vfr[d.variant].toUpperCase()}</span>
+      <div class="turn"><span class="who">Utilisateur</span><span class="say">${esc(d.query)}</span></div>
+      ${d.turns.map((t) => `<div class="turn bot"><span class="who">Assistant</span><span class="say">${esc(t.q)}</span><div class="chips">${t.options.map((o) => `<span>${esc(o)}</span>`).join("")}</div></div>
+      <div class="turn"><span class="who">Utilisateur</span><span class="say">${esc(t.a)}</span></div>`).join("")}
+      <div class="result">Passage retrouvé : <span class="ref">${esc(d.top_manual)} · page ${esc(d.top_page)}</span>${d.doc_ok ? " — bon manuel" : ""}</div>
+    </div>`).join("");
+})();
+
+/* ---------- recommendations, limits, footer ---------- */
+(() => {
+  const rule = pol("name_rule");
+  document.getElementById("recommendations").innerHTML = [
+    `<strong>Filtrer par véhicule plutôt que tout fouiller.</strong> Sur ${maxN} manuels, la précision s'effondre ; dans le bon véhicule, le bon passage est retrouvé dans ${pct(e1v(R.hybrid, "native_plain", "hard", 1, "chunk_hit_5"))} des cas.`,
+    `<strong>Router par le nom du véhicule, puis retirer ce nom de la requête.</strong> Garder « Peugeot 208 (2023) » dans le texte dilue la recherche du passage une fois le filtre appliqué.`,
+    `<strong>Remplacer la fusion RRF actuelle par une fusion pondérée des scores</strong> (0,3 BM25 + 0,7 bge-m3), réglée sur le split dev.`,
+    `<strong>Poser une question directe</strong> (« Quel est votre véhicule ? ») avec les 3 véhicules les plus probables et une saisie libre : le vrai véhicule n'est dans les options que dans ${pct(rule.gold_in_options_3, 0)} des cas.`,
+    `<strong>Utiliser la réponse comme filtre, pas comme mots ajoutés à la requête.</strong>`,
+    `<strong>Corriger les données :</strong> réindexer les manuels Kia avec PyMuPDF, dédoublonner Mazda, normaliser les accents dans BM25.`,
+  ].map((t) => `<li>${t}</li>`).join("");
+  document.getElementById("limits-list").innerHTML = [
+    `<strong>Jeu partiel et synthétique.</strong> ${intf(DATA.dataset.questions)} questions générées sur ${DATA.dataset.manuals} manuels, biaisées vers les premiers manuels par ordre alphabétique. À refaire sur le jeu complet dès que les crédits Gemini seront rechargés.`,
+    `<strong>Recherche Gemini non mesurée.</strong> Les embeddings de production (<code>gemini-embedding-001</code>) exigent l'API pour encoder les questions ; les résultats ci-dessus utilisent des modèles locaux (bge-m3). La mesure du pipeline de production exact (E0) est prête.`,
+    `<strong>Étape LLM non mesurée (E3).</strong> Le LLM cite-t-il la bonne page, s'abstient-il à bon escient ? L'expérience est codée ; elle attend l'API.`,
+    `<strong>Généricité jugée par le générateur.</strong> Le libellé « la réponse dépend du véhicule » vient de Gemini ; pour une question générique, un passage équivalent d'un autre manuel n'est reconnu que s'il est quasi identique.`,
+    `<strong>Utilisateur simulé idéal.</strong> Il connaît toujours son véhicule exact ; un vrai utilisateur peut ignorer l'année ou la génération.`,
+  ].map((t) => `<li>${t}</li>`).join("");
+  document.getElementById("footer").innerHTML = `Rapport généré à partir des résultats du dossier <code>research/results</code> · jeu <code>${esc(DATA.dataset.name)}</code> · ${intf(DATA.corpus.chunks)} passages · chiffres provisoires.`;
+})();
+</script>

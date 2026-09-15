@@ -1,0 +1,44 @@
+{
+  "n_dev": 844,
+  "n_test": 1716,
+  "positive_rate_test": 0.3321678321678322,
+  "classifier": {
+    "roc_auc": 0.8618061296347326,
+    "avg_precision": 0.6521010246740131,
+    "precision@0.5": 0.6375838926174496,
+    "recall@0.5": 1.0,
+    "f1@0.5": 0.7786885245901639
+  },
+  "name_rule": {
+    "precision": 0.6375838926174496,
+    "recall": 1.0,
+    "f1": 0.7786885245901639
+  },
+  "coefficients": {
+    "router_n_vehicles": 0.006,
+    "router_unique": -2.113,
+    "mentions_brand": -0.086,
+    "vehicle_entropy": 0.802,
+    "top1_vehicle_share": -0.281,
+    "vehicle_margin": 0.127,
+    "n_vehicles_top10": 0.001,
+    "n_brands_top10": -0.264,
+    "passage_agreement": -0.357,
+    "query_tokens": 0.11
+  },
+  "genericity_among_ambiguous": {
+    "n_test": 856,
+    "vehicle_specific_share": 0.6658878504672897,
+    "classifier_auc": 0.5373083057293584,
+    "signal_auc": {
+      "mentions_brand": 0.5061710219604956,
+      "vehicle_entropy": 0.5549809839283524,
+      "top1_vehicle_share": 0.5620844068212489,
+      "vehicle_margin": 0.5058888479941112,
+      "n_vehicles_top10": 0.5335695006747638,
+      "n_brands_top10": 0.5205342902711324,
+      "passage_agreement": 0.5337749969328917,
+      "query_tokens": 0.5196877683719789
+    }
+  }
+}

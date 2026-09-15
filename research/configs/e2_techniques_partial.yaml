@@ -1,0 +1,26 @@
+# E2 - Which retrieval techniques keep finding the right document at full scale (165 manuals)?
+# Configurations chosen on the dev split, reported on test. API-free.
+name: e2_techniques_partial
+dataset: questions_v1_partial
+retrievers:
+  - bm25
+  - bm25_stem
+  - bm25_stem+ctx
+  - rm3(bm25)
+  - dense:bge-m3
+  - dense:bge-m3+ctx
+  - dense:multilingual-e5-large-instruct
+  - hnsw(dense:bge-m3)
+  - rrf(bm25_stem,dense:bge-m3)
+  - wsum(bm25_stem,dense:bge-m3;w=0.3|0.7)
+  - wsum(bm25_stem+ctx,dense:bge-m3+ctx;w=0.3|0.7)
+  - doc_router(dense:bge-m3+ctx)
+  - name_boost(dense:bge-m3;lam=0.5)
+  - name_router(wsum(bm25_stem,dense:bge-m3;w=0.3|0.7))
+  - name_router_strip(wsum(bm25_stem,dense:bge-m3;w=0.3|0.7))
+  - rerank(wsum(bm25_stem,dense:bge-m3;w=0.3|0.7))
+  - m3rerank(wsum(bm25_stem,dense:bge-m3;w=0.3|0.7))
+  - rerank(name_router_strip(wsum(bm25_stem,dense:bge-m3;w=0.3|0.7)))
+variants: [native_plain, native_model, native_full, cross_plain]
+scopes: [vehicle, global]
+split: test

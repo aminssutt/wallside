@@ -1,0 +1,11 @@
+name: smoke_rerank
+dataset: questions_v1_partial
+split: dev
+retrievers:
+  - wsum(bm25_stem,dense:bge-m3;w=0.3|0.7)
+  - rerank(wsum(bm25_stem,dense:bge-m3;w=0.3|0.7))
+  - m3rerank(wsum(bm25_stem,dense:bge-m3;w=0.3|0.7))
+variants: [native_plain]
+scopes: [vehicle, global]
+max_questions: 10
+batch: 10

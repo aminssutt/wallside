@@ -1,0 +1,11 @@
+signal,auc,direction,coef
+vehicle_margin,0.8692615045467071,-,0.127
+passage_agreement,0.8612779767918924,-,-0.357
+router_unique,0.8586387434554974,-,-2.113
+vehicle_entropy,0.850202075870304,+,0.802
+top1_vehicle_share,0.8489758427482319,-,-0.281
+n_vehicles_top10,0.8457862588408193,+,0.001
+router_n_vehicles,0.8343804537521815,-,0.006
+n_brands_top10,0.8119370196870885,+,-0.264
+query_tokens,0.6511734178377881,-,0.11
+mentions_brand,0.5262560852392761,-,-0.086

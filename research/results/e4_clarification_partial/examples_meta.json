@@ -1,0 +1,6 @@
+{
+  "retriever": "wsum(bm25_stem,dense:bge-m3;w=0.3|0.7)",
+  "dense_ood_model": "bge-m3",
+  "ood_similarity_threshold": 0.5840194225311279,
+  "action_accuracy": 0.8666666666666667
+}

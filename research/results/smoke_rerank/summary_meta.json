@@ -1,0 +1,12 @@
+{
+  "n_metric_rows": 60,
+  "retrievers": [
+    "m3rerank(wsum(bm25_stem,dense:bge-m3;w=0.3|0.7))",
+    "rerank(wsum(bm25_stem,dense:bge-m3;w=0.3|0.7))",
+    "wsum(bm25_stem,dense:bge-m3;w=0.3|0.7)"
+  ],
+  "variants": [
+    "native_plain"
+  ],
+  "questions": 10
+}
