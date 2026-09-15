@@ -45,3 +45,19 @@ def apply(ax) -> None:
 
 
 LINE = dict(linewidth=2, markersize=8, markeredgewidth=2, markeredgecolor=SURFACE)
+
+
+# Readable names for figures; CSV tables keep the exact retriever specs.
+LABELS = {
+    "bm25": "BM25", "bm25_stem": "BM25 (stemmed)", "bm25_stem+ctx": "BM25 + context headers",
+    "dense:bge-m3": "bge-m3 (dense)", "dense:bge-m3+ctx": "bge-m3 + context headers",
+    "dense:multilingual-e5-large-instruct": "e5-large (dense)", "dense:gemini-embedding-001": "Gemini embeddings",
+    "hnsw(dense:bge-m3)": "bge-m3, HNSW index", "rrf(bm25_stem,dense:bge-m3)": "RRF hybrid",
+    "wsum(bm25_stem,dense:bge-m3;w=0.3|0.7)": "weighted hybrid (0.3/0.7)",
+    "wsum(bm25_stem+ctx,dense:bge-m3+ctx;w=0.3|0.7)": "weighted hybrid + context headers",
+    "name_router_strip(wsum(bm25_stem,dense:bge-m3;w=0.3|0.7))": "name routing + weighted hybrid",
+}
+
+
+def label(spec: str) -> str:
+    return LABELS.get(spec, spec)

@@ -45,7 +45,7 @@ def _fmt_ci(row: pd.Series, metric: str) -> str:
 
 
 def _table(df: pd.DataFrame) -> str:
-    cols = list(df.columns)
+    cols = [str(c) for c in df.columns]
     lines = ["| " + " | ".join(cols) + " |", "|" + "|".join("---" for _ in cols) + "|"]
     lines += ["| " + " | ".join(str(v).replace("|", "\\|") for v in row) + " |" for row in df.itertuples(index=False)]
     return "\n".join(lines)

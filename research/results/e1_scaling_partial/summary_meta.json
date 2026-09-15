@@ -1,0 +1,19 @@
+{
+  "n_metric_rows": 996996,
+  "retrievers": [
+    "bm25_stem",
+    "dense:bge-m3",
+    "hnsw(dense:bge-m3)",
+    "name_router_strip(wsum(bm25_stem,dense:bge-m3;w=0.3|0.7))",
+    "rrf(bm25_stem,dense:bge-m3)",
+    "wsum(bm25_stem+ctx,dense:bge-m3+ctx;w=0.3|0.7)",
+    "wsum(bm25_stem,dense:bge-m3;w=0.3|0.7)"
+  ],
+  "variants": [
+    "native_brand",
+    "native_full",
+    "native_model",
+    "native_plain"
+  ],
+  "questions": 429
+}
