@@ -1,0 +1,265 @@
+/* Ask flow — question first, vehicle only when needed. Uses the app's studio palette (index.css). */
+
+.ask {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  background:
+    radial-gradient(1200px 600px at 50% -10%, rgba(148, 159, 171, 0.10), transparent 70%),
+    var(--bg-primary);
+}
+
+/* ---------- header ---------- */
+.ask-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px clamp(16px, 4vw, 40px);
+  background: rgba(8, 8, 8, 0.82);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+.ask-home {
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  color: var(--chrome);
+  text-decoration: none;
+}
+.ask-home:hover { color: var(--chrome-bright); }
+.ask-header-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+
+.vehicle-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px 5px 12px;
+  border: 1px solid var(--border-hover);
+  border-radius: 999px;
+  background: var(--bg-card);
+  font-size: 0.85rem;
+  color: var(--text-primary);
+}
+.vehicle-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success); }
+.vehicle-chip button {
+  border: 0;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+.vehicle-chip button:hover { color: var(--text-primary); background: #262b31; }
+
+.lang-switch { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; }
+.lang-switch button {
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+.lang-switch button[aria-pressed="true"] { background: var(--bg-elevated); color: var(--text-primary); }
+
+/* ---------- main ---------- */
+.ask-main {
+  flex: 1;
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: clamp(20px, 5vw, 48px) clamp(16px, 4vw, 24px) 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.ask-intro { display: grid; gap: 12px; }
+.ask-intro h1 {
+  font-size: clamp(1.7rem, 4.6vw, 2.5rem);
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  text-wrap: balance;
+}
+.ask-intro p { color: var(--text-secondary); max-width: 54ch; line-height: 1.55; }
+.ask-suggestions { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; padding: 0; margin-top: 4px; }
+.ask-suggestions button {
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  text-align: left;
+}
+.ask-suggestions button:hover { border-color: var(--border-hover); color: var(--text-primary); }
+
+/* ---------- thread ---------- */
+.thread { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 14px; }
+.msg { max-width: 100%; }
+.msg p { margin: 0; line-height: 1.6; }
+.msg.user { align-self: flex-end; max-width: min(90%, 520px); }
+.msg.user p {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 16px 16px 4px 16px;
+  padding: 10px 14px;
+  color: var(--text-primary);
+}
+.msg.user.is-vehicle p { background: transparent; border-style: dashed; color: var(--text-secondary); font-size: 0.88rem; }
+.msg.bot { align-self: flex-start; max-width: min(100%, 620px); display: grid; gap: 8px; }
+.msg.bot.subtle p { color: var(--text-muted); font-size: 0.88rem; }
+.answer { white-space: pre-wrap; color: var(--text-primary); }
+.answer.failed { color: var(--error); }
+.answer-vehicle {
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.caret {
+  display: inline-block;
+  width: 8px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: -2px;
+  background: var(--chrome);
+  animation: blink 1s steps(2) infinite;
+}
+@keyframes blink { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .caret { animation: none; } }
+.thinking { color: var(--text-muted); }
+.no-source {
+  align-self: start;
+  font-size: 0.78rem;
+  color: var(--warning);
+  border: 1px solid color-mix(in srgb, var(--warning) 35%, transparent);
+  border-radius: 6px;
+  padding: 3px 9px;
+}
+
+.clarify-question { font-size: 1.05rem; color: var(--text-primary); }
+.clarify-hint { font-size: 0.85rem; color: var(--text-muted); }
+.options { display: flex; flex-wrap: wrap; gap: 8px; }
+.options button {
+  border: 1px solid var(--border-hover);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border-radius: 999px;
+  padding: 8px 15px;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.options button:hover { background: var(--bg-elevated); }
+
+/* ---------- sources ---------- */
+.sources { border-left: 2px solid var(--border-hover); padding-left: 12px; display: grid; gap: 4px; }
+.sources-title { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); }
+.sources ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 3px; }
+.sources li { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; font-size: 0.85rem; }
+.sources a { color: var(--chrome); text-decoration: none; border-bottom: 1px solid var(--border-hover); }
+.sources a:hover { color: var(--chrome-bright); }
+.sources-file { color: var(--text-muted); font-size: 0.78rem; }
+
+/* ---------- vehicle picker ---------- */
+.picker-panel {
+  border: 1px solid var(--border-hover);
+  border-radius: 14px;
+  background: var(--bg-card);
+  overflow: hidden;
+}
+.picker-panel > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.92rem;
+  color: var(--text-primary);
+}
+.picker-panel > header button {
+  border: 0; background: transparent; color: var(--text-muted);
+  font-size: 1.25rem; line-height: 1; cursor: pointer; padding: 0 4px;
+}
+.picker { padding: 12px 14px 14px; display: grid; gap: 10px; }
+.picker-search {
+  width: 100%;
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border-radius: 10px;
+  padding: 9px 12px;
+  font-size: 0.95rem;
+}
+.picker-search:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.picker-list { list-style: none; margin: 0; padding: 0; max-height: 260px; overflow-y: auto; display: grid; gap: 2px; }
+.picker-item {
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 0.92rem;
+  text-align: left;
+  cursor: pointer;
+}
+.picker-item:hover { background: var(--bg-elevated); }
+.picker-brand { color: var(--text-muted); font-size: 0.78rem; white-space: nowrap; }
+.picker-empty { color: var(--text-muted); font-size: 0.88rem; margin: 0; }
+
+/* ---------- composer ---------- */
+.composer {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 12px clamp(16px, 4vw, 24px) calc(16px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(to top, var(--bg-primary) 65%, rgba(8, 8, 8, 0));
+}
+.composer input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--border-hover);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border-radius: 999px;
+  padding: 13px 18px;
+  font-size: 1rem;
+}
+.composer input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.composer button {
+  border: 0;
+  border-radius: 999px;
+  padding: 0 22px;
+  background: var(--chrome);
+  color: #0b0d0f;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+.composer button:disabled { opacity: 0.4; cursor: not-allowed; }
+.composer button:not(:disabled):hover { background: var(--chrome-bright); }
+
+@media (max-width: 480px) {
+  .ask-main { padding-top: 18px; }
+  .msg.user { max-width: 100%; }
+}

@@ -7,6 +7,7 @@ import './App.css'
 const LandingPage = lazy(() => import('./pages/LandingPage'))
 const GuidesPage = lazy(() => import('./pages/GuidesPage'))
 const ChatPage = lazy(() => import('./pages/ChatPage'))
+const AskPage = lazy(() => import('./pages/AskPage'))
 const LegalPage = lazy(() => import('./pages/LegalPage'))
 
 function GarageComingSoon() {
@@ -180,6 +181,7 @@ function AnimatedRoutes() {
         <Routes location={location} key={location.pathname}>
           <Route path="/" element={<LandingPage />} />
           <Route path="/guides" element={<GuidesPage />} />
+          <Route path="/ask" element={<AskPage />} />
           <Route path="/chat/:slug" element={<ChatPage />} />
           <Route path="/legal" element={<LegalPage />} />
           <Route path="/garage" element={<GarageComingSoon />} />

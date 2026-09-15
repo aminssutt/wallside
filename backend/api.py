@@ -23,6 +23,7 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from werkzeug.middleware.proxy_fix import ProxyFix
 
+from src.clarify import decide
 from src.guide_manager import guide_manager
 from src.guide_chatbot import get_guide_chatbot, prewarm_guide_chatbots
 from src.config import (
@@ -829,6 +830,31 @@ def health_check():
         "status": "ok",
         "guides": len(guide_manager.list_guides()),
     })
+
+
+@app.route('/api/ask/decide', methods=['POST'])
+@limiter.limit("60 per minute")
+def decide_question():
+    """Before searching: can we answer, must we ask which vehicle, or is the manual simply missing?
+
+    No index and no model involved - the decision comes from the vehicle names in the question.
+    """
+    data = request.get_json(silent=True) or {}
+    message = str(data.get("message", "")).strip()
+    if not message:
+        return jsonify({"success": False, "error": "Message requis"}), 400
+    if len(message) > MAX_MESSAGE_LENGTH:
+        return jsonify({"success": False, "error": f"Message trop long (max {MAX_MESSAGE_LENGTH} caracteres)"}), 400
+
+    decision = decide(message)
+    if decision.get("action") == "answer":
+        guide = guide_manager.get_guide(decision["vehicle"]["slug"])
+        if guide is None or not guide.is_indexed:  # named vehicle whose index is missing: ask instead of failing
+            decision = {"action": "clarify", "reason": "no_vehicle", "brand": "", "options": []}
+        else:
+            decision["vehicle"]["image"] = guide.image
+
+    return jsonify({"success": True, **decision})
 
 
 @app.route('/api/suggestions', methods=['GET'])
