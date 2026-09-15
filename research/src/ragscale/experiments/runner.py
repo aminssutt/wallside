@@ -26,9 +26,6 @@ from .scopes import DEFAULT_TIERS, Scope, ScopeBuilder, tier_scopes
 
 log = logging.getLogger(__name__)
 
-VARIANTS = ("native_plain", "native_full", "native_model", "native_brand", "cross_plain", "cross_full")
-
-
 def make_query(record: dict, variant: str) -> Query:
     lang = record["manual_lang"]
     kind, form = variant.split("_", 1)

@@ -1722,6 +1722,7 @@ dependencies = [
     { name = "pyyaml" },
     { name = "rank-bm25" },
     { name = "ranx" },
+    { name = "scikit-learn" },
     { name = "scipy" },
     { name = "tqdm" },
 ]
@@ -1755,6 +1756,7 @@ requires-dist = [
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "rank-bm25", specifier = ">=0.2.2" },
     { name = "ranx", specifier = ">=0.3.20" },
+    { name = "scikit-learn", specifier = ">=1.5" },
     { name = "scipy", specifier = ">=1.13" },
     { name = "sentence-transformers", marker = "extra == 'local'", specifier = ">=3.3" },
     { name = "torch", marker = "extra == 'local'", specifier = ">=2.4" },

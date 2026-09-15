@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 
 
@@ -111,6 +112,22 @@ def _cmd_breakdown(args: argparse.Namespace) -> None:
         print(table.round(3).to_string(index=False))
 
 
+def _cmd_clarify(args: argparse.Namespace) -> None:
+    import pandas as pd
+
+    from .clarify.experiment import ClarifyExperiment, ClarifySpec
+
+    spec = ClarifySpec.from_yaml(args.config)
+    if args.max_questions:
+        spec.max_questions = args.max_questions
+    out = ClarifyExperiment(spec).run()
+    print(json.dumps(out["detection"], indent=2))
+    cols = ["strategy", "policy", "n", "doc_hit@1", "chunk_hit@5", "answer_found@5", "avg_turns", "ask_rate",
+            "missed_clarification", "unnecessary_clarification"]
+    with pd.option_context("display.width", 220):
+        print(out["policies"][cols].round(3).to_string(index=False))
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="ragscale")
     parser.add_argument("-v", "--verbose", action="store_true")
@@ -162,6 +179,11 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--variant", default="native_plain")
     p.add_argument("--retriever", default=None)
     p.set_defaults(func=_cmd_breakdown)
+
+    p = sub.add_parser("clarify", help="E4: underspecification detection and clarification-policy simulation")
+    p.add_argument("config")
+    p.add_argument("--max-questions", type=int, default=None)
+    p.set_defaults(func=_cmd_clarify)
 
     p = sub.add_parser("analyze", help="Summarize a run with 95%% confidence intervals")
     p.add_argument("name")

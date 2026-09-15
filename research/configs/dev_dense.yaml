@@ -1,18 +1,23 @@
-# Development run (dev split, partial set, API-free): local dense retrieval, hybrids, routing, ANN.
+# Development run (dev split, partial set, API-free): local dense retrieval, fusion tuning, routing, ANN.
 name: dev_dense
 dataset: questions_v1_partial
 split: dev
 retrievers:
   - dense:bge-m3
-  - dense:bge-m3+ctx
-  - rrf(bm25_stem,dense:bge-m3)
-  - rrf(bm25_stem+ctx,dense:bge-m3+ctx)
+  - rrf(bm25_stem,dense:bge-m3;k=10)
+  - rrf(bm25_stem,dense:bge-m3;k=30)
+  - rrf(bm25_stem,dense:bge-m3;k=60)
+  - rrf(bm25_stem,dense:bge-m3;k=100)
+  - wsum(bm25_stem,dense:bge-m3;w=0.1|0.9)
   - wsum(bm25_stem,dense:bge-m3;w=0.3|0.7)
   - wsum(bm25_stem,dense:bge-m3;w=0.5|0.5)
-  - wsum(bm25_stem+ctx,dense:bge-m3+ctx;w=0.3|0.7)
-  - doc_router(dense:bge-m3+ctx)
-  - name_boost(dense:bge-m3)
+  - wsum(bm25_stem,dense:bge-m3;w=0.7|0.3)
+  - combmnz(bm25_stem,dense:bge-m3)
+  - doc_router(dense:bge-m3)
+  - name_boost(dense:bge-m3;lam=0.25)
+  - name_boost(dense:bge-m3;lam=0.5)
   - name_router(rrf(bm25_stem,dense:bge-m3))
+  - rrf(bm25_stem+ctx,dense:bge-m3)
   - hnsw(dense:bge-m3)
 variants: [native_plain, native_model, native_full, cross_plain]
 scopes: [vehicle, global, tiers]

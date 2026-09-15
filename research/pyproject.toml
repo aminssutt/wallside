@@ -21,6 +21,7 @@ dependencies = [
     "tqdm>=4.66",
     "matplotlib>=3.9",
     "ranx>=0.3.20",
+    "scikit-learn>=1.5",
 ]
 
 [project.optional-dependencies]

@@ -1,0 +1,30 @@
+{"id": "ex01", "lang": "fr", "query": "Comment changer ma batterie ?", "expected": "clarify", "expected_attribute": "brand", "why": "La procédure dépend du véhicule ; aucun véhicule n'est nommé."}
+{"id": "ex02", "lang": "fr", "query": "Où se trouve la roue de secours ?", "expected": "clarify", "expected_attribute": "brand", "why": "Emplacement propre à chaque modèle."}
+{"id": "ex03", "lang": "fr", "query": "Quelle pression pour les pneus de ma Peugeot ?", "expected": "clarify", "expected_attribute": "model", "why": "Marque connue, 10 manuels Peugeot possibles."}
+{"id": "ex04", "lang": "fr", "query": "Comment régler l'heure sur ma Renault ?", "expected": "clarify", "expected_attribute": "model", "why": "21 manuels Renault."}
+{"id": "ex05", "lang": "fr", "query": "Comment activer le régulateur de vitesse sur ma Honda Civic ?", "expected": "clarify", "expected_attribute": "full", "why": "Deux générations de Civic (1972-2021 et 2022-2025)."}
+{"id": "ex06", "lang": "fr", "query": "Quelle huile moteur pour ma Peugeot 208 ?", "expected": "answer", "expected_manual": "peugeot-208-2023", "why": "Un seul manuel 208."}
+{"id": "ex07", "lang": "fr", "query": "Comment ouvrir le capot de la Dacia Duster 2024 ?", "expected": "answer", "expected_manual": "dacia-duster-2024", "why": "Véhicule identifié."}
+{"id": "ex08", "lang": "fr", "query": "Que signifie le voyant ESP sur ma Clio 4 ?", "expected": "answer", "expected_manual": "clio-4", "why": "Véhicule identifié."}
+{"id": "ex09", "lang": "fr", "query": "Comment connecter mon téléphone en Bluetooth sur mon Tucson ?", "expected": "answer", "expected_manual": "hyundai-tucson-2024-infotainment-system", "why": "Un seul Tucson (manuel + guide multimédia du même véhicule)."}
+{"id": "ex10", "lang": "fr", "query": "Comment boucler correctement la ceinture de sécurité ?", "expected": "answer", "why": "Consigne générique identique dans tous les manuels."}
+{"id": "ex11", "lang": "fr", "query": "Est-ce normal d'avoir de la buée dans les phares ?", "expected": "answer", "why": "Réponse générique (phénomène de condensation)."}
+{"id": "ex12", "lang": "fr", "query": "Comment changer la batterie de ma Porsche 911 ?", "expected": "abstain", "why": "Aucun manuel Porsche dans le corpus."}
+{"id": "ex13", "lang": "fr", "query": "Où est la roue de secours de ma Skoda Octavia ?", "expected": "abstain", "why": "Marque absente du corpus."}
+{"id": "ex14", "lang": "fr", "query": "Quelle est la capacité du réservoir de ma Peugeot 206 ?", "expected": "clarify", "expected_attribute": "model", "why": "Marque présente mais modèle absent : proposer les modèles disponibles avant de conclure."}
+{"id": "ex15", "lang": "fr", "query": "Quel temps fera-t-il demain à Paris ?", "expected": "abstain", "why": "Hors sujet."}
+{"id": "ex16", "lang": "fr", "query": "Ma voiture fait un bruit bizarre au freinage", "expected": "clarify", "expected_attribute": "brand", "why": "Diagnostic dépendant du véhicule."}
+{"id": "ex17", "lang": "fr", "query": "Comment mettre à jour la cartographie du GPS de ma Dacia ?", "expected": "clarify", "expected_attribute": "model", "why": "Plusieurs Dacia (dont le guide Media Nav)."}
+{"id": "ex18", "lang": "fr", "query": "Comment recharger ma Tesla Model Y ?", "expected": "answer", "expected_manual": "tesla-model-y", "why": "Véhicule identifié."}
+{"id": "ex19", "lang": "fr", "query": "Comment régler le siège de ma Mercedes Classe C ?", "expected": "answer", "expected_manual": "mercedes-c-class-2022", "why": "Classe C identifiée (manuel + guide MBUX du même véhicule)."}
+{"id": "ex20", "lang": "fr", "query": "Où brancher le câble de recharge de ma Peugeot 508 ?", "expected": "clarify", "expected_attribute": "full", "why": "Deux manuels 508 (FR/EN) enregistrés comme deux véhicules."}
+{"id": "ex21", "lang": "en", "query": "How do I change the battery?", "expected": "clarify", "expected_attribute": "brand", "why": "Vehicle-dependent procedure, no vehicle named."}
+{"id": "ex22", "lang": "en", "query": "What is the recommended tire pressure on my Hyundai?", "expected": "clarify", "expected_attribute": "model", "why": "10 Hyundai manuals."}
+{"id": "ex23", "lang": "en", "query": "How do I pair my phone with the Hyundai Palisade 2024 infotainment system?", "expected": "answer", "expected_manual": "hyundai-palisade-2024-infotainment-system", "why": "Vehicle and manual identified."}
+{"id": "ex24", "lang": "en", "query": "How do I open the hood of my Genesis G80?", "expected": "clarify", "expected_attribute": "full", "why": "G80 2023 quick guide vs G80 2024 manual."}
+{"id": "ex25", "lang": "en", "query": "Where is the jack stored in my Ford Mustang?", "expected": "answer", "expected_manual": "ford-mustang", "why": "Single Mustang manual."}
+{"id": "ex26", "lang": "en", "query": "How do I reset the oil service light on my Lexus RX?", "expected": "abstain", "why": "No Lexus manual."}
+{"id": "ex27", "lang": "en", "query": "Should I wear my seat belt during short trips?", "expected": "answer", "why": "Generic safety advice."}
+{"id": "ex28", "lang": "en", "query": "Who won the football world cup in 2022?", "expected": "abstain", "why": "Off-topic."}
+{"id": "ex29", "lang": "fr", "query": "Comment désactiver le Start and Stop sur ma Volkswagen Golf 8 ?", "expected": "answer", "expected_manual": "volkswagen-golf-8-2020", "why": "Golf 8 identifiée."}
+{"id": "ex30", "lang": "fr", "query": "Comment désactiver le Start and Stop sur ma Golf ?", "expected": "clarify", "expected_attribute": "full", "why": "Golf 6, Golf 8 et manuel toutes générations."}

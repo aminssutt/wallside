@@ -1,0 +1,15 @@
+# Development run: contextual chunk headers for dense retrieval (needs `ragscale embed bge-m3+ctx`).
+name: dev_ctx
+dataset: questions_v1_partial
+split: dev
+retrievers:
+  - dense:bge-m3+ctx
+  - rrf(bm25_stem+ctx,dense:bge-m3+ctx)
+  - wsum(bm25_stem+ctx,dense:bge-m3+ctx;w=0.3|0.7)
+  - doc_router(dense:bge-m3+ctx)
+  - name_router(rrf(bm25_stem,dense:bge-m3+ctx))
+variants: [native_plain, native_model, native_full, cross_plain]
+scopes: [vehicle, global, tiers]
+tiers: [1, 5, 20, 165]
+strategies: [random, hard]
+seeds: 3

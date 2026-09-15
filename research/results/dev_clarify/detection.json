@@ -1,0 +1,29 @@
+{
+  "n_dev": 64,
+  "n_test": 176,
+  "positive_rate_test": 0.30113636363636365,
+  "classifier": {
+    "roc_auc": 0.8642429820524621,
+    "avg_precision": 0.649430721565187,
+    "precision@0.5": 0.6075949367088608,
+    "recall@0.5": 0.9056603773584906,
+    "f1@0.5": 0.7272727272727273
+  },
+  "name_rule": {
+    "precision": 0.6022727272727273,
+    "recall": 1.0,
+    "f1": 0.75177304964539
+  },
+  "coefficients": {
+    "router_n_vehicles": -0.309,
+    "router_unique": -0.309,
+    "mentions_brand": 0.32,
+    "vehicle_entropy": 0.09,
+    "top1_vehicle_share": -0.335,
+    "vehicle_margin": -0.253,
+    "n_vehicles_top10": 0.598,
+    "n_brands_top10": 0.301,
+    "passage_agreement": 0.286,
+    "query_tokens": -0.282
+  }
+}
