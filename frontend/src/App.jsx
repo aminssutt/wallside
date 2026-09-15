@@ -8,6 +8,7 @@ const LandingPage = lazy(() => import('./pages/LandingPage'))
 const GuidesPage = lazy(() => import('./pages/GuidesPage'))
 const ChatPage = lazy(() => import('./pages/ChatPage'))
 const AskPage = lazy(() => import('./pages/AskPage'))
+const ResultsPage = lazy(() => import('./research/ResultsPage'))
 const LegalPage = lazy(() => import('./pages/LegalPage'))
 
 function GarageComingSoon() {
@@ -179,7 +180,8 @@ function AnimatedRoutes() {
     <AnimatePresence mode="wait">
       <Suspense fallback={<LoadingSpinner />}>
         <Routes location={location} key={location.pathname}>
-          <Route path="/" element={<LandingPage />} />
+          <Route path="/" element={<ResultsPage />} />
+          <Route path="/produit" element={<LandingPage />} />
           <Route path="/guides" element={<GuidesPage />} />
           <Route path="/ask" element={<AskPage />} />
           <Route path="/chat/:slug" element={<ChatPage />} />

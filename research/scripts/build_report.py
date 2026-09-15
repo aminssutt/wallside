@@ -138,12 +138,19 @@ def main() -> None:
     ap.add_argument("--e4", default="e4_clarification_partial")
     ap.add_argument("--dataset", default="questions_v1_partial")
     ap.add_argument("--out", default=str(Path(__file__).resolve().parents[1] / "reports" / "rapport.html"))
+    ap.add_argument("--json", default=None, help="also write the raw data (used by the results website)")
     args = ap.parse_args()
     data = {"corpus": corpus_block(), "dataset": dataset_block(args.dataset), "e1": e1_block(args.e1),
             "e2": e2_block(args.e2), "e4": e4_block(args.e4)}
     html = TEMPLATE.read_text(encoding="utf-8").replace("/*__DATA__*/null", json.dumps(data, ensure_ascii=False))
     Path(args.out).write_text(html, encoding="utf-8")
     print(f"wrote {args.out} ({len(html) / 1024:.0f} KB)")
+    if args.json:
+        target = Path(args.json)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        payload = json.dumps(data, ensure_ascii=False)
+        target.write_text(payload, encoding="utf-8")
+        print(f"wrote {target} ({len(payload) / 1024:.0f} KB)")
 
 
 if __name__ == "__main__":
