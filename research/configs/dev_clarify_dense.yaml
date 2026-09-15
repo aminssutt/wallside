@@ -1,0 +1,8 @@
+# E4 development run with the best dev retriever (lexical+dense score fusion) and vehicle-name stripping.
+name: dev_clarify_dense
+dataset: questions_v1_partial
+retriever: wsum(bm25_stem,dense:bge-m3;w=0.3|0.7)
+variants: [native_plain, native_brand, native_model, native_full]
+thresholds: [0.2, 0.5, 0.8, 0.9]
+question_strategies: [direct, hierarchical]
+max_turns: 3

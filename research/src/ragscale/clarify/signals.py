@@ -15,7 +15,7 @@ import numpy as np
 from ..corpus import Corpus
 from ..retrievers.base import Query, Ranking
 from ..retrievers.composite import NameRouter
-from ..text import content_tokens, normalize_for_match
+from ..text import content_tokens, mentions_name
 from .labels import VehicleCatalog
 
 FEATURES = [
@@ -52,7 +52,6 @@ class SignalExtractor:
     def extract(self, query: Query, ranking: Ranking) -> dict[str, float]:
         routed = self.router.route(query.text)
         routed_vehicles = {self.catalog.vehicle_of(m) for m in routed}
-        q_tokens = set(normalize_for_match(query.text).split())
         dist = self.vehicle_distribution(ranking)
         probs = np.array([p for _, p in dist]) if dist else np.array([1.0])
         entropy = float(-(probs * np.log(probs)).sum() / math.log(len(probs))) if len(probs) > 1 else 0.0
@@ -75,7 +74,7 @@ class SignalExtractor:
         return {
             "router_n_vehicles": float(len(routed_vehicles)),
             "router_unique": float(len(routed_vehicles) == 1),
-            "mentions_brand": float(any(toks <= q_tokens for toks in self.brand_tokens.values())),
+            "mentions_brand": float(any(mentions_name(query.text, b) for b in self.brand_tokens)),
             "vehicle_entropy": entropy,
             "top1_vehicle_share": float(probs[0]),
             "vehicle_margin": float((probs[0] - probs[1]) / probs[0]) if len(probs) > 1 else 1.0,

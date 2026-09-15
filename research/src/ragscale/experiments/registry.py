@@ -8,6 +8,7 @@ Values with several numbers use "|" (w=0.3|0.7). Examples:
   rrf(a, b, ...; k=60, depth=100)                       reciprocal rank fusion
   wsum(a, b; w=0.3|0.7, norm=minmax)                    normalized score fusion (also combmnz(...))
   name_router(a)                                        restrict to manuals named in the query
+  name_router_strip(a)                                  same, and remove the vehicle name from the query text
   doc_router(a; n=3, agg=3)                             two-stage manual -> chunk retrieval
   name_boost(dense:<m>; lam=0.5)                        dense + lam * cos(query, manual name)
   hnsw(dense:<m>; m=32, ef=64)                          filtered approximate search
@@ -102,10 +103,10 @@ class Registry:
 
             return ScoreFusion(c, [self.get(a) for a in args], weights=_floats(p["w"]) if "w" in p else None,
                                norm=p.get("norm", "minmax"), method=head, depth=int(p.get("depth", 100)))
-        if head == "name_router":
+        if head in ("name_router", "name_router_strip"):
             from ..retrievers.composite import NameRouter
 
-            return NameRouter(c, self.get(args[0]))
+            return NameRouter(c, self.get(args[0]), strip=head == "name_router_strip")
         if head == "doc_router":
             from ..retrievers.composite import DocRouter
 

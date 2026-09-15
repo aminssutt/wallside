@@ -144,3 +144,17 @@ def test_name_router_regressions(query, expected):
         ("alfa-info", "Alfa Romeo Infotainment System", "Alfa Romeo"),
     ])
     assert NameRouter(corpus, FixedScores(corpus, {})).route(query) == expected
+
+
+@pytest.mark.parametrize("text,brand,expected", [
+    ("Should I wear my seat belt?", "seat", False),
+    ("Seat belts must be worn", "seat", False),
+    ("Où est la roue de secours de ma Seat Ibiza ?", "seat", True),
+    ("comment utiliser la smart key", "smart", False),
+    ("ma peugeot 208", "peugeot", True),
+    ("ma Alfa Romeo Giulia", "alfa romeo", True),
+])
+def test_common_word_brands_need_capitalization(text, brand, expected):
+    from ragscale.text import mentions_name
+
+    assert mentions_name(text, brand) is expected

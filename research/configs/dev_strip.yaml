@@ -1,0 +1,11 @@
+# Development run: remove the vehicle name from the query once the search is restricted to that vehicle.
+name: dev_strip
+dataset: questions_v1_partial
+split: dev
+retrievers:
+  - name_router(wsum(bm25_stem,dense:bge-m3;w=0.3|0.7))
+  - name_router_strip(wsum(bm25_stem,dense:bge-m3;w=0.3|0.7))
+  - name_router_strip(dense:bge-m3)
+  - name_router_strip(wsum(bm25_stem+ctx,dense:bge-m3+ctx;w=0.3|0.7))
+variants: [native_plain, native_model, native_full, cross_plain]
+scopes: [vehicle, global]

@@ -44,10 +44,10 @@ class NameRouter(Retriever):
     """Metadata routing: if the query names a vehicle (brand + model tokens), restrict the search to the
     manuals whose name matches best; otherwise search the whole scope. Deterministic, no model."""
 
-    def __init__(self, corpus: Corpus, base: Retriever):
+    def __init__(self, corpus: Corpus, base: Retriever, strip: bool = False):
         super().__init__(corpus)
-        self.base = base
-        self.name = f"name_router({base.name})"
+        self.base, self.strip = base, strip
+        self.name = f"name_router{'_strip' if strip else ''}({base.name})"
 
     # Words that name a kind of manual, not a vehicle ("Alfa Romeo Infotainment System" must not capture every
     # question about an infotainment system).
@@ -97,10 +97,22 @@ class NameRouter(Retriever):
                 best.append(key["manual"])
         return best
 
+    def strip_names(self, text: str, manuals: list[str]) -> str:
+        """Remove the words that named the vehicle once the search is restricted to it: inside the right
+        manual, "Peugeot 208 (2023)" only dilutes the passage-matching part of the query."""
+        drop: set[str] = set()
+        for key in self._manual_keys:
+            if key["manual"] in manuals:
+                drop |= key["brand"] | set(key["model"].split()) | key["years"] | key["generic_words"]
+        kept = [w for w in re.findall(r"\S+", text) if not (set(normalize_for_match(w).split()) and set(normalize_for_match(w).split()) <= drop)]
+        stripped = " ".join(kept).strip()
+        return stripped if len(stripped) >= 8 else text
+
     def search(self, queries, masks, k):
-        routed_masks = []
+        routed_masks, routed_queries = [], []
         for q, qmasks in zip(queries, masks):
             manuals = self.route(q.text)
+            routed_queries.append(Query(q.qid, self.strip_names(q.text, manuals), q.lang) if (manuals and self.strip) else q)
             if not manuals:
                 routed_masks.append(qmasks)
                 continue
@@ -110,7 +122,7 @@ class NameRouter(Retriever):
                 combined = route_mask if m is None else (route_mask & m)
                 routed.append(combined if combined.any() else m)  # route outside the scope: fall back
             routed_masks.append(routed)
-        return self.base.search(queries, routed_masks, k)
+        return self.base.search(routed_queries, routed_masks, k)
 
 
 class DocRouter(Retriever):

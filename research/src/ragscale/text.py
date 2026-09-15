@@ -89,3 +89,21 @@ def lexical_overlap(query: str, passage: str) -> float:
 
 def squash_ws(text: str) -> str:
     return _WS_RE.sub(" ", text or "").strip()
+
+
+# Brand names that are also everyday words ("seat belt", "smart key", "mini display", "ram", "alpine road").
+COMMON_WORD_BRANDS = frozenset({"seat", "smart", "mini", "ram", "genesis", "alpine", "lotus", "jaguar", "ora", "nio", "rover"})
+
+
+def mentions_name(text: str, name_key: str) -> bool:
+    """Whether the normalized name (e.g. "alfa romeo", "seat") is mentioned in `text`. Brands that are common
+    words only count when written capitalized somewhere other than the first word ("ma Seat Ibiza")."""
+    if not name_key:
+        return False
+    padded = f" {normalize_for_match(text)} "
+    if f" {name_key} " not in padded:
+        return False
+    if name_key not in COMMON_WORD_BRANDS:
+        return True
+    words = re.findall(r"[\w-]+", text)
+    return any(fold(w) == name_key and w[:1].isupper() for w in words[1:])

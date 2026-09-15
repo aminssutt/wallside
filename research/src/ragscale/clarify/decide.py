@@ -17,7 +17,7 @@ import numpy as np
 
 from ..corpus import Corpus
 from ..retrievers.base import Query, Retriever
-from ..text import content_tokens, normalize_for_match
+from ..text import content_tokens, mentions_name, normalize_for_match
 from .labels import VehicleCatalog
 from .signals import SignalExtractor
 from .simulate import QUESTION_TEMPLATES, ClarificationSimulator, Detector
@@ -88,10 +88,10 @@ class ClarifyAgent:
             top = int(ranking.rows[0])
             base.update(top_manual=str(self.corpus.chunks.at[top, "manual"]), top_page=str(self.corpus.chunks.at[top, "page_label"]))
 
-        unknown = sorted(b for b in ABSENT_BRANDS if f" {b} " in norm)
+        unknown = sorted(b for b in ABSENT_BRANDS if mentions_name(text, b))
         if unknown:
             return Decision("abstain", f"no manual for brand '{unknown[0]}'", **base)
-        if not routed and not feats["mentions_brand"]:
+        if not routed and not self._mentioned_brand(text):
             if self.dense is not None and self.ood_similarity is not None:
                 sim = self.max_similarity(text, lang)
                 base["signals"]["max_similarity"] = sim
@@ -116,9 +116,8 @@ class ClarifyAgent:
                         options=options, attribute=attr, **base)
 
     def _mentioned_brand(self, text: str) -> str:
-        q = set(normalize_for_match(text).split())
-        for brand_key in {k["brand"] for k in self.catalog.vehicle_display.values()}:
-            if brand_key and set(brand_key.split()) <= q:
+        for brand_key in sorted({k["brand"] for k in self.catalog.vehicle_display.values()}, key=len, reverse=True):
+            if mentions_name(text, brand_key):
                 return brand_key
         return ""
 

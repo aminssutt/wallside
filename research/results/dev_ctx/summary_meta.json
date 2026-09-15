@@ -1,0 +1,17 @@
+{
+  "n_metric_rows": 109720,
+  "retrievers": [
+    "dense:bge-m3+ctx",
+    "doc_router(dense:bge-m3+ctx)",
+    "name_router(rrf(bm25_stem,dense:bge-m3+ctx))",
+    "rrf(bm25_stem+ctx,dense:bge-m3+ctx)",
+    "wsum(bm25_stem+ctx,dense:bge-m3+ctx;w=0.3|0.7)"
+  ],
+  "variants": [
+    "cross_plain",
+    "native_full",
+    "native_model",
+    "native_plain"
+  ],
+  "questions": 211
+}

@@ -112,7 +112,8 @@ class ClarificationSimulator:
             routing = Query(question.qid, f"{question.text} {known}".strip(), question.lang)
             manuals = self.signals.router.route(routing.text)
             mask = self.corpus.mask_for_manuals(manuals) if manuals else None
-            ranking = self.retriever.search([question], [[mask]], self.depth)[0][0]
+            search_q = Query(question.qid, self.signals.router.strip_names(question.text, manuals), question.lang) if manuals else question
+            ranking = self.retriever.search([search_q], [[mask]], self.depth)[0][0]
             self._cache[key] = (self.signals.extract(routing, ranking), self.signals.vehicle_distribution(ranking), ranking)
         return self._cache[key]
 
@@ -134,7 +135,14 @@ class ClarificationSimulator:
                 mass[self.catalog.vehicle_display[v][f"{attr}_display"]] += p
             total = sum(mass.values()) or 1.0
             h = -sum((m / total) * math.log(m / total) for m in mass.values() if m > 0)
-            return h, [k for k, _ in sorted(mass.items(), key=lambda kv: -kv[1])[:3]]
+            options = [k for k, _ in sorted(mass.items(), key=lambda kv: -kv[1])[:3]]
+            if brand and len(options) < 3:  # few retrieved vehicles of that brand: complete from the catalog
+                for k in sorted(self.catalog.vehicle_display.values(), key=lambda k: k["full_display"]):
+                    if k["brand"] == brand and k[f"{attr}_display"] not in options:
+                        options.append(k[f"{attr}_display"])
+                    if len(options) == 3:
+                        break
+            return h, options
 
         if self.question_strategy == "direct":
             return "full", split("full")[1]
