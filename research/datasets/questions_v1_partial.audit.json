@@ -1,0 +1,173 @@
+{
+  "auditor": "Claude (Anthropic) - different model family from the Gemini generator",
+  "method": "random.seed(42) sample of 40 records; each answer checked against the verbatim evidence span (evidence presence in the chunk is verified automatically at generation)",
+  "result": {
+    "supported": 39,
+    "supported_with_extra_detail": 1,
+    "unsupported": 0
+  },
+  "items": [
+    {
+      "qid": "qd4d4f0500c",
+      "verdict": "supported"
+    },
+    {
+      "qid": "qe183e1157c",
+      "verdict": "supported"
+    },
+    {
+      "qid": "q482e3d9047",
+      "verdict": "supported"
+    },
+    {
+      "qid": "q22e4736026",
+      "verdict": "supported"
+    },
+    {
+      "qid": "q4760e64d60",
+      "verdict": "supported"
+    },
+    {
+      "qid": "qc6b83c99b3",
+      "verdict": "supported"
+    },
+    {
+      "qid": "qb92fa1053f",
+      "verdict": "supported"
+    },
+    {
+      "qid": "q49999c2b07",
+      "verdict": "supported"
+    },
+    {
+      "qid": "qaa7353195c",
+      "verdict": "supported"
+    },
+    {
+      "qid": "q95646a1ee9",
+      "verdict": "supported"
+    },
+    {
+      "qid": "q647a0ac567",
+      "verdict": "supported"
+    },
+    {
+      "qid": "q725ecebb0f",
+      "verdict": "supported"
+    },
+    {
+      "qid": "q6ede1f88a0",
+      "verdict": "supported",
+      "note": "question reuses passage wording (lexical overlap 0.875)"
+    },
+    {
+      "qid": "qdb48516279",
+      "verdict": "supported"
+    },
+    {
+      "qid": "q6b4fe2b47b",
+      "verdict": "supported"
+    },
+    {
+      "qid": "q178ff418bc",
+      "verdict": "supported"
+    },
+    {
+      "qid": "q856958e97c",
+      "verdict": "supported"
+    },
+    {
+      "qid": "q4756aab4d0",
+      "verdict": "supported"
+    },
+    {
+      "qid": "q4e6130aefc",
+      "verdict": "supported"
+    },
+    {
+      "qid": "qd42364e811",
+      "verdict": "supported"
+    },
+    {
+      "qid": "q290620a223",
+      "verdict": "supported"
+    },
+    {
+      "qid": "q2966a3a394",
+      "verdict": "supported"
+    },
+    {
+      "qid": "qcef24c45f2",
+      "verdict": "supported_with_extra_detail",
+      "note": "answer adds that the buzzer stops when the door is closed; not in the evidence span (may be elsewhere in the chunk)"
+    },
+    {
+      "qid": "q1ee10db007",
+      "verdict": "supported"
+    },
+    {
+      "qid": "qbea1522c01",
+      "verdict": "supported"
+    },
+    {
+      "qid": "qa151d2e4a6",
+      "verdict": "supported"
+    },
+    {
+      "qid": "qe15cae4be7",
+      "verdict": "supported"
+    },
+    {
+      "qid": "qf0c5fece77",
+      "verdict": "supported"
+    },
+    {
+      "qid": "q8ae357251f",
+      "verdict": "supported"
+    },
+    {
+      "qid": "q9f11dc1351",
+      "verdict": "supported"
+    },
+    {
+      "qid": "qdea20ad70d",
+      "verdict": "supported"
+    },
+    {
+      "qid": "qf5e40a0c13",
+      "verdict": "supported"
+    },
+    {
+      "qid": "q5987779514",
+      "verdict": "supported"
+    },
+    {
+      "qid": "q22172efb36",
+      "verdict": "supported"
+    },
+    {
+      "qid": "qf6a841eb54",
+      "verdict": "supported"
+    },
+    {
+      "qid": "q4e4e463351",
+      "verdict": "supported"
+    },
+    {
+      "qid": "q17c29d5ada",
+      "verdict": "supported"
+    },
+    {
+      "qid": "q37d768b9b9",
+      "verdict": "supported"
+    },
+    {
+      "qid": "q1788a81248",
+      "verdict": "supported"
+    },
+    {
+      "qid": "q7a0ec1a0d2",
+      "verdict": "supported"
+    }
+  ]
+}

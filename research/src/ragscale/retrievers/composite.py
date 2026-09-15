@@ -1,6 +1,7 @@
 """Retrievers built on top of other retrievers: fusion, routing, name boosting."""
 from __future__ import annotations
 
+import re
 from functools import cached_property
 
 import numpy as np
@@ -48,30 +49,52 @@ class NameRouter(Retriever):
         self.base = base
         self.name = f"name_router({base.name})"
 
+    # Words that name a kind of manual, not a vehicle ("Alfa Romeo Infotainment System" must not capture every
+    # question about an infotainment system).
+    GENERIC_WORDS = frozenset("infotainment system multimedia media nav navigation live guide quick reference manual "
+                              "owner owners easy link mbux carnet entretien et garanties toutes gen".split())
+
     @cached_property
-    def _manual_keys(self) -> list[tuple[str, set[str], str]]:
+    def _manual_keys(self) -> list[dict]:
         keys = []
         for m in self.corpus.manual_ids:
             meta = self.corpus.manual_meta[m]
-            forms = name_forms(meta["name"], meta["brand"])
-            brand_tokens = set(normalize_for_match(forms["brand"]).split())
-            model_words = [w for w in normalize_for_match(forms["model"]).split() if w not in brand_tokens]
-            keys.append((m, brand_tokens, " ".join(model_words)))
+            brand = set(normalize_for_match(meta["brand"]).split())
+            name_words = normalize_for_match(meta["name"]).split()
+            model_words = normalize_for_match(name_forms(meta["name"], meta["brand"])["model"]).split()
+            model = [w for w in model_words if w not in brand and w not in self.GENERIC_WORDS]
+            keys.append({
+                "manual": m,
+                "brand": brand,
+                "model": " ".join(model),
+                # "Renault 5", "DS 4": a bare short number only identifies the vehicle together with the brand
+                "needs_brand": len(model) == 1 and model[0].isdigit() and len(model[0]) <= 2,
+                "years": {w for w in name_words if re.fullmatch(r"(19|20)\d{2}", w) and w not in model},
+                "generic_words": {w for w in name_words if w in self.GENERIC_WORDS},
+            })
         return keys
 
     def route(self, text: str) -> list[str]:
         padded = f" {normalize_for_match(text)} "
         q = set(padded.split())
         best, best_score = [], 0.0
-        for manual, brand, model in self._manual_keys:
-            # The model name must appear as a contiguous phrase: "classe a" must not match "classe c ... a".
-            if not model or f" {model} " not in padded:
+        for key in self._manual_keys:
+            has_brand = bool(key["brand"]) and key["brand"] <= q
+            if key["model"]:
+                # Contiguous phrase: "classe a" must not match "classe c ... a".
+                if f" {key['model']} " not in padded or (key["needs_brand"] and not has_brand):
+                    continue
+                score = (len(key["model"].split()) + 0.5 * has_brand + 0.25 * len(key["years"] & q)
+                         + 0.1 * len(key["generic_words"] & q))  # "Palisade ... Infotainment System" -> that manual
+            elif has_brand and key["generic_words"] & q:
+                # Brand-level manual (infotainment system, maintenance booklet): weaker than any model match.
+                score = 0.5 + 0.1 * len(key["generic_words"] & q)
+            else:
                 continue
-            score = len(model.split()) + (0.5 if brand & q else 0.0)
-            if score > best_score:
-                best, best_score = [manual], score
-            elif score == best_score:
-                best.append(manual)
+            if score > best_score + 1e-9:
+                best, best_score = [key["manual"]], score
+            elif abs(score - best_score) <= 1e-9:
+                best.append(key["manual"])
         return best
 
     def search(self, queries, masks, k):
@@ -146,3 +169,57 @@ class NameBoost(ScoringRetriever):
         qv = self.dense.encode_queries(queries)
         name_sim = qv @ self._name_matrix.T                      # [q, n_manuals]
         return qv @ self.dense.doc_matrix.T + self.lam * name_sim[:, self.corpus.row_manual_idx]
+
+
+class ScoreFusion(Retriever):
+    """Score-level fusion of component rankings inside the same mask (Fox & Shaw 1994; Bruch et al. 2023).
+
+    Each component's top-`depth` scores are normalized per query and mask ("minmax" or "zscore"); a chunk
+    missing from a component's list gets that component's minimum normalized score.
+      method="wsum"    sum of weight * normalized score (convex combination when weights sum to 1)
+      method="combmnz" wsum multiplied by the number of components that retrieved the chunk"""
+
+    def __init__(self, corpus: Corpus, components: list[Retriever], weights: list[float] | None = None,
+                 norm: str = "minmax", method: str = "wsum", depth: int = 100):
+        super().__init__(corpus)
+        if norm not in ("minmax", "zscore") or method not in ("wsum", "combmnz"):
+            raise ValueError(f"bad fusion config norm={norm} method={method}")
+        self.components, self.norm, self.method, self.depth = components, norm, method, depth
+        self.weights = weights or [1.0 / len(components)] * len(components)
+        if len(self.weights) != len(components):
+            raise ValueError("one weight per component")
+        w = "|".join(f"{x:g}" for x in self.weights)
+        self.name = f"{method}[{norm};w={w}](" + "+".join(c.name for c in components) + ")"
+
+    def _normalize(self, scores: np.ndarray) -> np.ndarray:
+        if scores.size == 0:
+            return scores
+        if self.norm == "minmax":
+            span = scores.max() - scores.min()
+            return (scores - scores.min()) / span if span > 0 else np.ones_like(scores)
+        std = scores.std()
+        return (scores - scores.mean()) / std if std > 0 else np.zeros_like(scores)
+
+    def fuse(self, rankings: list[Ranking], k: int) -> Ranking:
+        normalized = [(r.rows, self._normalize(r.scores.astype(np.float64))) for r in rankings]
+        candidates = np.unique(np.concatenate([rows for rows, _ in normalized])) if normalized else np.empty(0, np.int64)
+        if candidates.size == 0:
+            return Ranking(np.empty(0, np.int64), np.empty(0, np.float32))
+        total = np.zeros(candidates.size)
+        hits = np.zeros(candidates.size)
+        for (rows, norm_scores), w in zip(normalized, self.weights):
+            floor = norm_scores.min() if norm_scores.size else 0.0
+            filled = np.full(candidates.size, floor)
+            pos = np.searchsorted(candidates, rows)
+            filled[pos] = norm_scores
+            hits[pos] += 1
+            total += w * filled
+        if self.method == "combmnz":
+            total *= hits
+        order = np.argsort(-total, kind="stable")[:k]
+        return Ranking(candidates[order].astype(np.int64), total[order].astype(np.float32))
+
+    def search(self, queries, masks, k):
+        per_component = [c.search(queries, masks, self.depth) for c in self.components]
+        return [[self.fuse([comp[qi][mi] for comp in per_component], k) for mi in range(len(masks[qi]))]
+                for qi in range(len(queries))]

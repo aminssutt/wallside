@@ -1,0 +1,15 @@
+{
+  "n_metric_rows": 6000,
+  "retrievers": [
+    "bm25",
+    "bm25_stem",
+    "doc_router(bm25)",
+    "name_router(bm25)",
+    "rrf(bm25,bm25_stem)"
+  ],
+  "variants": [
+    "native_model",
+    "native_plain"
+  ],
+  "questions": 40
+}

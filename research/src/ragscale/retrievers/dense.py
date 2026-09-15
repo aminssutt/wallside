@@ -10,7 +10,7 @@ import numpy as np
 
 from .. import paths
 from ..corpus import GEMINI_DOC_MODEL, Corpus, corpus_fingerprint
-from .base import Query, ScoringRetriever
+from .base import Query, Ranking, Retriever, ScoringRetriever
 
 log = logging.getLogger(__name__)
 
@@ -61,18 +61,28 @@ def load_st_model(name: str):
     return model
 
 
-def embeddings_path(model: str):
-    return paths.EMBEDDINGS_DIR / model / "chunks.npy"
+CONTEXTUAL_SUFFIX = "+ctx"
+
+
+def base_model(name: str) -> str:
+    """'bge-m3+ctx' -> 'bge-m3' (same encoder, chunks indexed with contextual headers)."""
+    return name[: -len(CONTEXTUAL_SUFFIX)] if name.endswith(CONTEXTUAL_SUFFIX) else name
 
 
 def build_local_embeddings(corpus: Corpus, name: str, limit: int | None = None) -> np.ndarray:
-    """Encode every chunk with a local model; resumable via per-shard files."""
-    spec = LOCAL_MODELS[name]
-    model = load_st_model(name)
+    """Encode every chunk with a local model; resumable via per-shard files.
+    A '+ctx' suffix encodes the chunks with their document header (see lexical.contextual_texts)."""
+    spec = LOCAL_MODELS[base_model(name)]
+    model = load_st_model(base_model(name))
     out_dir = paths.EMBEDDINGS_DIR / name
     shard_dir = out_dir / "shards"
     shard_dir.mkdir(parents=True, exist_ok=True)
-    texts = corpus.chunks["text"].tolist()[:limit]
+    if name.endswith(CONTEXTUAL_SUFFIX):
+        from .lexical import contextual_texts
+
+        texts = contextual_texts(corpus)[:limit]
+    else:
+        texts = corpus.chunks["text"].tolist()[:limit]
     # Sort by length so batches have similar padding (large speed-up); restore order at the end.
     order = np.argsort([len(t) for t in texts], kind="stable")
     shard = 4096
@@ -102,7 +112,8 @@ def build_local_embeddings(corpus: Corpus, name: str, limit: int | None = None) 
         (out_dir / "meta.json").write_text(
             json.dumps(
                 {"model": spec.hf_id, "dim": int(matrix.shape[1]), "n": int(matrix.shape[0]), "dtype": "float16",
-                 "max_seq_length": spec.max_seq_length, "corpus_fingerprint": corpus_fingerprint(corpus.chunks)},
+                 "contextual_headers": name.endswith(CONTEXTUAL_SUFFIX), "max_seq_length": spec.max_seq_length,
+                 "corpus_fingerprint": corpus_fingerprint(corpus.chunks)},
                 indent=2,
             )
         )
@@ -117,7 +128,7 @@ class DenseRetriever(ScoringRetriever):
         self.model = model
         self.name = f"dense:{model}"
         self.gemini = gemini
-        if model != GEMINI_DOC_MODEL and model not in LOCAL_MODELS:
+        if model != GEMINI_DOC_MODEL and base_model(model) not in LOCAL_MODELS:
             raise ValueError(f"unknown dense model {model}")
         log.info("Loading %s document matrix", model)
         self.doc_matrix = np.ascontiguousarray(corpus.load_embeddings(model), dtype=np.float32)
@@ -134,8 +145,8 @@ class DenseRetriever(ScoringRetriever):
                     self.gemini = Gemini()
                 vecs = self.gemini.embed(todo, GEMINI_DOC_MODEL, task_type="RETRIEVAL_QUERY")
             else:
-                spec = LOCAL_MODELS[self.model]
-                vecs = load_st_model(self.model).encode(
+                spec = LOCAL_MODELS[base_model(self.model)]
+                vecs = load_st_model(base_model(self.model)).encode(
                     [spec.query_prefix + t for t in todo], batch_size=spec.batch_size,
                     normalize_embeddings=True, convert_to_numpy=True, show_progress_bar=False,
                 ).astype(np.float32)
@@ -148,3 +159,46 @@ class DenseRetriever(ScoringRetriever):
 
     def score_batch(self, queries: list[Query]) -> np.ndarray:
         return self.encode_queries(queries) @ self.doc_matrix.T
+
+
+class FilteredANN(Retriever):
+    """Approximate search (FAISS HNSW, inner product) restricted to the scope with an ID bitmap during graph
+    traversal, as a filtered vector database would do. Compared with the exact DenseRetriever it measures
+    how much recall approximate indexing loses as the corpus grows."""
+
+    def __init__(self, corpus: Corpus, dense: DenseRetriever, m: int = 32, ef_construction: int = 200, ef_search: int = 64):
+        super().__init__(corpus)
+        self.dense, self.ef_search = dense, ef_search
+        self.name = f"hnsw{m}-ef{ef_search}({dense.name})"
+        self.index = self._load_or_build(m, ef_construction)
+
+    def _load_or_build(self, m: int, ef_construction: int):
+        import faiss
+
+        path = paths.DATA_DIR / "indexes" / f"hnsw{m}-efc{ef_construction}-{self.dense.model}-{corpus_fingerprint(self.corpus.chunks)}.faiss"
+        if path.exists():
+            return faiss.read_index(str(path))
+        log.info("Building HNSW index for %s", self.dense.model)
+        index = faiss.IndexHNSWFlat(self.dense.doc_matrix.shape[1], m, faiss.METRIC_INNER_PRODUCT)
+        index.hnsw.efConstruction = ef_construction
+        index.add(self.dense.doc_matrix)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        faiss.write_index(index, str(path))
+        return index
+
+    def search(self, queries, masks, k):
+        import faiss
+
+        qv = self.dense.encode_queries(queries)
+        out = []
+        for i in range(len(queries)):
+            row = []
+            for mask in masks[i]:
+                params = faiss.SearchParametersHNSW(efSearch=max(self.ef_search, k))
+                if mask is not None:
+                    params.sel = faiss.IDSelectorBitmap(np.packbits(mask, bitorder="little"))
+                scores, ids = self.index.search(qv[i : i + 1], k, params=params)
+                keep = ids[0] >= 0
+                row.append(Ranking(ids[0][keep].astype(np.int64), scores[0][keep].astype(np.float32)))
+            out.append(row)
+        return out

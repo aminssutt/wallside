@@ -1,0 +1,20 @@
+# Development run (dev split of the partial, API-free question set): lexical techniques.
+name: dev_lexical
+dataset: questions_v1_partial
+split: dev
+retrievers:
+  - bm25
+  - bm25_stem
+  - bm25+ctx
+  - bm25_stem+ctx
+  - rm3(bm25)
+  - rrf(bm25,bm25+ctx)
+  - wsum(bm25,bm25+ctx;w=0.5|0.5)
+  - name_router(bm25)
+  - doc_router(bm25)
+  - doc_router(bm25+ctx)
+variants: [native_plain, native_model, native_full]
+scopes: [vehicle, global, tiers]
+tiers: [1, 5, 20, 165]
+strategies: [random, hard]
+seeds: 3

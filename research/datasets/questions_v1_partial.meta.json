@@ -1,0 +1,32 @@
+{
+  "config": {
+    "model": "gemini-3.5-flash",
+    "per_manual": 6,
+    "oversample": 1.8,
+    "min_chars": 350,
+    "max_chars": 2200,
+    "seed": 20260915,
+    "test_share": 0.7
+  },
+  "n_questions": 640,
+  "n_rejected": 1164,
+  "rejection_reasons": {
+    "evidence_not_in_passage": 19,
+    "manual_quota_full": 393,
+    "unusable": 115,
+    "no_json": 637
+  },
+  "splits": {
+    "test": 429,
+    "dev": 211
+  },
+  "manuals_covered": 108,
+  "usage": {
+    "api_calls": 0,
+    "cache_hits": 1167,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "thinking_tokens": 0,
+    "by_model": {}
+  }
+}

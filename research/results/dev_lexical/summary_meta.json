@@ -1,0 +1,21 @@
+{
+  "n_metric_rows": 164580,
+  "retrievers": [
+    "bm25",
+    "bm25+ctx",
+    "bm25_stem",
+    "bm25_stem+ctx",
+    "doc_router(bm25)",
+    "doc_router(bm25+ctx)",
+    "name_router(bm25)",
+    "rm3(bm25)",
+    "rrf(bm25,bm25+ctx)",
+    "wsum(bm25,bm25+ctx;w=0.5|0.5)"
+  ],
+  "variants": [
+    "native_full",
+    "native_model",
+    "native_plain"
+  ],
+  "questions": 211
+}

@@ -85,6 +85,19 @@ def _cmd_analyze(args: argparse.Namespace) -> None:
         print(summary[cols].round(3).to_string(index=False))
 
 
+def _cmd_best(args: argparse.Namespace) -> None:
+    import pandas as pd
+
+    from . import paths
+    from .experiments.analysis import best_retrievers
+
+    summary = pd.read_csv(paths.RESULTS_DIR / args.name / "summary.csv", keep_default_na=False)
+    summary["n_manuals"] = summary["n_manuals"].astype(int)
+    table = best_retrievers(summary, args.metric, args.scope, args.variant, args.n_manuals, args.strategy)
+    with pd.option_context("display.width", 200, "display.max_colwidth", 80):
+        print(table.round(3).to_string(index=False))
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="ragscale")
     parser.add_argument("-v", "--verbose", action="store_true")
@@ -118,6 +131,15 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--name", default="e0_production")
     p.add_argument("--split", default="test")
     p.set_defaults(func=_cmd_import_prod)
+
+    p = sub.add_parser("best", help="Rank retrievers of an analyzed run on one condition")
+    p.add_argument("name")
+    p.add_argument("--metric", default="doc_hit@1")
+    p.add_argument("--scope", default="global")
+    p.add_argument("--variant", default="native_plain")
+    p.add_argument("--n-manuals", type=int, default=0)
+    p.add_argument("--strategy", default="")
+    p.set_defaults(func=_cmd_best)
 
     p = sub.add_parser("analyze", help="Summarize a run with 95%% confidence intervals")
     p.add_argument("name")

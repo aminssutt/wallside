@@ -1,9 +1,10 @@
-# Fast end-to-end check of the harness (a few questions, cheap retrievers).
+# Fast end-to-end check of the harness (a few questions, API-free retrievers).
 name: smoke
-retrievers: ["bm25", "dense:gemini-embedding-001", "rrf(bm25,dense:gemini-embedding-001)", "name_router(bm25)", "doc_router(dense:gemini-embedding-001)"]
+dataset: questions_v1_partial
+retrievers: ["bm25", "bm25_stem", "name_router(bm25)", "doc_router(bm25)", "rrf(bm25,bm25_stem)"]
 variants: ["native_plain", "native_model"]
 scopes: ["manual", "vehicle", "global", "tiers"]
 tiers: [1, 5, 165]
 seeds: 2
 split: dev
-max_questions: 12
+max_questions: 40

@@ -27,7 +27,11 @@ def load_run(name: str) -> pd.DataFrame:
 
 
 def per_question(df: pd.DataFrame, metrics: list[str]) -> pd.DataFrame:
-    """Average seeds within each question so the question is the statistical unit."""
+    """Average seeds within each question so the question is the statistical unit.
+
+    Corpus size is a condition only for tier scopes; a vehicle scope has 1-3 manuals depending on the
+    question and must be aggregated as one condition."""
+    df = df.assign(n_manuals=np.where(df["scope"] == "tier", df["n_manuals"], 0))
     return df.groupby(CONDITION + ["qid"], dropna=False)[metrics].mean().reset_index()
 
 
@@ -108,4 +112,18 @@ def write_summary(name: str) -> pd.DataFrame:
         "n_metric_rows": len(df), "retrievers": sorted(df["retriever"].unique()),
         "variants": sorted(df["variant"].unique()), "questions": int(df["qid"].nunique()),
     }, indent=2))
+    if (summary["scope"] == "tier").any():
+        for variant in summary.loc[summary["scope"] == "tier", "variant"].unique():
+            for metric in ("doc_hit@1", "chunk_hit@5"):
+                scaling_figure(summary, metric, variant, out_dir / f"scaling_{metric.replace('@', '_at_')}_{variant}.png")
     return summary
+
+
+def best_retrievers(summary: pd.DataFrame, metric: str, scope: str, variant: str, n_manuals: int = 0,
+                    strategy: str = "") -> pd.DataFrame:
+    """Rank retrievers on one condition (use on the dev split to pick configurations before testing)."""
+    sub = summary[(summary["scope"] == scope) & (summary["variant"] == variant) & (summary["n_manuals"] == n_manuals)]
+    if strategy:
+        sub = sub[sub["strategy"] == strategy]
+    cols = ["retriever", metric, f"{metric}_lo", f"{metric}_hi", "n_questions"]
+    return sub.sort_values(metric, ascending=False)[cols].reset_index(drop=True)
