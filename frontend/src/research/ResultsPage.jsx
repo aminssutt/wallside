@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
+import { motion, useReducedMotion } from 'framer-motion'
 import { LineChart, ParetoChart, SignalBars } from './charts'
-import { SERIES, dec, intFr, pct, pctNum } from './format'
+import { SERIES, dec, intEn, pct, pctNum } from './format'
 import './ResultsPage.css'
 
 /**
- * Research results site: everything on this page is read from research-results.json, which is written by
- * research/scripts/build_report.py from the experiment outputs. No number is typed in by hand.
+ * Research results site. Every number is read from research-results.json, written by
+ * research/scripts/build_report.py from the experiment outputs; nothing is typed in by hand.
  */
 
 const R = {
@@ -16,83 +17,80 @@ const R = {
   router: 'name_router_strip(wsum(bm25_stem,dense:bge-m3;w=0.3|0.7))',
   hnsw: 'hnsw(dense:bge-m3)',
 }
-const RETRIEVER_LABEL = {
-  [R.bm25]: 'BM25 (mots-clés)',
-  [R.dense]: 'bge-m3 (sens)',
-  [R.hybrid]: 'Hybride 0,3 BM25 + 0,7 bge-m3',
-  [R.ctx]: 'Hybride + en-têtes de document',
-  [R.router]: 'Routage par nom + hybride',
-  [R.hnsw]: 'bge-m3, index approximatif HNSW',
+const LABELS = {
+  [R.bm25]: 'BM25 (keywords)',
+  [R.dense]: 'bge-m3 (meaning)',
+  [R.hybrid]: 'Hybrid 0.3 BM25 + 0.7 bge-m3',
+  [R.ctx]: 'Hybrid + document headers',
+  [R.router]: 'Name routing + hybrid',
+  [R.hnsw]: 'bge-m3, approximate index (HNSW)',
+  bm25: 'BM25 (no stemming)',
+  'bm25_stem+ctx': 'BM25 + document headers',
+  'dense:bge-m3+ctx': 'bge-m3 + document headers',
+  'dense:multilingual-e5-large-instruct': 'e5-large (meaning)',
+  'rrf(bm25_stem,dense:bge-m3)': 'RRF fusion (today in production)',
+  'rm3(bm25)': 'BM25 + query expansion (RM3)',
+  'doc_router(dense:bge-m3+ctx)': 'Pick the manual, then the passage',
+  'name_boost(dense:bge-m3;lam=0.5)': 'bge-m3 + vehicle-name boost',
+  'name_router(wsum(bm25_stem,dense:bge-m3;w=0.3|0.7))': 'Name routing (name kept in the query)',
+  'rerank(wsum(bm25_stem,dense:bge-m3;w=0.3|0.7))': 'Hybrid + cross-encoder reranking',
+  'rerank(name_router_strip(wsum(bm25_stem,dense:bge-m3;w=0.3|0.7)))': 'Routing + hybrid + cross-encoder reranking',
+  'm3rerank(wsum(bm25_stem,dense:bge-m3;w=0.3|0.7))': 'Hybrid + BGE-M3 reranking (multi-vector)',
 }
-const EXTRA_LABEL = {
-  bm25: 'BM25 (sans racines)',
-  'bm25_stem+ctx': 'BM25 + en-têtes de document',
-  'dense:bge-m3+ctx': 'bge-m3 + en-têtes de document',
-  'dense:multilingual-e5-large-instruct': 'e5-large (sens)',
-  'rrf(bm25_stem,dense:bge-m3)': 'Fusion RRF (production actuelle)',
-  'rm3(bm25)': 'BM25 + expansion de requête (RM3)',
-  'doc_router(dense:bge-m3+ctx)': 'Choix du manuel puis du passage',
-  'name_boost(dense:bge-m3;lam=0.5)': 'bge-m3 + bonus nom de véhicule',
-  'name_router(wsum(bm25_stem,dense:bge-m3;w=0.3|0.7))': 'Routage par nom (nom gardé dans la requête)',
-  'rerank(wsum(bm25_stem,dense:bge-m3;w=0.3|0.7))': 'Hybride + reranking cross-encoder',
-  'rerank(name_router_strip(wsum(bm25_stem,dense:bge-m3;w=0.3|0.7)))': 'Routage + hybride + reranking cross-encoder',
-  'm3rerank(wsum(bm25_stem,dense:bge-m3;w=0.3|0.7))': 'Hybride + reranking BGE-M3 (multi-vecteurs)',
+const SHORT = {
+  [R.bm25]: 'BM25', [R.dense]: 'bge-m3', [R.hybrid]: 'hybrid',
+  [R.ctx]: '+ headers', [R.router]: 'routing', [R.hnsw]: 'HNSW',
 }
-const labelOf = (spec) => RETRIEVER_LABEL[spec] || EXTRA_LABEL[spec] || spec
+const labelOf = (spec) => LABELS[spec] || spec
 
-const RETRIEVER_SHORT = {
-  [R.bm25]: 'BM25', [R.dense]: 'bge-m3', [R.hybrid]: 'hybride',
-  [R.ctx]: '+ en-têtes', [R.router]: 'routage', [R.hnsw]: 'HNSW',
-}
 const VARIANTS = [
-  ['native_plain', 'Sans véhicule'],
-  ['native_brand', 'Marque'],
-  ['native_model', 'Modèle'],
-  ['native_full', 'Nom complet'],
+  ['native_plain', 'No vehicle'],
+  ['native_brand', 'Brand'],
+  ['native_model', 'Model'],
+  ['native_full', 'Full name'],
 ]
 const METRICS = [
-  ['chunk_hit_5', 'Bon passage (top 5)'],
-  ['doc_hit_1', 'Bon manuel (1er)'],
+  ['chunk_hit_5', 'Right passage (top 5)'],
+  ['doc_hit_1', 'Right manual (rank 1)'],
 ]
 const POLICY_LABEL = {
-  never: 'Ne jamais demander',
-  always: 'Toujours demander',
-  name_rule: 'Demander si aucun véhicule nommé',
+  never: 'Never ask',
+  always: 'Always ask',
+  name_rule: 'Ask when no vehicle is named',
   oracle: 'Oracle',
 }
 const SIGNAL_NAME = {
-  vehicle_margin: 'écart 1er / 2e véhicule',
-  passage_agreement: 'accord entre les passages',
-  top1_vehicle_share: 'part du 1er véhicule',
-  vehicle_entropy: 'dispersion entre véhicules',
-  n_vehicles_top10: 'véhicules dans le top 10',
-  n_brands_top10: 'marques dans le top 10',
-  query_tokens: 'longueur de la question',
-  mentions_brand: 'marque mentionnée',
+  vehicle_margin: 'gap between 1st and 2nd vehicle',
+  passage_agreement: 'agreement between passages',
+  top1_vehicle_share: 'share of the top vehicle',
+  vehicle_entropy: 'spread across vehicles',
+  n_vehicles_top10: 'vehicles in the top 10',
+  n_brands_top10: 'brands in the top 10',
+  query_tokens: 'question length',
+  mentions_brand: 'brand mentioned',
 }
-const ACTION_LABEL = { answer: 'répondre', clarify: 'clarifier', abstain: "s'abstenir" }
+const ACTION_LABEL = { answer: 'answer', clarify: 'ask', abstain: 'abstain' }
+const SECTIONS = [
+  ['question', '00', 'What we measure'],
+  ['corpus', 'DATA', 'Corpus'],
+  ['scale', 'E1', 'Corpus size'],
+  ['techniques', 'E2', 'Techniques'],
+  ['clarify', 'E4', 'Clarification'],
+  ['method', 'METHOD', 'Method'],
+]
 
-/** The decision layer writes its reasons in English; show them in French. */
-const translateReason = (reason) => {
+/** The decision layer writes compact reasons; spell them out. */
+const readableReason = (reason) => {
   const brand = /no manual for brand '(.+)'/.exec(reason)
-  if (brand) return `aucun manuel pour la marque ${brand[1].replace(/^./, (c) => c.toUpperCase())}`
+  if (brand) return `no manual for ${brand[1].replace(/^./, (c) => c.toUpperCase())}`
   const offTopic = /off-topic \(max similarity ([\d.]+) < ([\d.]+)\)/.exec(reason)
-  if (offTopic) return `hors sujet (similarité maximale ${dec(offTopic[1], 3)} < ${dec(offTopic[2], 3)})`
+  if (offTopic) return `off-topic (similarity ${dec(offTopic[1], 3)} < ${dec(offTopic[2], 3)})`
   const many = /(\d+|many) candidate vehicles \(p=([\d.]+)\)/.exec(reason)
-  if (many) return `plusieurs véhicules possibles (p = ${dec(many[2])})`
+  if (many) return `many possible vehicles (p = ${dec(many[2])})`
   const versions = /(\d+) versions match the name/.exec(reason)
-  if (versions) return `${versions[1]} versions portent ce nom`
-  if (reason === 'one vehicle identified') return 'un seul véhicule identifié'
+  if (versions) return `${versions[1]} versions share that name`
   return reason
 }
-const SECTIONS = [
-  ['resume', '00', 'Résumé'],
-  ['corpus', 'DATA', 'Corpus'],
-  ['echelle', 'E1', 'Taille du corpus'],
-  ['techniques', 'E2', 'Techniques'],
-  ['clarification', 'E4', 'Clarification'],
-  ['methode', 'MÉTH', 'Méthode'],
-]
 
 function useResults() {
   const [data, setData] = useState(null)
@@ -106,23 +104,29 @@ function useResults() {
   return { data, failed }
 }
 
-function Readout({ from, to, caption }) {
+function Reveal({ children, delay = 0, className = '' }) {
+  const still = useReducedMotion()
   return (
-    <div className="readout">
-      <p className="readout-figure"><span>{from}</span><i>→</i><b>{to}</b></p>
-      <p className="readout-caption">{caption}</p>
-    </div>
+    <motion.div
+      className={className}
+      initial={still ? false : { opacity: 0, y: 18 }}
+      whileInView={still ? {} : { opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: '-60px' }}
+      transition={{ duration: 0.55, delay, ease: [0.22, 0.61, 0.36, 1] }}
+    >
+      {children}
+    </motion.div>
   )
 }
 
 function Section({ id, tab, title, lede, children }) {
   return (
     <section id={id}>
-      <header className="section-head">
+      <Reveal className="section-head">
         <span className="tab">{tab}</span>
         <h2>{title}</h2>
         {lede && <p className="lede">{lede}</p>}
-      </header>
+      </Reveal>
       {children}
     </section>
   )
@@ -130,12 +134,13 @@ function Section({ id, tab, title, lede, children }) {
 
 export default function ResultsPage() {
   const { data, failed } = useResults()
+  const still = useReducedMotion()
   const [metric, setMetric] = useState('chunk_hit_5')
   const [variant, setVariant] = useState('native_plain')
   const [strategy, setStrategy] = useState('hard')
   const [scope, setScope] = useState('global')
 
-  useEffect(() => { document.title = 'Trouver le bon manuel — résultats de recherche' }, [])
+  useEffect(() => { document.title = 'Finding the right manual — research results' }, [])
 
   const e1 = data?.e1
   const maxN = useMemo(() => (e1 ? Math.max(...e1.rows.map((r) => r.n)) : 0), [e1])
@@ -147,7 +152,7 @@ export default function ResultsPage() {
     if (!e1) return []
     return e1.retrievers.map((r, index) => ({
       label: labelOf(r.spec),
-      short: RETRIEVER_SHORT[r.spec] || r.label,
+      short: SHORT[r.spec] || r.label,
       color: SERIES[index % SERIES.length],
       points: e1.rows
         .filter((row) => row.retriever === r.spec && row.variant === variant && row.strategy === strategy)
@@ -159,11 +164,13 @@ export default function ResultsPage() {
   if (failed) {
     return (
       <main className="results">
-        <p className="empty">Les résultats ne sont pas encore générés. Lancez <code>python scripts/build_report.py --json ../frontend/public/research-results.json</code> dans <code>research/</code>.</p>
+        <p className="empty">
+          Results have not been generated yet. Run <code>python scripts/build_report.py --json ../frontend/public/research-results.json</code> inside <code>research/</code>.
+        </p>
       </main>
     )
   }
-  if (!data) return <main className="results"><p className="empty">Chargement des résultats…</p></main>
+  if (!data) return <main className="results"><p className="empty">Loading results…</p></main>
 
   const { corpus, dataset, e2, e4 } = data
   const policies = e4.policies.filter((p) => ['none', 'direct'].includes(p.strategy))
@@ -173,10 +180,29 @@ export default function ResultsPage() {
   const mainPolicies = ['never', 'always', 'name_rule', 'oracle'].map(policy).filter(Boolean)
   const genericity = e4.detection.genericity_among_ambiguous || {}
   const okExamples = e4.examples.filter((e) => e.correct_action === true || e.correct_action === 'True').length
+  const rise = still ? {} : { initial: { opacity: 0, y: 18 }, animate: { opacity: 1, y: 0 } }
+
+  const readouts = [
+    {
+      from: pct(value(R.hybrid, 'native_plain', 'hard', 1, 'chunk_hit_5'), 0),
+      to: pct(value(R.hybrid, 'native_plain', 'hard', maxN, 'chunk_hit_5'), 0),
+      caption: `right passage found inside 1 manual, then across ${maxN}, for a question that names no vehicle`,
+    },
+    {
+      from: pct(value(R.hybrid, 'native_model', 'hard', maxN, 'doc_hit_1'), 0),
+      to: pct(value(R.router, 'native_model', 'hard', maxN, 'doc_hit_1'), 0),
+      caption: `right manual among ${maxN} when the question names the model: search alone, then name routing`,
+    },
+    {
+      from: pct(byVariant('never', 'native_plain')?.doc_hit_1, 0),
+      to: pct(byVariant('name_rule', 'native_plain')?.doc_hit_1, 0),
+      caption: `right manual for a question with no vehicle: no clarification, then ${dec(policy('name_rule')?.avg_turns)} question asked`,
+    },
+  ]
 
   return (
     <div className="results">
-      <nav className="toc" aria-label="Sommaire">
+      <nav className="toc" aria-label="Contents">
         <ol>
           {SECTIONS.map(([id, tab, title]) => (
             <li key={id}><a href={`#${id}`}><span className="tab">{tab}</span>{title}</a></li>
@@ -186,98 +212,110 @@ export default function ResultsPage() {
 
       <main>
         <header className="cover">
-          <p className="eyebrow"><span>Recherche · RAG sur manuels automobiles</span><span className="flag">Résultats provisoires</span></p>
-          <h1>Trouver le bon manuel</h1>
-          <p className="lede">
-            Un assistant qui répond à partir de {corpus.manuals} manuels doit d'abord trouver le bon document,
-            puis la bonne page. Ce site mesure à quel point il y parvient quand la bibliothèque grandit,
-            quelles techniques résistent, et quand il vaut mieux poser une question que deviner.
-          </p>
+          <motion.p className="eyebrow" {...rise} transition={{ duration: 0.5 }}>
+            <span>Research · retrieval over car owner manuals</span>
+            <span className="flag">Provisional results</span>
+          </motion.p>
+          <motion.h1 {...rise} transition={{ duration: 0.65, delay: 0.06 }}>Finding the right manual</motion.h1>
+          <motion.p className="lede" {...rise} transition={{ duration: 0.6, delay: 0.14 }}>
+            An assistant answering from {corpus.manuals} owner manuals has to find the right document first, then
+            the right page. This site measures how well it does that as the library grows, which techniques hold
+            up, and when asking one question beats guessing.
+          </motion.p>
           <div className="readouts">
-            <Readout
-              from={pct(value(R.hybrid, 'native_plain', 'hard', 1, 'chunk_hit_5'), 0)}
-              to={pct(value(R.hybrid, 'native_plain', 'hard', maxN, 'chunk_hit_5'), 0)}
-              caption={`bon passage trouvé dans 1 manuel, puis dans ${maxN}, pour une question sans nom de véhicule`}
-            />
-            <Readout
-              from={pct(value(R.hybrid, 'native_model', 'hard', maxN, 'doc_hit_1'), 0)}
-              to={pct(value(R.router, 'native_model', 'hard', maxN, 'doc_hit_1'), 0)}
-              caption={`bon manuel sur ${maxN}, question nommant le modèle : recherche seule, puis routage par nom`}
-            />
-            <Readout
-              from={pct(byVariant('never', 'native_plain')?.doc_hit_1, 0)}
-              to={pct(byVariant('name_rule', 'native_plain')?.doc_hit_1, 0)}
-              caption={`bon manuel pour une question sans véhicule : sans clarification, puis avec ${dec(policy('name_rule')?.avg_turns)} question posée`}
-            />
+            {readouts.map((item, index) => (
+              <motion.div
+                className="readout"
+                key={item.caption}
+                {...rise}
+                transition={{ duration: 0.6, delay: 0.22 + index * 0.08 }}
+              >
+                <p className="readout-figure"><span>{item.from}</span><i>→</i><b>{item.to}</b></p>
+                <p className="readout-caption">{item.caption}</p>
+              </motion.div>
+            ))}
           </div>
         </header>
 
-        <Section id="resume" tab="00" title="Ce que l'on mesure">
-          <p>
-            Pour chaque question, le système doit retrouver <strong>le bon manuel</strong> (quel véhicule) et
-            <strong> le bon passage</strong> (quelle page). Ces deux niveaux sont mesurés séparément, avec des
-            intervalles de confiance à 95 %, en faisant varier la taille du corpus fouillé, la technique de
-            recherche, et l'information que la question donne sur le véhicule.
-          </p>
-          <div className="cards">
-            <article><h3>E1 · Taille du corpus</h3><p>Combien perd-on en passant de 1 à {maxN} manuels, avec des distracteurs aléatoires ou de la même marque ?</p></article>
-            <article><h3>E2 · Techniques</h3><p>Mots-clés, sens, hybrides, en-têtes de document, routage, reranking : laquelle tient à grande échelle ?</p></article>
-            <article><h3>E4 · Clarification</h3><p>Quand la question ne nomme aucun véhicule, faut-il deviner ou demander ? Et que coûte une question ?</p></article>
-          </div>
+        <Section id="question" tab="00" title="What we measure">
+          <Reveal>
+            <p>
+              For every question the system must retrieve <strong>the right manual</strong> (which vehicle) and
+              <strong> the right passage</strong> (which page). Both are measured separately, with 95% confidence
+              intervals, while varying three things: how many manuals are searched, the retrieval technique, and
+              how much the question says about the vehicle.
+            </p>
+            <div className="cards">
+              <article><h3>E1 · Corpus size</h3><p>How much accuracy is lost going from 1 to {maxN} manuals, with random or same-brand distractors?</p></article>
+              <article><h3>E2 · Techniques</h3><p>Keywords, meaning, hybrids, document headers, routing, reranking: which one holds up at full scale?</p></article>
+              <article><h3>E4 · Clarification</h3><p>When the question names no vehicle, should the system guess or ask? And what does asking cost?</p></article>
+            </div>
+          </Reveal>
         </Section>
 
-        <Section id="corpus" tab="DATA" title="Le corpus et l'examen"
-                 lede={`Extrait à l'identique des index de production : ${corpus.manuals} manuels, ${intFr(corpus.chunks)} passages, ${intFr(corpus.pages)} pages, ${corpus.vehicles} véhicules, ${corpus.lang_fr} manuels en français et ${corpus.lang_en} en anglais.`}>
-          <h3>Défauts de données trouvés en chemin</h3>
-          <ul className="findings">
-            <li>
-              <span className="where">EXTRACTION PDF</span>
-              <span><strong>{intFr(corpus.garbled_chunks)} passages illisibles</strong> — {corpus.garbled_manuals.map((m) => `${m.name} (${pct(m.share, 0)})`).join(', ')}. L'extracteur décodait mal ces polices ; correctif livré (bascule sur PyMuPDF), réindexation à faire.</span>
-            </li>
-            <li>
-              <span className="where">DOUBLONS</span>
-              <span><strong>Un même PDF indexé deux fois :</strong> {corpus.duplicates.map((d) => `${d.manual} = ${d.of}`).join(', ')}.</span>
-            </li>
-            <li>
-              <span className="where">TEXTE PARTAGÉ</span>
-              <span><strong>{intFr(corpus.shared_text_chunks)} passages</strong> ont un texte identique dans un autre manuel : le « bon document » est parfois ambigu par nature.</span>
-            </li>
-          </ul>
+        <Section
+          id="corpus"
+          tab="DATA"
+          title="The library and the exam"
+          lede={`Extracted verbatim from the production indexes: ${corpus.manuals} manuals, ${intEn(corpus.chunks)} passages, ${intEn(corpus.pages)} pages, ${corpus.vehicles} vehicles, ${corpus.lang_fr} French and ${corpus.lang_en} English manuals.`}
+        >
+          <Reveal>
+            <h3>Data defects found along the way</h3>
+            <ul className="findings">
+              <li>
+                <span className="where">PDF EXTRACTION</span>
+                <span><strong>{intEn(corpus.garbled_chunks)} unreadable passages</strong> — {corpus.garbled_manuals.map((m) => `${m.name} (${pct(m.share, 0)})`).join(', ')}. The extractor mis-decoded those fonts; fixed (falls back to PyMuPDF), re-indexing still to do.</span>
+              </li>
+              <li>
+                <span className="where">DUPLICATES</span>
+                <span><strong>The same PDF indexed twice:</strong> {corpus.duplicates.map((d) => `${d.manual} = ${d.of}`).join(', ')}.</span>
+              </li>
+              <li>
+                <span className="where">SHARED TEXT</span>
+                <span><strong>{intEn(corpus.shared_text_chunks)} passages</strong> are word-for-word identical to a passage in another manual: the “right document” is sometimes ambiguous by nature.</span>
+              </li>
+            </ul>
+          </Reveal>
 
-          <h3>L'examen : des questions dont on connaît la bonne page</h3>
-          <p>
-            Un modèle Gemini (<code>{dataset.generator}</code>, d'une autre génération que le modèle évalué) écrit
-            pour chaque passage une question de propriétaire, sa réponse, et une citation mot pour mot. La question
-            n'est gardée que si la citation se retrouve vraiment dans le passage. Chaque question existe en huit
-            versions : deux langues × (sans véhicule, marque, modèle, nom complet).
-          </p>
-          <div className="note">
-            <strong>Jeu partiel :</strong> {intFr(dataset.questions)} questions sur {dataset.manuals} manuels
-            ({dataset.splits.test} test, {dataset.splits.dev} dev), reconstruit depuis le cache quand les crédits
-            Gemini se sont épuisés. Il couvre surtout les premiers manuels par ordre alphabétique : les chiffres
-            sont provisoires.
-            {dataset.audit && ` Audit indépendant de ${dataset.audit.supported + dataset.audit.supported_with_extra_detail + dataset.audit.unsupported} questions tirées au hasard : ${dataset.audit.supported + dataset.audit.supported_with_extra_detail} réponses étayées par leur citation, ${dataset.audit.unsupported} non étayée.`}
-          </div>
-          <div className="sample">
-            <div>
-              <span className="kind">QUESTION GÉNÉRÉE · {dataset.sample.manual} · page {dataset.sample.page}</span>
-              {[['Sans véhicule', 'plain'], ['Marque', 'brand'], ['Modèle', 'model'], ['Nom complet', 'full']].map(([label, form]) => (
-                <p key={form}><span className="form">{label}</span>{dataset.sample.queries[`fr_${form}`]}</p>
-              ))}
+          <Reveal>
+            <h3>The exam: questions whose answer page is known</h3>
+            <p>
+              For each passage, a Gemini model (<code>{dataset.generator}</code>, a different generation from the one
+              under test) writes an owner-style question, its answer, and a verbatim quote. A question is kept only
+              if that quote really appears in the passage. Every question exists in eight forms: two languages ×
+              (no vehicle, brand, model, full name).
+            </p>
+            <div className="note">
+              <strong>Partial set:</strong> {intEn(dataset.questions)} questions over {dataset.manuals} manuals
+              ({dataset.splits.test} test, {dataset.splits.dev} dev), rebuilt from cache when the Gemini prepaid
+              credits ran out. It covers mostly the first manuals alphabetically, so these figures are provisional.
+              {dataset.audit && ` Independent audit of ${dataset.audit.supported + dataset.audit.supported_with_extra_detail + dataset.audit.unsupported} random questions: ${dataset.audit.supported + dataset.audit.supported_with_extra_detail} answers supported by their quote, ${dataset.audit.unsupported} unsupported.`}
             </div>
-            <div>
-              <span className="kind">RÉFÉRENCE</span>
-              <p><span className="form">Réponse attendue</span>{dataset.sample.answer}</p>
-              <p><span className="form">Citation du manuel</span><em>« {dataset.sample.evidence} »</em></p>
+            <div className="sample">
+              <div>
+                <span className="kind">GENERATED QUESTION · {dataset.sample.manual} · page {dataset.sample.page}</span>
+                {[['No vehicle', 'plain'], ['Brand', 'brand'], ['Model', 'model'], ['Full name', 'full']].map(([label, form]) => (
+                  <p key={form}><span className="form">{label}</span>{dataset.sample.queries[`en_${form}`] || dataset.sample.queries[`fr_${form}`]}</p>
+                ))}
+              </div>
+              <div>
+                <span className="kind">GROUND TRUTH</span>
+                <p><span className="form">Expected answer</span>{dataset.sample.answer}</p>
+                <p><span className="form">Verbatim quote</span><em>“{dataset.sample.evidence}”</em></p>
+              </div>
             </div>
-          </div>
+          </Reveal>
         </Section>
 
-        <Section id="echelle" tab="E1" title="Plus il y a de manuels, moins on trouve"
-                 lede={`Pour une question sans nom de véhicule, la meilleure recherche retrouve le bon passage dans ${pct(value(R.hybrid, 'native_plain', 'hard', 1, 'chunk_hit_5'))} des cas quand elle ne fouille que le bon manuel, ${pct(value(R.hybrid, 'native_plain', 'hard', 5, 'chunk_hit_5'))} avec 5 manuels de la même marque, et ${pct(value(R.hybrid, 'native_plain', 'hard', maxN, 'chunk_hit_5'))} sur les ${maxN}. Choisissez « Modèle » pour voir le routage par nom annuler l'effet de taille.`}>
-          <div className="panel">
+        <Section
+          id="scale"
+          tab="E1"
+          title="The more manuals, the less it finds"
+          lede={`For a question that names no vehicle, the best retriever finds the right passage ${pct(value(R.hybrid, 'native_plain', 'hard', 1, 'chunk_hit_5'))} of the time when it only searches the right manual, ${pct(value(R.hybrid, 'native_plain', 'hard', 5, 'chunk_hit_5'))} with 5 manuals of the same brand, and ${pct(value(R.hybrid, 'native_plain', 'hard', maxN, 'chunk_hit_5'))} across all ${maxN}. Switch to “Model” to watch name routing cancel the effect of size.`}
+        >
+          <Reveal className="panel">
             <div className="controls">
-              <span className="control-label">Mesure</span>
+              <span className="control-label">Measure</span>
               <div className="seg">
                 {METRICS.map(([key, label]) => (
                   <button key={key} type="button" aria-pressed={metric === key} onClick={() => setMetric(key)}>{label}</button>
@@ -289,23 +327,25 @@ export default function ResultsPage() {
                   <button key={key} type="button" aria-pressed={variant === key} onClick={() => setVariant(key)}>{label}</button>
                 ))}
               </div>
-              <span className="control-label">Distracteurs</span>
+              <span className="control-label">Distractors</span>
               <div className="seg">
-                <button type="button" aria-pressed={strategy === 'hard'} onClick={() => setStrategy('hard')}>Même marque</button>
-                <button type="button" aria-pressed={strategy === 'random'} onClick={() => setStrategy('random')}>Aléatoires</button>
+                <button type="button" aria-pressed={strategy === 'hard'} onClick={() => setStrategy('hard')}>Same brand</button>
+                <button type="button" aria-pressed={strategy === 'random'} onClick={() => setStrategy('random')}>Random</button>
               </div>
             </div>
             <div className="legend">
               {series.map((s) => <span key={s.label}><i style={{ background: s.color }} />{s.label}</span>)}
             </div>
             <LineChart
+              key={`${metric}-${variant}-${strategy}`}
               series={series}
-              xLabel="manuels dans le corpus fouillé (échelle logarithmique)"
-              yLabel={metric === 'chunk_hit_5' ? 'bon passage dans le top 5' : 'bon manuel en 1re position'}
+              animate={!still}
+              xLabel="manuals searched (log scale)"
+              yLabel={metric === 'chunk_hit_5' ? 'right passage in the top 5' : 'right manual at rank 1'}
             />
-          </div>
-          <p className="caption">Le manuel qui contient la réponse, plus N−1 distracteurs (5 tirages par taille). Les bandes montrent l'intervalle de confiance à 95 %.</p>
-          <div className="table-wrap">
+          </Reveal>
+          <p className="caption">The manual holding the answer plus N−1 distractors (5 draws per size). Bands show the 95% confidence interval; hover for values.</p>
+          <Reveal className="table-wrap">
             <table>
               <thead><tr><th>Technique</th>{tiers.map((n) => <th key={n} className="num">{n}</th>)}</tr></thead>
               <tbody>
@@ -317,19 +357,19 @@ export default function ResultsPage() {
                 ))}
               </tbody>
             </table>
-          </div>
+          </Reveal>
         </Section>
 
-        <Section id="techniques" tab="E2" title="Quelles techniques tiennent à grande échelle">
+        <Section id="techniques" tab="E2" title="Which techniques hold up at full scale">
           {!e2 ? (
-            <div className="note">Le comparatif complet (rerankers inclus) est encore en cours de calcul. Il apparaîtra ici à la prochaine génération des résultats.</div>
+            <Reveal><div className="note">The full comparison (rerankers included) is still running. It will appear here at the next results build.</div></Reveal>
           ) : (
-            <>
+            <Reveal>
               <div className="controls">
-                <span className="control-label">Périmètre</span>
+                <span className="control-label">Searched</span>
                 <div className="seg">
-                  <button type="button" aria-pressed={scope === 'global'} onClick={() => setScope('global')}>Tous les manuels</button>
-                  <button type="button" aria-pressed={scope === 'vehicle'} onClick={() => setScope('vehicle')}>Dans le véhicule</button>
+                  <button type="button" aria-pressed={scope === 'global'} onClick={() => setScope('global')}>All manuals</button>
+                  <button type="button" aria-pressed={scope === 'vehicle'} onClick={() => setScope('vehicle')}>Inside the vehicle</button>
                 </div>
               </div>
               <div className="table-wrap">
@@ -337,62 +377,70 @@ export default function ResultsPage() {
                   <thead>
                     <tr>
                       <th>Technique</th>
-                      {VARIANTS.filter(([v]) => v !== 'native_brand').map(([, label]) => <th key={label} className="num">{label}</th>)}
-                      <th className="num">Autre langue</th>
+                      <th className="num">No vehicle</th><th className="num">Model</th>
+                      <th className="num">Full name</th><th className="num">Other language</th>
                     </tr>
                   </thead>
                   <tbody>
                     {(() => {
                       const metricKey = scope === 'global' ? 'doc_hit_1' : 'chunk_hit_5'
+                      const refVariant = scope === 'global' ? 'native_model' : 'native_plain'
                       const specs = [...new Set(e2.rows.map((r) => r.retriever))].sort((a, b) => {
-                        const ref = (spec) => e2.rows.find((r) => r.retriever === spec && r.variant === (scope === 'global' ? 'native_model' : 'native_plain') && r.scope === scope)?.[metricKey] ?? 0
+                        const ref = (spec) => e2.rows.find((r) => r.retriever === spec && r.variant === refVariant && r.scope === scope)?.[metricKey] ?? 0
                         return ref(b) - ref(a)
                       })
-                      return specs.map((spec) => {
-                      const row = (v) => e2.rows.find((r) => r.retriever === spec && r.variant === v && r.scope === scope)
-                      return (
-                        <tr key={spec}>
-                          <td title={spec}>{labelOf(spec)}</td>
-                          {['native_plain', 'native_model', 'native_full', 'cross_plain'].map((v) => {
-                            const cell = row(v)
-                            return (
-                              <td key={v} className="num">
-                                {pctNum(cell?.[metricKey])}
-                                {cell && <span className="ci">{pctNum(cell[`${metricKey}_lo`], 0)}–{pctNum(cell[`${metricKey}_hi`], 0)}</span>}
-                              </td>
-                            )
-                          })}
-                        </tr>
-                      )
+                      return specs.map((spec, index) => {
+                        const row = (v) => e2.rows.find((r) => r.retriever === spec && r.variant === v && r.scope === scope)
+                        return (
+                          <tr key={spec} className={index === 0 ? 'best' : ''}>
+                            <td title={spec}>{labelOf(spec)}</td>
+                            {['native_plain', 'native_model', 'native_full', 'cross_plain'].map((v) => {
+                              const cell = row(v)
+                              return (
+                                <td key={v} className="num">
+                                  {pctNum(cell?.[metricKey])}
+                                  {cell && <span className="ci">{pctNum(cell[`${metricKey}_lo`], 0)}–{pctNum(cell[`${metricKey}_hi`], 0)}</span>}
+                                </td>
+                              )
+                            })}
+                          </tr>
+                        )
                       })
                     })()}
                   </tbody>
                 </table>
               </div>
-              <p className="caption">{scope === 'global' ? 'Bon manuel en 1re position sur tous les manuels.' : 'Bon passage dans les 5 premiers, en cherchant dans les manuels du véhicule.'} Intervalles de confiance à 95 % en petit.</p>
-            </>
+              <p className="caption">
+                {scope === 'global' ? 'Right manual at rank 1, searching all manuals.' : 'Right passage in the top 5, searching the vehicle’s own manuals.'}
+                {' '}95% confidence intervals in small type. Cross-encoder reranking adds roughly 1.5 s per question.
+              </p>
+            </Reveal>
           )}
         </Section>
 
-        <Section id="clarification" tab="E4" title="Demander plutôt que deviner"
-                 lede={`« Comment changer ma batterie ? » n'a pas une réponse mais ${corpus.vehicles}, une par véhicule. Sur les questions sans nom de véhicule, ne jamais demander donne le bon manuel dans ${pct(byVariant('never', 'native_plain')?.doc_hit_1)} des cas ; une seule question de clarification le fait monter à ${pct(byVariant('name_rule', 'native_plain')?.doc_hit_1)}.`}>
-          <div className="panel">
-            <ParetoChart policies={mainPolicies} sweep={sweep} labels={POLICY_LABEL} />
-          </div>
-          <p className="caption">Dialogues simulés : un utilisateur simulé répond avec son vrai véhicule. Les barres montrent l'intervalle de confiance à 95 %, la ligne pointillée le détecteur appris à différents seuils.</p>
+        <Section
+          id="clarify"
+          tab="E4"
+          title="Asking beats guessing"
+          lede={`“How do I change my battery?” has no single answer but ${corpus.vehicles}, one per vehicle. On questions that name no vehicle, never asking gets the right manual ${pct(byVariant('never', 'native_plain')?.doc_hit_1)} of the time; a single clarifying question takes it to ${pct(byVariant('name_rule', 'native_plain')?.doc_hit_1)}.`}
+        >
+          <Reveal className="panel">
+            <ParetoChart policies={mainPolicies} sweep={sweep} labels={POLICY_LABEL} animate={!still} />
+          </Reveal>
+          <p className="caption">Simulated dialogues: a simulated user answers with their real vehicle. Bars are 95% confidence intervals; the dashed line is the learned detector at different thresholds.</p>
 
-          <div className="table-wrap">
+          <Reveal className="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>Politique</th><th className="num">Bon manuel</th><th className="num">Bon passage</th>
-                  <th className="num">Questions / requête</th><th className="num">Clarifications manquées</th><th className="num">Clarifications inutiles</th>
+                  <th>Policy</th><th className="num">Right manual</th><th className="num">Right passage</th>
+                  <th className="num">Questions / query</th><th className="num">Missed</th><th className="num">Unnecessary</th>
                 </tr>
               </thead>
               <tbody>
                 {[...mainPolicies, ...sweep.filter((p) => p.policy.endsWith('0.8'))].map((p) => (
                   <tr key={p.policy} className={p.policy === 'name_rule' ? 'best' : ''}>
-                    <td>{POLICY_LABEL[p.policy] || p.policy.replace('classifier@', 'Détecteur, seuil ')}</td>
+                    <td>{POLICY_LABEL[p.policy] || p.policy.replace('classifier@', 'Detector, threshold ')}</td>
                     <td className="num">{pctNum(p.doc_hit_1)}<span className="ci">{pctNum(p.doc_hit_1_lo, 0)}–{pctNum(p.doc_hit_1_hi, 0)}</span></td>
                     <td className="num">{pctNum(p.chunk_hit_5)}<span className="ci">{pctNum(p.chunk_hit_5_lo, 0)}–{pctNum(p.chunk_hit_5_hi, 0)}</span></td>
                     <td className="num">{dec(p.avg_turns)}</td>
@@ -402,29 +450,33 @@ export default function ResultsPage() {
                 ))}
               </tbody>
             </table>
-          </div>
+          </Reveal>
 
-          <h3>Détecter l'ambiguïté, oui. Savoir si elle compte, non.</h3>
-          <p>
-            Les signaux calculés sans LLM détectent très bien qu'une question ne désigne aucun véhicule
-            (détecteur : AUC <strong>{dec(e4.detection.classifier.roc_auc)}</strong>, rappel {pct(e4.detection.classifier['recall@0.5'])}).
-            Mais parmi les {intFr(genericity.n_test)} requêtes ambiguës, ils ne savent pas dire si la réponse change
-            d'un véhicule à l'autre : AUC <strong>{dec(genericity.classifier_auc)}</strong>, à peine mieux que le hasard.
-            C'est la frontière où un LLM devient nécessaire.
-          </p>
-          <div className="panel">
+          <Reveal>
+            <h3>Spotting ambiguity: yes. Knowing whether it matters: no.</h3>
+            <p>
+              Signals computed without any LLM detect very well that a question names no vehicle
+              (detector: AUC <strong>{dec(e4.detection.classifier.roc_auc)}</strong>, recall {pct(e4.detection.classifier['recall@0.5'])}).
+              But among the {intEn(genericity.n_test)} ambiguous questions they cannot tell whether the answer actually
+              changes from one vehicle to another: AUC <strong>{dec(genericity.classifier_auc)}</strong>, barely above chance.
+              That is the line where an LLM becomes necessary.
+            </p>
+          </Reveal>
+          <Reveal className="panel">
             <div className="legend">
-              <span><i style={{ background: SERIES[0] }} />Détecter qu'il manque le véhicule</span>
-              <span><i style={{ background: SERIES[1] }} />Détecter si la réponse dépend du véhicule</span>
+              <span><i style={{ background: SERIES[0] }} />Detecting that the vehicle is missing</span>
+              <span><i style={{ background: SERIES[1] }} />Detecting whether the answer depends on it</span>
             </div>
-            <SignalBars rows={e4.signals.filter((s) => s.generic_auc != null && SIGNAL_NAME[s.signal])} names={SIGNAL_NAME} />
-          </div>
+            <SignalBars rows={e4.signals.filter((s) => s.generic_auc != null && SIGNAL_NAME[s.signal])} names={SIGNAL_NAME} animate={!still} />
+          </Reveal>
 
-          <h3>Exemples de décision</h3>
-          <p>{e4.examples.length} questions écrites à la main, avec la décision attendue. Le système décide juste dans <strong>{okExamples} cas sur {e4.examples.length}</strong>.</p>
-          <div className="table-wrap">
+          <Reveal>
+            <h3>Decisions on real questions</h3>
+            <p>{e4.examples.length} hand-written questions with the expected decision. The system decides correctly in <strong>{okExamples} of {e4.examples.length}</strong> cases.</p>
+          </Reveal>
+          <Reveal className="table-wrap">
             <table className="examples">
-              <thead><tr><th>Question</th><th>Attendu</th><th>Décision</th><th>Question posée ou raison</th></tr></thead>
+              <thead><tr><th>Question</th><th>Expected</th><th>Decision</th><th>Question asked, or reason</th></tr></thead>
               <tbody>
                 {e4.examples.map((example) => {
                   const ok = example.correct_action === true || example.correct_action === 'True'
@@ -432,51 +484,57 @@ export default function ResultsPage() {
                     <tr key={example.id} className={ok ? '' : 'wrong'}>
                       <td>{example.query}</td>
                       <td><span className={`pill ${example.expected}`}>{ACTION_LABEL[example.expected]}</span></td>
-                      <td><span className={`pill ${example.predicted}`}>{ACTION_LABEL[example.predicted]}</span>{!ok && <span className="wrong-flag">erreur</span>}</td>
+                      <td><span className={`pill ${example.predicted}`}>{ACTION_LABEL[example.predicted]}</span>{!ok && <span className="wrong-flag">wrong</span>}</td>
                       <td>
                         {example.predicted === 'clarify' ? (
                           <>{example.question}<div className="options">{String(example.options).split(' | ').join(' · ')}</div></>
                         ) : example.predicted === 'answer' ? (
                           <span className="mono">{example.top_manual} · page {example.top_page}</span>
-                        ) : translateReason(example.reason)}
+                        ) : readableReason(example.reason)}
                       </td>
                     </tr>
                   )
                 })}
               </tbody>
             </table>
-          </div>
+          </Reveal>
 
-          <h3>Dialogues simulés</h3>
-          <div className="dialogues">
-            {e4.dialogues.map((dialogue) => (
-              <article key={dialogue.query}>
-                <span className="kind">QUESTION {dialogue.variant === 'native_plain' ? 'SANS VÉHICULE' : dialogue.variant === 'native_brand' ? 'AVEC LA MARQUE' : 'AVEC LE MODÈLE'}</span>
-                <p className="say user">{dialogue.query}</p>
-                {dialogue.turns.map((turn) => (
-                  <div key={turn.q}>
-                    <p className="say bot">{turn.q}</p>
-                    <div className="chips">{turn.options.map((option) => <span key={option}>{option}</span>)}</div>
-                    <p className="say user">{turn.a}</p>
-                  </div>
-                ))}
-                <p className="outcome">Passage retrouvé : <span className="mono">{dialogue.top_manual} · page {dialogue.top_page}</span>{dialogue.doc_ok ? ' — bon manuel' : ''}</p>
-              </article>
-            ))}
-          </div>
+          <Reveal>
+            <h3>Simulated dialogues</h3>
+            <div className="dialogues">
+              {e4.dialogues.map((dialogue) => (
+                <article key={dialogue.query}>
+                  <span className="kind">
+                    QUESTION {dialogue.variant === 'native_plain' ? 'WITHOUT VEHICLE' : dialogue.variant === 'native_brand' ? 'WITH THE BRAND' : 'WITH THE MODEL'}
+                  </span>
+                  <p className="say user">{dialogue.query}</p>
+                  {dialogue.turns.map((turn) => (
+                    <div key={turn.q}>
+                      <p className="say bot">{turn.q}</p>
+                      <div className="chips">{turn.options.map((option) => <span key={option}>{option}</span>)}</div>
+                      <p className="say user">{turn.a}</p>
+                    </div>
+                  ))}
+                  <p className="outcome">Retrieved: <span className="mono">{dialogue.top_manual} · page {dialogue.top_page}</span>{dialogue.doc_ok ? ' — right manual' : ''}</p>
+                </article>
+              ))}
+            </div>
+          </Reveal>
         </Section>
 
-        <Section id="methode" tab="MÉTH" title="Méthode et limites">
-          <ul className="method">
-            <li><strong>Métriques.</strong> Bon manuel en 1<sup>re</sup> position, bon passage parmi les 5 premiers (ceux envoyés au LLM), nDCG@10, confusions avec un manuel de la même marque. Un passage est « bon » s'il contient la citation de référence ; le calcul est vérifié contre la bibliothèque <code>ranx</code>.</li>
-            <li><strong>Statistiques.</strong> La question est l'unité statistique. Intervalles de confiance à 95 % (Wilson pour les proportions, bootstrap sinon), comparaisons par test de permutation apparié avec correction de Holm.</li>
-            <li><strong>Protocole.</strong> Les réglages sont choisis sur le split <em>dev</em> ; les chiffres publiés viennent du split <em>test</em>.</li>
-            <li><strong>Limites.</strong> Jeu de questions partiel et synthétique ; la recherche de production (embeddings Gemini) et l'étape de réponse du LLM restent à mesurer ; l'utilisateur simulé connaît toujours son véhicule.</li>
-          </ul>
-          <p className="footer-note">
-            Page générée à partir de <code>research/results</code> · jeu <code>{dataset.name}</code> ·
-            {' '}{intFr(corpus.chunks)} passages · chiffres provisoires.
-          </p>
+        <Section id="method" tab="METHOD" title="Method and limits">
+          <Reveal>
+            <ul className="method">
+              <li><strong>Metrics.</strong> Right manual at rank 1, right passage among the top 5 (the ones sent to the LLM), nDCG@10, confusions with a same-brand manual. A passage counts as right when it contains the ground-truth quote; the computation is cross-checked against <code>ranx</code>.</li>
+              <li><strong>Statistics.</strong> The question is the unit of analysis. 95% confidence intervals (Wilson for proportions, bootstrap otherwise); systems are compared with a paired randomization test and Holm correction.</li>
+              <li><strong>Protocol.</strong> Settings are chosen on the <em>dev</em> split; every number published here comes from the <em>test</em> split.</li>
+              <li><strong>Limits.</strong> The question set is partial and synthetic; the production retriever (Gemini embeddings) and the LLM answering step are not measured yet; the simulated user always knows their exact vehicle.</li>
+            </ul>
+            <p className="footer-note">
+              Generated from <code>research/results</code> · dataset <code>{dataset.name}</code> ·
+              {' '}{intEn(corpus.chunks)} passages · provisional figures.
+            </p>
+          </Reveal>
         </Section>
       </main>
     </div>
