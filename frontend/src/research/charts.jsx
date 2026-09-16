@@ -1,5 +1,5 @@
 import { useId, useMemo, useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion as Motion } from 'framer-motion'
 import { SERIES, dec, pct, pctNum } from './format'
 
 /**
@@ -62,7 +62,7 @@ export function LineChart({ series, xLabel, yLabel, height = 360, animate = true
           const band = pts.map((p) => `${X(p.x)},${Y(p.hi)}`)
             .concat([...pts].reverse().map((p) => `${X(p.x)},${Y(p.lo)}`)).join(' ')
           return (
-            <motion.polygon
+            <Motion.polygon
               key={`${s.label}-band`} points={band} fill={s.color}
               initial={animate ? { opacity: 0 } : false}
               animate={animate ? { opacity: 0.14 } : undefined}
@@ -75,7 +75,7 @@ export function LineChart({ series, xLabel, yLabel, height = 360, animate = true
           const pts = s.points.filter((p) => p.y != null)
           return (
             <g key={s.label}>
-              <motion.polyline
+              <Motion.polyline
                 points={pts.map((p) => `${X(p.x)},${Y(p.y)}`).join(' ')}
                 fill="none" stroke={s.color} strokeWidth="2" strokeLinejoin="round"
                 initial={animate ? { pathLength: 0 } : false}
@@ -83,7 +83,7 @@ export function LineChart({ series, xLabel, yLabel, height = 360, animate = true
                 transition={{ duration: 0.9, ease: 'easeOut' }}
               />
               {pts.map((p, i) => (
-                <motion.circle
+                <Motion.circle
                   key={p.x} cx={X(p.x)} cy={Y(p.y)} r={hover === p.x ? 5.5 : 4}
                   fill={s.color} stroke="var(--bg-primary)" strokeWidth="2"
                   initial={animate ? { opacity: 0, scale: 0.6 } : false}
@@ -134,6 +134,23 @@ export function ParetoChart({ policies, sweep, labels, height = 330, animate = t
   const Y = (y) => M.top + (1 - y) * (height - M.top - M.bottom)
   const marks = { never: '■', always: '▲', name_rule: '◆', oracle: '★' }
 
+  // Several policies land on the same accuracy; place each label in the first slot where its text is clear.
+  const text = (p) => `${marks[p.policy] || '●'} ${labels[p.policy]} · ${pct(p.doc_hit_1, 0)}`
+  const taken = []
+  const placements = policies.map((p) => {
+    const toLeft = p.avg_turns > xMax * 0.72
+    const anchorX = X(p.avg_turns) + (toLeft ? -12 : 12)
+    const width = text(p).length * 6.3
+    const [left, right] = toLeft ? [anchorX - width, anchorX] : [anchorX, anchorX + width]
+    const base = Y(p.doc_hit_1)
+    const y =
+      [base - 12, base + 24, base - 34, base + 46, base - 56].find(
+        (candidate) => !taken.some((t) => Math.abs(t.y - candidate) < 15 && t.left < right && left < t.right),
+      ) ?? base - 12
+    taken.push({ y, left, right })
+    return { x: anchorX, y, anchor: toLeft ? 'end' : 'start' }
+  })
+
   return (
     <div className="chart">
       <svg viewBox={`0 0 ${W} ${height}`} role="img" aria-labelledby={titleId}>
@@ -150,7 +167,7 @@ export function ParetoChart({ policies, sweep, labels, height = 330, animate = t
         <text className="axis" x={(M.left + W - M.right) / 2} y={height - 8} textAnchor="middle">clarifying questions per query</text>
         <text className="axis" x={16} y={height / 2} transform={`rotate(-90 16 ${height / 2})`} textAnchor="middle">right manual at rank 1</text>
 
-        <motion.polyline points={sweep.map((p) => `${X(p.avg_turns)},${Y(p.doc_hit_1)}`).join(' ')}
+        <Motion.polyline points={sweep.map((p) => `${X(p.avg_turns)},${Y(p.doc_hit_1)}`).join(' ')}
                   fill="none" stroke={SERIES[4]} strokeWidth="2" strokeDasharray="5 4"
                   initial={animate ? { pathLength: 0 } : false}
                   whileInView={animate ? { pathLength: 1 } : undefined}
@@ -160,7 +177,7 @@ export function ParetoChart({ policies, sweep, labels, height = 330, animate = t
           <circle key={p.policy} cx={X(p.avg_turns)} cy={Y(p.doc_hit_1)} r="4" fill={SERIES[4]} stroke="var(--bg-primary)" strokeWidth="2" />
         ))}
         {policies.map((p, index) => (
-          <motion.g key={p.policy}
+          <Motion.g key={p.policy}
             initial={animate ? { opacity: 0, scale: 0.85 } : false}
             whileInView={animate ? { opacity: 1, scale: 1 } : undefined}
             viewport={{ once: true }}
@@ -168,11 +185,10 @@ export function ParetoChart({ policies, sweep, labels, height = 330, animate = t
             style={{ transformOrigin: `${X(p.avg_turns)}px ${Y(p.doc_hit_1)}px` }}>
             <line x1={X(p.avg_turns)} x2={X(p.avg_turns)} y1={Y(p.doc_hit_1_lo)} y2={Y(p.doc_hit_1_hi)} stroke={SERIES[index]} strokeWidth="2" />
             <circle cx={X(p.avg_turns)} cy={Y(p.doc_hit_1)} r="7" fill={SERIES[index]} stroke="var(--bg-primary)" strokeWidth="2" />
-            <text className="end-label" x={X(p.avg_turns) + (p.avg_turns > xMax * 0.75 ? -12 : 12)}
-                  y={Y(p.doc_hit_1) - 12} textAnchor={p.avg_turns > xMax * 0.75 ? 'end' : 'start'}>
+            <text className="end-label" x={placements[index].x} y={placements[index].y} textAnchor={placements[index].anchor}>
               {marks[p.policy] || '●'} {labels[p.policy]} · {pct(p.doc_hit_1, 0)}
             </text>
-          </motion.g>
+          </Motion.g>
         ))}
       </svg>
     </div>
@@ -205,7 +221,7 @@ export function SignalBars({ rows, names, animate = true }) {
               <text className="row-label" x={M.left - 10} y={y + rowH / 2 + 4} textAnchor="end">{names[row.signal] || row.signal}</text>
               {[[row.auc, SERIES[0], 5], [row.generic_auc, SERIES[1], 18]].map(([value, color, offset]) => (
                 <g key={offset}>
-                  <motion.rect
+                  <Motion.rect
                     x={X(0.5)} y={y + offset} height="11" rx="2" fill={color}
                     initial={animate ? { width: 0 } : false}
                     whileInView={animate ? { width: Math.max(1, X(Math.max(value, 0.5)) - X(0.5)) } : undefined}
