@@ -24,6 +24,22 @@ const RETRIEVER_LABEL = {
   [R.router]: 'Routage par nom + hybride',
   [R.hnsw]: 'bge-m3, index approximatif HNSW',
 }
+const EXTRA_LABEL = {
+  bm25: 'BM25 (sans racines)',
+  'bm25_stem+ctx': 'BM25 + en-têtes de document',
+  'dense:bge-m3+ctx': 'bge-m3 + en-têtes de document',
+  'dense:multilingual-e5-large-instruct': 'e5-large (sens)',
+  'rrf(bm25_stem,dense:bge-m3)': 'Fusion RRF (production actuelle)',
+  'rm3(bm25)': 'BM25 + expansion de requête (RM3)',
+  'doc_router(dense:bge-m3+ctx)': 'Choix du manuel puis du passage',
+  'name_boost(dense:bge-m3;lam=0.5)': 'bge-m3 + bonus nom de véhicule',
+  'name_router(wsum(bm25_stem,dense:bge-m3;w=0.3|0.7))': 'Routage par nom (nom gardé dans la requête)',
+  'rerank(wsum(bm25_stem,dense:bge-m3;w=0.3|0.7))': 'Hybride + reranking cross-encoder',
+  'rerank(name_router_strip(wsum(bm25_stem,dense:bge-m3;w=0.3|0.7)))': 'Routage + hybride + reranking cross-encoder',
+  'm3rerank(wsum(bm25_stem,dense:bge-m3;w=0.3|0.7))': 'Hybride + reranking BGE-M3 (multi-vecteurs)',
+}
+const labelOf = (spec) => RETRIEVER_LABEL[spec] || EXTRA_LABEL[spec] || spec
+
 const RETRIEVER_SHORT = {
   [R.bm25]: 'BM25', [R.dense]: 'bge-m3', [R.hybrid]: 'hybride',
   [R.ctx]: '+ en-têtes', [R.router]: 'routage', [R.hnsw]: 'HNSW',
@@ -130,7 +146,7 @@ export default function ResultsPage() {
   const series = useMemo(() => {
     if (!e1) return []
     return e1.retrievers.map((r, index) => ({
-      label: RETRIEVER_LABEL[r.spec] || r.label,
+      label: labelOf(r.spec),
       short: RETRIEVER_SHORT[r.spec] || r.label,
       color: SERIES[index % SERIES.length],
       points: e1.rows
@@ -295,7 +311,7 @@ export default function ResultsPage() {
               <tbody>
                 {e1.retrievers.map((r) => (
                   <tr key={r.spec}>
-                    <td>{RETRIEVER_LABEL[r.spec] || r.label}</td>
+                    <td>{labelOf(r.spec)}</td>
                     {tiers.map((n) => <td key={n} className="num">{pctNum(value(r.spec, variant, strategy, n, metric))}</td>)}
                   </tr>
                 ))}
@@ -326,12 +342,17 @@ export default function ResultsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {[...new Set(e2.rows.map((r) => r.retriever))].map((spec) => {
-                      const row = (v) => e2.rows.find((r) => r.retriever === spec && r.variant === v && r.scope === scope)
+                    {(() => {
                       const metricKey = scope === 'global' ? 'doc_hit_1' : 'chunk_hit_5'
+                      const specs = [...new Set(e2.rows.map((r) => r.retriever))].sort((a, b) => {
+                        const ref = (spec) => e2.rows.find((r) => r.retriever === spec && r.variant === (scope === 'global' ? 'native_model' : 'native_plain') && r.scope === scope)?.[metricKey] ?? 0
+                        return ref(b) - ref(a)
+                      })
+                      return specs.map((spec) => {
+                      const row = (v) => e2.rows.find((r) => r.retriever === spec && r.variant === v && r.scope === scope)
                       return (
                         <tr key={spec}>
-                          <td>{RETRIEVER_LABEL[spec] || e2.rows.find((r) => r.retriever === spec)?.label}<div className="spec">{spec}</div></td>
+                          <td title={spec}>{labelOf(spec)}</td>
                           {['native_plain', 'native_model', 'native_full', 'cross_plain'].map((v) => {
                             const cell = row(v)
                             return (
@@ -343,7 +364,8 @@ export default function ResultsPage() {
                           })}
                         </tr>
                       )
-                    })}
+                      })
+                    })()}
                   </tbody>
                 </table>
               </div>

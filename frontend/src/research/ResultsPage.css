@@ -6,7 +6,7 @@
   --surface: #121418;
   --mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: 40px;
   max-width: 1180px;
   margin: 0 auto;
@@ -16,6 +16,8 @@
 @media (min-width: 1040px) {
   .results { grid-template-columns: 190px minmax(0, 1fr); }
 }
+.results > main { min-width: 0; }
+.results img, .results svg { max-width: 100%; }
 
 .results .empty { padding: 80px 0; color: var(--text-secondary); }
 .results code { font-family: var(--mono); font-size: 0.85em; color: var(--chrome); }
