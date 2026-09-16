@@ -1,7 +1,7 @@
 """Build the HTML research report from results/ (every number comes from the experiment outputs).
 
     uv run python scripts/build_report.py --e1 e1_scaling_partial --e2 e2_techniques_partial \
-        --e4 e4_clarification_partial --dataset questions_v1_partial --out reports/rapport.html
+        --e4 e4_clarification_partial --dataset questions_v1_partial --out reports/report.html
 """
 from __future__ import annotations
 
@@ -137,7 +137,7 @@ def main() -> None:
     ap.add_argument("--e2", default="e2_techniques_partial")
     ap.add_argument("--e4", default="e4_clarification_partial")
     ap.add_argument("--dataset", default="questions_v1_partial")
-    ap.add_argument("--out", default=str(Path(__file__).resolve().parents[1] / "reports" / "rapport.html"))
+    ap.add_argument("--out", default=str(Path(__file__).resolve().parents[1] / "reports" / "report.html"))
     ap.add_argument("--json", default=None, help="also write the raw data (used by the results website)")
     args = ap.parse_args()
     data = {"corpus": corpus_block(), "dataset": dataset_block(args.dataset), "e1": e1_block(args.e1),

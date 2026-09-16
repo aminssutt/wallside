@@ -197,7 +197,7 @@ export function SignalBars({ rows, names, animate = true }) {
             <text className="tick" x={X(v)} y={height - M.bottom + 16} textAnchor="middle">{dec(v, 1)}</text>
           </g>
         ))}
-        <text className="axis" x={(M.left + W - M.right) / 2} y={height - 4} textAnchor="middle">AUC (0,5 = hasard)</text>
+        <text className="axis" x={(M.left + W - M.right) / 2} y={height - 4} textAnchor="middle">AUC (0.5 = chance)</text>
         {rows.map((row, index) => {
           const y = M.top + index * rowH
           return (

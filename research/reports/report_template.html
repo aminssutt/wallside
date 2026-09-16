@@ -1,5 +1,5 @@
-<title>Trouver le bon manuel</title>
-<meta name="description" content="Rapport de recherche : précision d'un système RAG pour identifier le bon manuel automobile quand le corpus grandit, et clarification des questions ambiguës.">
+<title>Finding the Right Manual</title>
+<meta name="description" content="Research report: how accurately a RAG system finds the right car manual as the corpus grows, and when it should ask which vehicle.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
@@ -340,86 +340,86 @@ footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--rule);
 </style>
 
 <div class="shell">
-  <nav class="index" aria-label="Sommaire">
-    <p>Sommaire</p>
+  <nav class="index" aria-label="Contents">
+    <p>Contents</p>
     <ol>
-      <li><a href="#question"><span class="tab">00</span>Question et hypothèses</a></li>
-      <li><a href="#corpus"><span class="tab">DATA</span>Corpus et examen</a></li>
-      <li><a href="#e1"><span class="tab">E1</span>Taille du corpus</a></li>
-      <li><a href="#e2"><span class="tab">E2</span>Techniques comparées</a></li>
-      <li><a href="#e4"><span class="tab">E4</span>Questions ambiguës</a></li>
-      <li><a href="#architecture"><span class="tab">ARCH</span>Pipeline recommandé</a></li>
-      <li><a href="#limits"><span class="tab">NEXT</span>Limites et suite</a></li>
-      <li><a href="#method"><span class="tab">MÉTH</span>Méthode</a></li>
+      <li><a href="#question"><span class="tab">00</span>Question and hypotheses</a></li>
+      <li><a href="#corpus"><span class="tab">DATA</span>Corpus and exam</a></li>
+      <li><a href="#e1"><span class="tab">E1</span>Corpus size</a></li>
+      <li><a href="#e2"><span class="tab">E2</span>Techniques compared</a></li>
+      <li><a href="#e4"><span class="tab">E4</span>Ambiguous questions</a></li>
+      <li><a href="#architecture"><span class="tab">ARCH</span>Recommended pipeline</a></li>
+      <li><a href="#limits"><span class="tab">NEXT</span>Limits and next steps</a></li>
+      <li><a href="#method"><span class="tab">METHOD</span>Method</a></li>
     </ol>
   </nav>
 
   <main>
     <header class="cover">
-      <div class="eyebrow"><span>Rapport de recherche · Wallside</span><span class="status">Résultats provisoires · jeu partiel</span></div>
-      <h1>Trouver le bon manuel</h1>
-      <p class="lede">Un chatbot qui répond à partir de <span data-k="corpus.manuals"></span> manuels automobiles doit d'abord trouver le bon document, puis la bonne page. Nous mesurons à quel point il y parvient quand la bibliothèque grandit, quelles techniques résistent, et quand il vaut mieux poser une question que deviner.</p>
+      <div class="eyebrow"><span>Research report · retrieval over car owner manuals</span><span class="status">Provisional results · partial set</span></div>
+      <h1>Finding the right manual</h1>
+      <p class="lede">A chatbot answering from <span data-k="corpus.manuals"></span> car owner manuals has to find the right document first, then the right page. We measure how well it does that as the library grows, which techniques hold up, and when asking one question beats guessing.</p>
       <div class="readouts" id="readouts"></div>
     </header>
 
     <section id="question">
-      <div class="sec-head"><span class="tab">00 · QUESTION</span><h2>Ce que l'on cherche à mesurer</h2></div>
-      <p>Pour chaque question d'un utilisateur, le système doit retrouver <strong>le bon manuel</strong> (quel véhicule) et <strong>le bon passage</strong> (quelle page). Nous mesurons ces deux niveaux séparément, avec des intervalles de confiance à 95&nbsp;%, en faisant varier trois choses : la quantité de manuels fouillés, la technique de recherche, et l'information que la question contient sur le véhicule.</p>
+      <div class="sec-head"><span class="tab">00 · QUESTION</span><h2>What we set out to measure</h2></div>
+      <p>For every user question the system must retrieve <strong>the right manual</strong> (which vehicle) and <strong>the right passage</strong> (which page). Both are measured separately, with 95% confidence intervals, while varying three things: how many manuals are searched, the retrieval technique, and how much the question says about the vehicle.</p>
       <div class="hyp" id="hypotheses"></div>
     </section>
 
     <section id="corpus">
-      <div class="sec-head"><span class="tab">DATA · CORPUS</span><h2>La bibliothèque et l'examen</h2></div>
-      <p>Le corpus est extrait <strong>à l'identique</strong> des index de production : <span class="num" data-k="corpus.manuals"></span> manuels, <span class="num" data-k="corpus.chunks" data-f="int"></span> passages, <span class="num" data-k="corpus.pages" data-f="int"></span> pages, <span class="num" data-k="corpus.vehicles"></span> véhicules, <span class="num" data-k="corpus.lang_fr"></span> manuels en français et <span class="num" data-k="corpus.lang_en"></span> en anglais.</p>
-      <h3>Défauts de données trouvés en chemin</h3>
+      <div class="sec-head"><span class="tab">DATA · CORPUS</span><h2>The library and the exam</h2></div>
+      <p>The corpus is extracted <strong>verbatim</strong> from the production indexes: <span class="num" data-k="corpus.manuals"></span> manuals, <span class="num" data-k="corpus.chunks" data-f="int"></span> passages, <span class="num" data-k="corpus.pages" data-f="int"></span> pages, <span class="num" data-k="corpus.vehicles"></span> vehicles, <span class="num" data-k="corpus.lang_fr"></span> French manuals and <span class="num" data-k="corpus.lang_en"></span> English ones.</p>
+      <h3>Data defects found along the way</h3>
       <ul class="finding-list" id="data-findings"></ul>
-      <h3>L'examen&nbsp;: des questions dont on connaît la bonne page</h3>
-      <p>Pour chaque manuel, un modèle Gemini (<span class="mono" data-k="dataset.generator"></span>, d'une autre génération que le modèle de production) écrit une question de propriétaire, sa réponse et <strong>une citation mot pour mot</strong> du passage. Une question n'est gardée que si la citation se retrouve vraiment dans le passage. Chaque question existe en huit versions : français ou anglais, sans nom de véhicule, avec la marque, avec le modèle, avec le nom complet.</p>
+      <h3>The exam: questions whose answer page is known</h3>
+      <p>For each manual, a Gemini model (<span class="mono" data-k="dataset.generator"></span>, a different generation from the production model) writes an owner-style question, its answer and <strong>a verbatim quote</strong> from the passage. A question is kept only if that quote really appears in the passage. Every question exists in eight forms: French or English, with no vehicle, with the brand, with the model, with the full name.</p>
       <div class="note" id="dataset-note"></div>
       <div class="dialogues" id="sample-question"></div>
     </section>
 
     <section id="e1">
-      <div class="sec-head"><span class="tab">E1 · PASSAGE À L'ÉCHELLE</span><h2>Plus il y a de manuels, moins on trouve</h2></div>
+      <div class="sec-head"><span class="tab">E1 · SCALE</span><h2>The more manuals, the less it finds</h2></div>
       <p id="e1-lede"></p>
       <figure>
         <div class="panel">
           <div class="controls">
-            <span class="ctl-label">Mesure</span>
-            <div class="seg" id="e1-metric"><button type="button" data-v="chunk_hit_5" aria-pressed="true">Bon passage (top 5)</button><button type="button" data-v="doc_hit_1" aria-pressed="false">Bon manuel (1er)</button></div>
+            <span class="ctl-label">Measure</span>
+            <div class="seg" id="e1-metric"><button type="button" data-v="chunk_hit_5" aria-pressed="true">Right passage (top 5)</button><button type="button" data-v="doc_hit_1" aria-pressed="false">Right manual (rank 1)</button></div>
             <span class="ctl-label">Question</span>
-            <div class="seg" id="e1-variant"><button type="button" data-v="native_plain" aria-pressed="true">Sans véhicule</button><button type="button" data-v="native_brand" aria-pressed="false">Marque</button><button type="button" data-v="native_model" aria-pressed="false">Modèle</button><button type="button" data-v="native_full" aria-pressed="false">Nom complet</button></div>
-            <span class="ctl-label">Distracteurs</span>
-            <div class="seg" id="e1-strategy"><button type="button" data-v="hard" aria-pressed="true">Même marque</button><button type="button" data-v="random" aria-pressed="false">Aléatoires</button></div>
+            <div class="seg" id="e1-variant"><button type="button" data-v="native_plain" aria-pressed="true">No vehicle</button><button type="button" data-v="native_brand" aria-pressed="false">Brand</button><button type="button" data-v="native_model" aria-pressed="false">Model</button><button type="button" data-v="native_full" aria-pressed="false">Full name</button></div>
+            <span class="ctl-label">Distractors</span>
+            <div class="seg" id="e1-strategy"><button type="button" data-v="hard" aria-pressed="true">Same brand</button><button type="button" data-v="random" aria-pressed="false">Random</button></div>
           </div>
           <div class="legend" id="e1-legend"></div>
           <div class="chart" id="e1-chart"></div>
         </div>
-        <figcaption>Le manuel qui contient la réponse, plus N−1 manuels distracteurs (5 tirages par taille). Échelle horizontale logarithmique. Les bandes indiquent l'intervalle de confiance à 95&nbsp;% (bootstrap sur les questions). Survolez un point pour les valeurs.</figcaption>
+        <figcaption>The manual holding the answer plus N−1 distractor manuals (5 draws per size). Log horizontal scale. Bands show the 95% confidence interval (bootstrap over questions). Hover a point for values.</figcaption>
       </figure>
       <div class="table-wrap"><table id="e1-table"></table></div>
     </section>
 
     <section id="e2">
-      <div class="sec-head"><span class="tab">E2 · TECHNIQUES</span><h2>Quelles techniques tiennent sur 165 manuels&nbsp;?</h2></div>
+      <div class="sec-head"><span class="tab">E2 · TECHNIQUES</span><h2>Which techniques hold up over 165 manuals?</h2></div>
       <div id="e2-body"></div>
     </section>
 
     <section id="e4">
-      <div class="sec-head"><span class="tab">E4 · CLARIFICATION</span><h2>«&nbsp;Comment changer ma batterie&nbsp;?&nbsp;»&nbsp;: demander avant de chercher</h2></div>
-      <p>Sans nom de véhicule, cette question a potentiellement <span data-k="corpus.vehicles"></span> réponses différentes, une par véhicule. Aucune technique de recherche ne peut deviner la voiture. Nous transformons ce problème en tâche de décision à trois issues, comme dans la littérature récente sur le RAG adaptatif : <span class="pill answer">répondre</span> <span class="pill clarify">clarifier</span> <span class="pill abstain">s'abstenir</span>.</p>
+      <div class="sec-head"><span class="tab">E4 · CLARIFICATION</span><h2>“How do I change my battery?”: ask before searching</h2></div>
+      <p>With no vehicle named, that question has up to <span data-k="corpus.vehicles"></span> different answers, one per vehicle. No retrieval technique can guess the car. We turn it into a three-way decision, as in the recent adaptive-RAG literature: <span class="pill answer">answer</span> <span class="pill clarify">ask</span> <span class="pill abstain">abstain</span>.</p>
       <div class="mermaid-wrap"><pre class="mermaid">
 flowchart TD
-    q([Question]) --> m{Marque absente du corpus ?}
-    m -->|oui| a1[S'ABSTENIR : manuel indisponible]
-    m -->|non| t{Similarité maximale au corpus sous le 1er centile des vraies questions ?}
-    t -->|oui| a2[S'ABSTENIR : hors sujet]
-    t -->|non| v{Combien de véhicules la question nomme-t-elle ?}
-    v -->|un seul| r1[RÉPONDRE dans ce véhicule]
-    v -->|plusieurs versions| c1[CLARIFIER : quelle version ?]
-    v -->|aucun| d{Détecteur : la réponse dépend-elle du véhicule ?}
-    d -->|non| r2[RÉPONDRE sur tous les manuels]
-    d -->|oui| c2[CLARIFIER : quel véhicule ? 3 options + saisie libre]
+    q([Question]) --> m{Brand absent from the corpus?}
+    m -->|yes| a1[ABSTAIN: manual not available]
+    m -->|no| t{Max similarity below the 1st percentile of real questions?}
+    t -->|yes| a2[ABSTAIN: off-topic]
+    t -->|no| v{How many vehicles does the question name?}
+    v -->|exactly one| r1[ANSWER inside that vehicle]
+    v -->|several versions| c1[ASK: which version?]
+    v -->|none| d{Detector: does the answer depend on the vehicle?}
+    d -->|no| r2[ANSWER across all manuals]
+    d -->|yes| c2[ASK: which vehicle? 3 options + free text]
 </pre></div>
       <p id="e4-lede"></p>
       <figure>
@@ -427,58 +427,58 @@ flowchart TD
           <div class="legend" id="e4-legend"></div>
           <div class="chart" id="e4-chart"></div>
         </div>
-        <figcaption>Dialogues simulés sur le jeu de test : un utilisateur simulé répond honnêtement au nom de son véhicule. Horizontal : questions de clarification posées en moyenne par requête. Vertical : part des requêtes où le bon manuel arrive en premier. Barres : IC 95&nbsp;%.</figcaption>
+        <figcaption>Simulated dialogues on the test split: a simulated user answers truthfully with their vehicle. Horizontal: clarifying questions asked per query on average. Vertical: share of queries where the right manual ranks first. Bars: 95% CI.</figcaption>
       </figure>
       <div class="table-wrap"><table id="e4-policies"></table></div>
 
-      <h3>Détecter l'ambiguïté, oui. Savoir si elle compte, non.</h3>
+      <h3>Spotting ambiguity: yes. Knowing whether it matters: no.</h3>
       <p id="e4-signals-lede"></p>
       <figure>
         <div class="panel">
-          <div class="legend"><span><i style="background:var(--s1)"></i>Détecter qu'il manque le véhicule</span><span><i style="background:var(--s2)"></i>Détecter si la réponse dépend du véhicule</span></div>
+          <div class="legend"><span><i style="background:var(--s1)"></i>Detecting that the vehicle is missing</span><span><i style="background:var(--s2)"></i>Detecting whether the answer depends on it</span></div>
           <div class="chart" id="e4-signals"></div>
         </div>
-        <figcaption>Aire sous la courbe ROC de chaque signal sur le jeu de test (0,5 = hasard, 1 = parfait). Le second score est calculé uniquement sur les requêtes ambiguës.</figcaption>
+        <figcaption>Area under the ROC curve for each signal on the test split (0.5 = chance, 1 = perfect). The second score is computed on ambiguous questions only.</figcaption>
       </figure>
 
-      <h3>Exemples : la décision prise sur des questions réelles</h3>
+      <h3>Examples: the decision taken on real questions</h3>
       <p id="examples-lede"></p>
       <div class="table-wrap"><table id="examples"></table></div>
 
-      <h3>Dialogues simulés</h3>
+      <h3>Simulated dialogues</h3>
       <div class="dialogues" id="dialogues"></div>
     </section>
 
     <section id="architecture">
-      <div class="sec-head"><span class="tab">ARCH · RECOMMANDATION</span><h2>Le pipeline que les mesures recommandent</h2></div>
+      <div class="sec-head"><span class="tab">ARCH · RECOMMENDATION</span><h2>The pipeline the measurements recommend</h2></div>
       <div class="mermaid-wrap"><pre class="mermaid">
 flowchart LR
-    Q[Question] --> D{Agent de décision}
-    D -->|marque inconnue ou hors sujet| A[S'abstenir]
-    D -->|réponse dépend du véhicule, aucun nommé| C[Question de clarification]
-    C -->|l'utilisateur choisit| F[Filtre sur les manuels du véhicule]
-    D -->|un véhicule nommé| F
-    D -->|question générique| G[Tous les manuels]
-    F --> S[Retirer le nom du véhicule de la requête]
-    S --> R[Recherche hybride 0,3 BM25 + 0,7 bge-m3]
+    Q[Question] --> D{Decision agent}
+    D -->|unknown brand or off-topic| A[Abstain]
+    D -->|answer depends on the vehicle, none named| C[Clarifying question]
+    C -->|user picks one| F[Filter to that vehicle's manuals]
+    D -->|one vehicle named| F
+    D -->|generic question| G[All manuals]
+    F --> S[Strip the vehicle name from the query]
+    S --> R[Hybrid retrieval 0.3 BM25 + 0.7 bge-m3]
     G --> R
-    R --> L[Réponse du LLM avec pages citées]
+    R --> L[LLM answer with cited pages]
 </pre></div>
       <ul id="recommendations"></ul>
     </section>
 
     <section id="limits">
-      <div class="sec-head"><span class="tab">NEXT · LIMITES</span><h2>Limites et prochaines étapes</h2></div>
+      <div class="sec-head"><span class="tab">NEXT · LIMITS</span><h2>Limits and next steps</h2></div>
       <ul id="limits-list"></ul>
     </section>
 
     <section id="method">
-      <div class="sec-head"><span class="tab">MÉTH · REPRODUCTIBILITÉ</span><h2>Méthode</h2></div>
+      <div class="sec-head"><span class="tab">METHOD · REPRODUCIBILITY</span><h2>Method</h2></div>
       <ul>
-        <li><strong>Métriques.</strong> Bon manuel en 1<sup>re</sup> position (<code>doc_hit@1</code>), bon passage parmi les 5 premiers (<code>chunk_hit@5</code>), nDCG@10, confusions avec un manuel de la même marque. Le passage est « bon » s'il contient la citation de référence ; le calcul est vérifié contre la bibliothèque <code>ranx</code>.</li>
-        <li><strong>Statistiques.</strong> La question est l'unité statistique (les tirages aléatoires sont moyennés par question). IC 95&nbsp;% de Wilson pour les proportions, bootstrap sinon ; comparaisons appariées par test de permutation avec correction de Holm.</li>
-        <li><strong>Protocole.</strong> Les réglages (poids de fusion, seuils) sont choisis sur le split <em>dev</em> et les chiffres de ce rapport viennent du split <em>test</em>. Le seuil hors-sujet est calibré uniquement sur des questions du domaine.</li>
-        <li><strong>Reproduire.</strong> <code>make corpus embed dataset</code>, puis <code>ragscale run configs/e1_scaling.yaml</code>, <code>ragscale clarify configs/e4_clarification_partial.yaml</code> et <code>python scripts/build_report.py</code>. Code sur la branche <code>research</code>, dossier <code>research/</code>.</li>
+        <li><strong>Metrics.</strong> Right manual at rank 1 (<code>doc_hit@1</code>), right passage in the top 5 (<code>chunk_hit@5</code>), nDCG@10, confusions with a manual of the same brand. A passage counts as right when it contains the reference quote; the computation is cross-checked against the <code>ranx</code> library.</li>
+        <li><strong>Statistics.</strong> The question is the unit of analysis (random draws are averaged per question). Wilson 95% intervals for proportions, bootstrap otherwise; paired comparisons by randomization test with Holm correction.</li>
+        <li><strong>Protocol.</strong> Settings (fusion weights, thresholds) are chosen on the <em>dev</em> split and every figure in this report comes from the <em>test</em> split. The off-topic threshold is calibrated on in-domain questions only.</li>
+        <li><strong>Reproduce.</strong> <code>make corpus embed dataset</code>, then <code>ragscale run configs/e1_scaling.yaml</code>, <code>ragscale clarify configs/e4_clarification_partial.yaml</code> and <code>python scripts/build_report.py</code>. Code on branch <code>research</code>, directory <code>research/</code>.</li>
       </ul>
     </section>
 
@@ -489,10 +489,10 @@ flowchart LR
 <script>
 const DATA = /*__DATA__*/null;
 
-const pct = (x, d = 1) => x == null ? "–" : (100 * x).toFixed(d).replace(".", ",") + " %";
-const pctn = (x, d = 1) => x == null ? "–" : (100 * x).toFixed(d).replace(".", ",");
-const intf = (x) => Number(x).toLocaleString("fr-FR");
-const dec = (x, d = 2) => x == null ? "–" : Number(x).toFixed(d).replace(".", ",");
+const pct = (x, d = 1) => x == null ? "–" : (100 * x).toFixed(d) + "%";
+const pctn = (x, d = 1) => x == null ? "–" : (100 * x).toFixed(d);
+const intf = (x) => Number(x).toLocaleString("en-US");
+const dec = (x, d = 2) => x == null ? "–" : Number(x).toFixed(d);
 const get = (path) => path.split(".").reduce((o, k) => (o == null ? o : o[k]), DATA);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const SERIES = ["var(--s1)", "var(--s2)", "var(--s3)", "var(--s4)", "var(--s5)", "var(--s6)"];
@@ -520,6 +520,26 @@ const R = {
   ctx: "wsum(bm25_stem+ctx,dense:bge-m3+ctx;w=0.3|0.7)", router: "name_router_strip(wsum(bm25_stem,dense:bge-m3;w=0.3|0.7))",
   hnsw: "hnsw(dense:bge-m3)",
 };
+const LABELS = {
+  [R.bm25]: "BM25 (keywords)",
+  [R.dense]: "bge-m3 (meaning)",
+  [R.hybrid]: "Hybrid 0.3 BM25 + 0.7 bge-m3",
+  [R.ctx]: "Hybrid + document headers",
+  [R.router]: "Name routing + hybrid",
+  [R.hnsw]: "bge-m3, approximate index (HNSW)",
+  bm25: "BM25 (no stemming)",
+  "bm25_stem+ctx": "BM25 + document headers",
+  "dense:bge-m3+ctx": "bge-m3 + document headers",
+  "dense:multilingual-e5-large-instruct": "e5-large (meaning)",
+  "rrf(bm25_stem,dense:bge-m3)": "RRF fusion (today in production)",
+  "rm3(bm25)": "BM25 + query expansion (RM3)",
+  "doc_router(dense:bge-m3+ctx)": "Pick the manual, then the passage",
+  "name_boost(dense:bge-m3;lam=0.5)": "bge-m3 + vehicle-name boost",
+  "name_router(wsum(bm25_stem,dense:bge-m3;w=0.3|0.7))": "Name routing (name kept in the query)",
+  "rerank(wsum(bm25_stem,dense:bge-m3;w=0.3|0.7))": "Hybrid + cross-encoder reranking",
+  "rerank(name_router_strip(wsum(bm25_stem,dense:bge-m3;w=0.3|0.7)))": "Routing + hybrid + cross-encoder reranking",
+  "m3rerank(wsum(bm25_stem,dense:bge-m3;w=0.3|0.7))": "Hybrid + BGE-M3 reranking (multi-vector)",
+};
 const P = DATA.e4.policies;
 const pol = (policy, strategy = "direct") => P.find((p) => p.policy === policy && (p.strategy === strategy || (policy === "never" && p.strategy === "none")));
 const byVar = (policy, variant) => DATA.e4.by_variant.find((p) => p.policy === policy && p.variant === variant && (p.strategy === "direct" || (policy === "never" && p.strategy === "none")));
@@ -530,11 +550,11 @@ const maxN = Math.max(...E1.map((r) => r.n));
   const never = byVar("never", "native_plain"), rule = byVar("name_rule", "native_plain");
   const items = [
     { from: pct(e1v(R.hybrid, "native_plain", "hard", 1, "chunk_hit_5"), 0), to: pct(e1v(R.hybrid, "native_plain", "hard", maxN, "chunk_hit_5"), 0),
-      cap: `bon passage trouvé dans 1 manuel, puis dans ${maxN} manuels, pour une question sans nom de véhicule` },
+      cap: `right passage found inside 1 manual, then across ${maxN}, for a question that names no vehicle` },
     { from: pct(e1v(R.hybrid, "native_model", "hard", maxN, "doc_hit_1"), 0), to: pct(e1v(R.router, "native_model", "hard", maxN, "doc_hit_1"), 0),
-      cap: `bon manuel en 1re position sur ${maxN} manuels quand la question nomme le modèle : recherche seule, puis routage par nom` },
+      cap: `right manual at rank 1 across ${maxN} manuals when the question names the model: search alone, then name routing` },
     { from: pct(never.doc_hit_1, 0), to: pct(rule.doc_hit_1, 0),
-      cap: `bon manuel pour une question sans véhicule : sans clarification, puis avec une question de clarification (${dec(rule.avg_turns)} question par requête)` },
+      cap: `right manual for a question with no vehicle: without clarification, then with one clarifying question (${dec(rule.avg_turns)} per query)` },
   ];
   document.getElementById("readouts").innerHTML = items.map((i) =>
     `<div class="readout"><div class="fig">${i.from}<span class="arrow">→</span><span class="to">${i.to}</span></div><div class="cap">${i.cap}</div></div>`).join("");
@@ -547,16 +567,16 @@ const maxN = Math.max(...E1.map((r) => r.n));
   const hard10 = e1v(R.hybrid, "native_plain", "hard", 10, "chunk_hit_5"), rand10 = e1v(R.hybrid, "native_plain", "random", 10, "chunk_hit_5");
   const gen = DATA.e4.detection.genericity_among_ambiguous || {};
   const hyps = [
-    { id: "H1", t: "La précision chute quand le corpus grandit, plus vite avec des manuels proches.", v: "yes",
-      e: `À 10 manuels : ${pct(hard10)} avec des distracteurs de la même marque contre ${pct(rand10)} avec des distracteurs aléatoires.` },
-    { id: "H2", t: "La recherche dense se dégrade plus vite que BM25 à grande échelle.", v: dN < bN && d1 > b1 ? "yes" : "open",
-      e: `Dense ${pct(d1)} contre BM25 ${pct(b1)} sur 1 manuel ; dense ${pct(dN)} contre BM25 ${pct(bN)} sur ${maxN}.` },
-    { id: "H3", t: "Les techniques centrées document neutralisent l'effet de taille.", v: "yes",
-      e: `Question avec le modèle, ${maxN} manuels : ${pct(e1v(R.hybrid, "native_model", "hard", maxN, "doc_hit_1"))} → ${pct(e1v(R.ctx, "native_model", "hard", maxN, "doc_hit_1"))} (en-têtes) → ${pct(e1v(R.router, "native_model", "hard", maxN, "doc_hit_1"))} (routage).` },
-    { id: "H5", t: "Des signaux sans LLM suffisent pour savoir quand demander.", v: "open",
-      e: `Détecter l'absence de véhicule : AUC ${dec(DATA.e4.detection.classifier.roc_auc)}. Savoir si la réponse en dépend : AUC ${dec(gen.classifier_auc)}.` },
+    { id: "H1", t: "Accuracy falls as the corpus grows, faster with lookalike manuals.", v: "yes",
+      e: `At 10 manuals: ${pct(hard10)} with same-brand distractors against ${pct(rand10)} with random ones.` },
+    { id: "H2", t: "Dense retrieval degrades faster than BM25 at scale.", v: dN < bN && d1 > b1 ? "yes" : "open",
+      e: `Dense ${pct(d1)} vs BM25 ${pct(b1)} on 1 manual; dense ${pct(dN)} vs BM25 ${pct(bN)} across ${maxN}.` },
+    { id: "H3", t: "Document-aware techniques cancel the effect of size.", v: "yes",
+      e: `Question naming the model, ${maxN} manuals: ${pct(e1v(R.hybrid, "native_model", "hard", maxN, "doc_hit_1"))} → ${pct(e1v(R.ctx, "native_model", "hard", maxN, "doc_hit_1"))} (headers) → ${pct(e1v(R.router, "native_model", "hard", maxN, "doc_hit_1"))} (routing).` },
+    { id: "H5", t: "LLM-free signals are enough to know when to ask.", v: "open",
+      e: `Detecting a missing vehicle: AUC ${dec(DATA.e4.detection.classifier.roc_auc)}. Knowing whether the answer depends on it: AUC ${dec(gen.classifier_auc)}.` },
   ];
-  document.getElementById("hypotheses").innerHTML = hyps.map((h) => `<div><span class="id">${h.id}</span><p style="margin:4px 0 6px"><strong>${h.t}</strong></p><p style="margin:0;font-size:.95rem;color:var(--ink-2)">${h.e}</p><span class="verdict ${h.v}">${h.v === "yes" ? "✓ confirmée" : "◐ partiellement"}</span></div>`).join("");
+  document.getElementById("hypotheses").innerHTML = hyps.map((h) => `<div><span class="id">${h.id}</span><p style="margin:4px 0 6px"><strong>${h.t}</strong></p><p style="margin:0;font-size:.95rem;color:var(--ink-2)">${h.e}</p><span class="verdict ${h.v}">${h.v === "yes" ? "✓ confirmed" : "◐ partly"}</span></div>`).join("");
 })();
 
 /* ---------- data findings ---------- */
@@ -565,10 +585,10 @@ const maxN = Math.max(...E1.map((r) => r.n));
   const kia = c.garbled_manuals.map((m) => `${esc(m.name)} (${pct(m.share, 0)})`).join(", ");
   const dup = c.duplicates.map((d) => `<code>${esc(d.manual)}</code> = <code>${esc(d.of)}</code>`).join(", ");
   const items = [
-    ["EXTRACTION PDF", `<strong>${intf(c.garbled_chunks)} passages illisibles.</strong> ${kia}. L'extracteur <code>pypdf</code> décode mal les polices Kia (texte décalé : « UUIFPDDVQBOU » pour « theoccupant »). Correctif livré : bascule automatique sur PyMuPDF ; réindexation à faire.`],
-    ["DOUBLONS", `<strong>Un même PDF indexé deux fois :</strong> ${dup}.`],
-    ["TEXTE PARTAGÉ", `<strong>${intf(c.shared_text_chunks)} passages</strong> ont un texte identique dans un autre manuel : le « bon document » est parfois ambigu par nature. Les métriques ont une version stricte et une version tolérante.`],
-    ["RECHERCHE", `<strong>BM25 sensible aux accents</strong> en production : « reservoir » ne trouve pas « réservoir ». Les manuels FR et EN de la Peugeot 508 sont enregistrés comme deux véhicules différents.`],
+    ["PDF EXTRACTION", `<strong>${intf(c.garbled_chunks)} unreadable passages.</strong> ${kia}. <code>pypdf</code> mis-decodes the Kia fonts (shifted text: “UUIFPDDVQBOU” for “theoccupant”). Fixed: automatic fallback to PyMuPDF; re-indexing still to do.`],
+    ["DUPLICATES", `<strong>The same PDF indexed twice:</strong> ${dup}.`],
+    ["SHARED TEXT", `<strong>${intf(c.shared_text_chunks)} passages</strong> are word-for-word identical to a passage in another manual: the “right document” is sometimes ambiguous by nature. Metrics report a strict and a lenient variant.`],
+    ["RETRIEVAL", `<strong>BM25 is accent-sensitive</strong> in production: “reservoir” does not match “réservoir”. The French and English Peugeot 508 manuals are registered as two different vehicles.`],
   ];
   document.getElementById("data-findings").innerHTML = items.map(([w, t]) => `<li><span class="where">${w}</span><span>${t}</span></li>`).join("");
 })();
@@ -576,16 +596,16 @@ const maxN = Math.max(...E1.map((r) => r.n));
 /* ---------- dataset note + sample ---------- */
 (() => {
   const d = DATA.dataset, a = d.audit;
-  document.getElementById("dataset-note").innerHTML = `<span class="k">Note</span><p>Jeu <strong>partiel</strong> : ${intf(d.questions)} questions sur ${d.manuals} manuels (${d.splits.test} test, ${d.splits.dev} dev), reconstruit depuis le cache quand les crédits Gemini se sont épuisés. Il couvre surtout les premiers manuels par ordre alphabétique : les chiffres de ce rapport sont provisoires.${a ? ` Audit indépendant de ${a.supported + a.supported_with_extra_detail + a.unsupported} questions tirées au hasard : ${a.supported + a.supported_with_extra_detail} réponses étayées par leur citation, ${a.unsupported} non étayée.` : ""}</p>`;
+  document.getElementById("dataset-note").innerHTML = `<span class="k">Note</span><p><strong>Partial set:</strong> ${intf(d.questions)} questions over ${d.manuals} manuals (${d.splits.test} test, ${d.splits.dev} dev), rebuilt from cache when the Gemini credits ran out. It covers mostly the first manuals alphabetically, so the figures in this report are provisional.${a ? ` Independent audit of ${a.supported + a.supported_with_extra_detail + a.unsupported} random questions: ${a.supported + a.supported_with_extra_detail} answers supported by their quote, ${a.unsupported} unsupported.` : ""}</p>`;
   const s = d.sample, lang = s.queries.fr_plain ? "fr" : "en";
-  const forms = [["Sans véhicule", "plain"], ["Marque", "brand"], ["Modèle", "model"], ["Nom complet", "full"]];
+  const forms = [["No vehicle", "plain"], ["Brand", "brand"], ["Model", "model"], ["Full name", "full"]];
   document.getElementById("sample-question").innerHTML = `
-    <div class="dialogue"><span class="kind">QUESTION GÉNÉRÉE · ${esc(s.manual)} · page ${esc(s.page)}</span>
+    <div class="dialogue"><span class="kind">GENERATED QUESTION · ${esc(s.manual)} · page ${esc(s.page)}</span>
       ${forms.map(([l, f]) => `<div class="turn"><span class="who">${l}</span><span class="say">${esc(s.queries[lang + "_" + f])}</span></div>`).join("")}
     </div>
-    <div class="dialogue"><span class="kind">RÉFÉRENCE</span>
-      <div class="turn bot"><span class="who">Réponse attendue</span><span class="say">${esc(s.answer)}</span></div>
-      <div class="turn"><span class="who">Citation exacte du manuel</span><span class="say"><em>« ${esc(s.evidence)} »</em></span></div>
+    <div class="dialogue"><span class="kind">GROUND TRUTH</span>
+      <div class="turn bot"><span class="who">Expected answer</span><span class="say">${esc(s.answer)}</span></div>
+      <div class="turn"><span class="who">Verbatim quote</span><span class="say"><em>“${esc(s.evidence)}”</em></span></div>
     </div>`;
 })();
 
@@ -641,7 +661,7 @@ function lineChart(host, { series, xLog = true, yMax = 1, xLabel, yLabel, fmtX =
     const nearest = xs.reduce((a, b) => (Math.abs(X(b) - px) < Math.abs(X(a) - px) ? b : a));
     cross.setAttribute("x1", X(nearest)); cross.setAttribute("x2", X(nearest)); cross.style.opacity = 1;
     const rows = series.map((s) => ({ s, p: s.points.find((p) => p.x === nearest) })).filter((r) => r.p && r.p.y != null).sort((a, b) => b.p.y - a.p.y);
-    tip.innerHTML = `<b>${fmtX(nearest)} manuel${nearest > 1 ? "s" : ""}</b>` + rows.map((r) => `<div class="row"><i style="background:${r.s.color}"></i><span>${esc(r.s.label)}</span><span class="v">${fmtY(r.p.y)}</span></div>`).join("");
+    tip.innerHTML = `<b>${fmtX(nearest)} manual${nearest > 1 ? "s" : ""}</b>` + rows.map((r) => `<div class="row"><i style="background:${r.s.color}"></i><span>${esc(r.s.label)}</span><span class="v">${fmtY(r.p.y)}</span></div>`).join("");
     tip.hidden = false;
     const left = (X(nearest) / W) * box.width;
     tip.style.left = Math.min(Math.max(left + 12, 0), box.width - 290) + "px";
@@ -655,23 +675,22 @@ function lineChart(host, { series, xLog = true, yMax = 1, xLabel, yLabel, fmtX =
 (() => {
   const state = { metric: "chunk_hit_5", variant: "native_plain", strategy: "hard" };
   const retrs = DATA.e1.retrievers;
-  const shortNames = { [R.bm25]: "BM25", [R.dense]: "bge-m3", [R.hybrid]: "hybride", [R.ctx]: "hybride + en-têtes", [R.router]: "routage par nom", [R.hnsw]: "bge-m3 HNSW" };
-  const frLabel = { [R.bm25]: "BM25 (mots-clés)", [R.dense]: "bge-m3 (sens)", [R.hybrid]: "Hybride 0,3 BM25 + 0,7 bge-m3", [R.ctx]: "Hybride + en-têtes de document", [R.router]: "Routage par nom + hybride", [R.hnsw]: "bge-m3, index approximatif HNSW" };
-  document.getElementById("e1-legend").innerHTML = retrs.map((r, i) => `<span><i style="background:${SERIES[i]}"></i>${frLabel[r.spec] || esc(r.label)}</span>`).join("");
+  const shortNames = { [R.bm25]: "BM25", [R.dense]: "bge-m3", [R.hybrid]: "hybrid", [R.ctx]: "hybrid + headers", [R.router]: "name routing", [R.hnsw]: "bge-m3 HNSW" };
+  document.getElementById("e1-legend").innerHTML = retrs.map((r, i) => `<span><i style="background:${SERIES[i]}"></i>${LABELS[r.spec] || esc(r.label)}</span>`).join("");
   const draw = () => {
     const series = retrs.map((r, i) => ({
-      label: frLabel[r.spec] || r.label, short: shortNames[r.spec], color: SERIES[i],
+      label: LABELS[r.spec] || r.label, short: shortNames[r.spec], color: SERIES[i],
       points: E1.filter((x) => x.retriever === r.spec && x.variant === state.variant && x.strategy === state.strategy)
         .sort((a, b) => a.n - b.n).map((x) => ({ x: x.n, y: x[state.metric], lo: x[state.metric + "_lo"], hi: x[state.metric + "_hi"] })),
     }));
     lineChart(document.getElementById("e1-chart"), {
-      series, xLabel: "manuels dans le corpus fouillé (échelle logarithmique)",
-      yLabel: state.metric === "chunk_hit_5" ? "bon passage dans le top 5 (%)" : "bon manuel en 1re position (%)",
+      series, xLabel: "manuals searched (log scale)",
+      yLabel: state.metric === "chunk_hit_5" ? "right passage in the top 5 (%)" : "right manual at rank 1 (%)",
     });
     const ns = [...new Set(E1.map((x) => x.n))].sort((a, b) => a - b);
     const t = document.getElementById("e1-table");
     t.innerHTML = `<thead><tr><th>Technique</th>${ns.map((n) => `<th class="n">${n}</th>`).join("")}</tr></thead><tbody>` +
-      retrs.map((r) => `<tr><td>${frLabel[r.spec] || esc(r.label)}</td>${ns.map((n) => `<td class="n">${pctn(e1v(r.spec, state.variant, state.strategy, n, state.metric))}</td>`).join("")}</tr>`).join("") + "</tbody>";
+      retrs.map((r) => `<tr><td>${LABELS[r.spec] || esc(r.label)}</td>${ns.map((n) => `<td class="n">${pctn(e1v(r.spec, state.variant, state.strategy, n, state.metric))}</td>`).join("")}</tr>`).join("") + "</tbody>";
   };
   for (const [id, key] of [["e1-metric", "metric"], ["e1-variant", "variant"], ["e1-strategy", "strategy"]]) {
     document.getElementById(id).addEventListener("click", (evt) => {
@@ -683,27 +702,28 @@ function lineChart(host, { series, xLog = true, yMax = 1, xLabel, yLabel, fmtX =
   }
   draw();
   const h1 = e1v(R.hybrid, "native_plain", "hard", 1, "chunk_hit_5"), h5 = e1v(R.hybrid, "native_plain", "hard", 5, "chunk_hit_5"), hN = e1v(R.hybrid, "native_plain", "hard", maxN, "chunk_hit_5");
-  document.getElementById("e1-lede").innerHTML = `Pour une question sans nom de véhicule, la meilleure recherche retrouve le bon passage dans <strong>${pct(h1)}</strong> des cas quand elle ne fouille que le bon manuel, <strong>${pct(h5)}</strong> avec 5 manuels de la même marque, et <strong>${pct(hN)}</strong> sur les ${maxN} manuels. Passez à « Modèle » : le routage par nom garde le bon manuel en tête quelle que soit la taille du corpus.`;
+  document.getElementById("e1-lede").innerHTML = `For a question that names no vehicle, the best retriever finds the right passage <strong>${pct(h1)}</strong> of the time when it only searches the right manual, <strong>${pct(h5)}</strong> with 5 manuals of the same brand, and <strong>${pct(hN)}</strong> across all ${maxN}. Switch to “Model”: name routing keeps the right manual on top whatever the corpus size.`;
 })();
 
 /* ---------- E2 ---------- */
 (() => {
   const host = document.getElementById("e2-body");
   if (!DATA.e2) {
-    host.innerHTML = `<div class="note"><span class="k">En cours</span><p>La comparaison sur le jeu de test (rerankers inclus) tourne encore ; cette section sera complétée à la prochaine génération du rapport.</p></div>`;
+    host.innerHTML = `<div class="note"><span class="k">Running</span><p>The comparison on the test split (rerankers included) is still running; this section will be filled at the next report build.</p></div>`;
     return;
   }
   const rows = DATA.e2.rows;
   const order = [...new Set(rows.map((r) => r.retriever))];
   const cell = (r, m) => r ? `${pctn(r[m])}<span class="ci">${pctn(r[m + "_lo"], 0)}–${pctn(r[m + "_hi"], 0)}</span>` : "–";
   const find = (retr, variant, scope) => rows.find((r) => r.retriever === retr && r.variant === variant && r.scope === scope);
-  const cols = [["native_plain", "vehicle", "chunk_hit_5", "Dans le véhicule · bon passage"], ["cross_plain", "vehicle", "chunk_hit_5", "Autre langue · bon passage"],
-                ["native_model", "global", "doc_hit_1", "165 manuels, modèle nommé · bon manuel"], ["native_model", "global", "chunk_hit_5", "165 manuels, modèle nommé · bon passage"]];
+  const cols = [["native_plain", "vehicle", "chunk_hit_5", "Inside the vehicle · right passage"], ["cross_plain", "vehicle", "chunk_hit_5", "Other language · right passage"],
+                ["native_model", "global", "doc_hit_1", "165 manuals, model named · right manual"], ["native_model", "global", "chunk_hit_5", "165 manuals, model named · right passage"]];
   const best = cols.map(([v, s, m]) => Math.max(...order.map((o) => find(o, v, s)?.[m] ?? -1)));
-  host.innerHTML = `<p>Chaque technique est évaluée sur les mêmes questions de test. En gras : la meilleure valeur de chaque colonne ; en petit : l'intervalle de confiance à 95&nbsp;%.</p>
+  order.sort((a, b) => (find(b, "native_plain", "vehicle")?.chunk_hit_5 ?? -1) - (find(a, "native_plain", "vehicle")?.chunk_hit_5 ?? -1));
+  host.innerHTML = `<p>Every technique is evaluated on the same test questions. Bold: the best value in each column; small type: the 95% confidence interval.</p>
     <div class="table-wrap"><table><thead><tr><th>Technique</th>${cols.map((c) => `<th class="n">${c[3]}</th>`).join("")}</tr></thead><tbody>` +
     order.map((o) => {
-      const lab = rows.find((r) => r.retriever === o).label;
+      const lab = LABELS[o] || rows.find((r) => r.retriever === o).label;
       return `<tr><td>${esc(lab)}<div class="spec">${esc(o)}</div></td>` + cols.map(([v, s, m], i) => {
         const r = find(o, v, s), top = r && Math.abs(r[m] - best[i]) < 1e-9;
         return `<td class="n">${top ? "<strong>" : ""}${cell(r, m)}${top ? "</strong>" : ""}</td>`;
@@ -713,20 +733,20 @@ function lineChart(host, { series, xLog = true, yMax = 1, xLabel, yLabel, fmtX =
 
 /* ---------- E4 policies chart + table ---------- */
 (() => {
-  const labels = { never: "Ne jamais demander", always: "Toujours demander", name_rule: "Demander si aucun véhicule nommé", oracle: "Oracle (sait si la réponse dépend du véhicule)" };
+  const labels = { never: "Never ask", always: "Always ask", name_rule: "Ask when no vehicle is named", oracle: "Oracle (knows whether the answer depends on the vehicle)" };
   const pts = ["never", "always", "name_rule", "oracle"].map((k, i) => ({ k, p: pol(k), color: SERIES[i] })).filter((x) => x.p);
   const clf = P.filter((p) => p.strategy === "direct" && p.policy.startsWith("classifier")).sort((a, b) => a.avg_turns - b.avg_turns);
-  document.getElementById("e4-legend").innerHTML = pts.map((x) => `<span><i style="background:${x.color};height:10px;width:10px;border-radius:50%"></i>${labels[x.k]}</span>`).join("") + `<span><i style="background:var(--s5)"></i>Détecteur appris (seuils)</span>`;
+  document.getElementById("e4-legend").innerHTML = pts.map((x) => `<span><i style="background:${x.color};height:10px;width:10px;border-radius:50%"></i>${labels[x.k]}</span>`).join("") + `<span><i style="background:var(--s5)"></i>Learned detector (thresholds)</span>`;
   const host = document.getElementById("e4-chart");
   const W = 760, H = 340, m = { t: 14, r: 24, b: 46, l: 52 };
-  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Précision contre coût de clarification" }, host);
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Accuracy against clarification cost" }, host);
   const xMax = Math.max(1.1, ...P.map((p) => p.avg_turns)) * 1.05;
   const X = (x) => m.l + (x / xMax) * (W - m.l - m.r), Y = (y) => m.t + (1 - y) * (H - m.t - m.b);
   const g = el("g", { class: "grid" }, svg);
   for (let v = 0; v <= 1.0001; v += 0.2) { el("line", { x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v) }, g); el("text", { x: m.l - 8, y: Y(v) + 4, "text-anchor": "end" }, svg).textContent = pctn(v, 0); }
   for (let v = 0; v <= xMax; v += 0.2) { el("text", { x: X(v), y: H - m.b + 18, "text-anchor": "middle" }, svg).textContent = dec(v, 1); }
-  el("text", { class: "axis-title", x: (m.l + W - m.r) / 2, y: H - 6, "text-anchor": "middle" }, svg).textContent = "questions de clarification par requête";
-  el("text", { class: "axis-title", x: 14, y: H / 2, transform: `rotate(-90 14 ${H / 2})`, "text-anchor": "middle" }, svg).textContent = "bon manuel en 1re position (%)";
+  el("text", { class: "axis-title", x: (m.l + W - m.r) / 2, y: H - 6, "text-anchor": "middle" }, svg).textContent = "clarifying questions per query";
+  el("text", { class: "axis-title", x: 14, y: H / 2, transform: `rotate(-90 14 ${H / 2})`, "text-anchor": "middle" }, svg).textContent = "right manual at rank 1 (%)";
   el("polyline", { points: clf.map((p) => `${X(p.avg_turns)},${Y(p.doc_hit_1)}`).join(" "), style: "fill:none;stroke:var(--s5);stroke-width:2;stroke-dasharray:5 4" }, svg);
   clf.forEach((p) => el("circle", { cx: X(p.avg_turns), cy: Y(p.doc_hit_1), r: 4, style: "fill:var(--s5);stroke:var(--surface);stroke-width:2" }, svg));
   pts.forEach(({ k, p, color }) => {
@@ -737,10 +757,10 @@ function lineChart(host, { series, xLog = true, yMax = 1, xLabel, yLabel, fmtX =
   });
 
   const keep = P.filter((p) => ["none", "direct", "hierarchical"].includes(p.strategy) && !["classifier@0.2", "classifier@0.8"].includes(p.policy));
-  const stratFr = { none: "–", direct: "directe", hierarchical: "marque → modèle" };
-  const polFr = (p) => labels[p] || p.replace("classifier@", "Détecteur, seuil ");
+  const stratFr = { none: "–", direct: "direct", hierarchical: "brand → model" };
+  const polFr = (p) => labels[p] || p.replace("classifier@", "Detector, threshold ");
   const bestRow = pol("name_rule");
-  document.getElementById("e4-policies").innerHTML = `<thead><tr><th>Politique</th><th>Question posée</th><th class="n">Bon manuel (1er)</th><th class="n">Bon passage (top 5)</th><th class="n">Questions / requête</th><th class="n">Vrai véhicule dans les 3 options</th><th class="n">Clarifications manquées</th><th class="n">Clarifications inutiles</th></tr></thead><tbody>` +
+  document.getElementById("e4-policies").innerHTML = `<thead><tr><th>Policy</th><th>Question asked</th><th class="n">Right manual (rank 1)</th><th class="n">Right passage (top 5)</th><th class="n">Questions / query</th><th class="n">Gold vehicle in the 3 options</th><th class="n">Missed clarifications</th><th class="n">Unnecessary clarifications</th></tr></thead><tbody>` +
     keep.map((p) => `<tr class="${p === bestRow ? "best" : ""}"><td>${polFr(p.policy)}</td><td>${stratFr[p.strategy]}</td>
       <td class="n">${pctn(p.doc_hit_1)}<span class="ci">${pctn(p.doc_hit_1_lo, 0)}–${pctn(p.doc_hit_1_hi, 0)}</span></td>
       <td class="n">${pctn(p.chunk_hit_5)}<span class="ci">${pctn(p.chunk_hit_5_lo, 0)}–${pctn(p.chunk_hit_5_hi, 0)}</span></td>
@@ -748,20 +768,20 @@ function lineChart(host, { series, xLog = true, yMax = 1, xLabel, yLabel, fmtX =
       <td class="n">${p.missed_clarification == null ? "–" : pct(p.missed_clarification, 1)}</td><td class="n">${p.unnecessary_clarification == null ? "–" : pct(p.unnecessary_clarification, 1)}</td></tr>`).join("") + "</tbody>";
 
   const nv = byVar("never", "native_plain"), nr = byVar("name_rule", "native_plain"), hier = pol("name_rule", "hierarchical");
-  document.getElementById("e4-lede").innerHTML = `Sur les questions sans nom de véhicule, ne jamais demander donne le bon manuel dans <strong>${pct(nv.doc_hit_1)}</strong> des cas ; une seule question de clarification le fait monter à <strong>${pct(nr.doc_hit_1)}</strong>. Sur l'ensemble des variantes, la règle simple « demander quand aucun véhicule n'est nommé » atteint <strong>${pct(bestRow.doc_hit_1)}</strong> avec <strong>${dec(bestRow.avg_turns)}</strong> question par requête, soit la précision de « toujours demander » pour moitié moins de questions. Demander directement le véhicule coûte moins de tours que la séquence marque puis modèle (${dec(bestRow.avg_turns)} contre ${dec(hier.avg_turns)}).`;
+  document.getElementById("e4-lede").innerHTML = `On questions that name no vehicle, never asking gets the right manual <strong>${pct(nv.doc_hit_1)}</strong> of the time; a single clarifying question takes it to <strong>${pct(nr.doc_hit_1)}</strong>. Across all variants, the simple rule “ask when no vehicle is named” reaches <strong>${pct(bestRow.doc_hit_1)}</strong> with <strong>${dec(bestRow.avg_turns)}</strong> question per query — the accuracy of “always ask” for half the questions. Asking for the vehicle directly costs fewer turns than the brand-then-model sequence (${dec(bestRow.avg_turns)} vs ${dec(hier.avg_turns)}).`;
 })();
 
 /* ---------- E4 signals ---------- */
 (() => {
-  const names = { vehicle_margin: "écart 1er / 2e véhicule", passage_agreement: "accord entre passages", top1_vehicle_share: "part du 1er véhicule", vehicle_entropy: "dispersion entre véhicules", n_vehicles_top10: "véhicules dans le top 10", n_brands_top10: "marques dans le top 10", query_tokens: "longueur de la question", mentions_brand: "marque mentionnée" };
+  const names = { vehicle_margin: "gap between 1st and 2nd vehicle", passage_agreement: "agreement between passages", top1_vehicle_share: "share of the top vehicle", vehicle_entropy: "spread across vehicles", n_vehicles_top10: "vehicles in the top 10", n_brands_top10: "brands in the top 10", query_tokens: "question length", mentions_brand: "brand mentioned" };
   const sig = DATA.e4.signals.filter((s) => s.generic_auc != null && names[s.signal]);
   const host = document.getElementById("e4-signals");
   const rowH = 34, W = 760, m = { t: 8, r: 60, b: 34, l: 200 }, H = m.t + m.b + rowH * sig.length;
-  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "AUC des signaux" }, host);
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Signal AUC" }, host);
   const X = (v) => m.l + ((v - 0.5) / 0.5) * (W - m.l - m.r);
   const g = el("g", { class: "grid" }, svg);
   for (let v = 0.5; v <= 1.0001; v += 0.1) { el("line", { x1: X(v), x2: X(v), y1: m.t, y2: H - m.b }, g); el("text", { x: X(v), y: H - m.b + 16, "text-anchor": "middle" }, svg).textContent = dec(v, 1); }
-  el("text", { class: "axis-title", x: (m.l + W - m.r) / 2, y: H - 2, "text-anchor": "middle" }, svg).textContent = "AUC (0,5 = hasard)";
+  el("text", { class: "axis-title", x: (m.l + W - m.r) / 2, y: H - 2, "text-anchor": "middle" }, svg).textContent = "AUC (0.5 = chance)";
   sig.forEach((s, i) => {
     const y = m.t + i * rowH;
     el("text", { x: m.l - 10, y: y + rowH / 2 + 4, "text-anchor": "end", style: "fill:var(--ink-2);font-family:var(--font-display);font-size:13px" }, svg).textContent = names[s.signal];
@@ -771,30 +791,30 @@ function lineChart(host, { series, xLog = true, yMax = 1, xLabel, yLabel, fmtX =
     });
   });
   const det = DATA.e4.detection, gen = det.genericity_among_ambiguous || {};
-  document.getElementById("e4-signals-lede").innerHTML = `Les signaux calculés sans LLM à partir des résultats de recherche détectent très bien qu'une question ne désigne pas de véhicule (détecteur : AUC <strong>${dec(det.classifier.roc_auc)}</strong>, rappel <strong>${pct(det.classifier["recall@0.5"])}</strong>). Mais parmi les ${intf(gen.n_test)} requêtes ambiguës, ils ne savent pas dire si la réponse change d'un véhicule à l'autre : AUC <strong>${dec(gen.classifier_auc)}</strong>, à peine mieux que le hasard. C'est pourquoi le système pose aussi des questions inutiles (« boucler sa ceinture ») : il faudra un LLM qui compare le sens des réponses (expérience E4b, prête).`;
+  document.getElementById("e4-signals-lede").innerHTML = `Signals computed without any LLM from the retrieval results detect very well that a question names no vehicle (detector: AUC <strong>${dec(det.classifier.roc_auc)}</strong>, recall <strong>${pct(det.classifier["recall@0.5"])}</strong>). But among the ${intf(gen.n_test)} ambiguous questions they cannot tell whether the answer changes from one vehicle to another: AUC <strong>${dec(gen.classifier_auc)}</strong>, barely above chance. That is why the system also asks unnecessary questions (“how to fasten the seat belt”): it needs an LLM comparing the meaning of the answers (experiment E4b, ready to run).`;
 })();
 
 /* ---------- examples + dialogues ---------- */
 (() => {
   const ex = DATA.e4.examples, meta = DATA.e4.examples_meta;
-  const act = { answer: "répondre", clarify: "clarifier", abstain: "s'abstenir" };
+  const act = { answer: "answer", clarify: "ask", abstain: "abstain" };
   const nOk = ex.filter((e) => e.correct_action === true || e.correct_action === "True").length;
-  document.getElementById("examples-lede").innerHTML = `${ex.length} questions écrites à la main (FR/EN) avec la décision attendue. Le système prend la bonne décision dans <strong>${nOk} cas sur ${ex.length}</strong> (${pct(nOk / ex.length, 0)}). Les erreurs restantes sont des questions génériques pour lesquelles il demande le véhicule inutilement, et un cas limite (« ma Golf » : un manuel « toutes générations » existe). Seuil hors-sujet calibré sur les vraies questions : similarité ${dec(meta.ood_similarity_threshold, 3)}.`;
-  document.getElementById("examples").innerHTML = `<thead><tr><th>Question</th><th>Attendu</th><th>Décision</th><th></th><th>Question posée ou raison</th></tr></thead><tbody>` +
+  document.getElementById("examples-lede").innerHTML = `${ex.length} hand-written questions (FR/EN) with the expected decision. The system decides correctly in <strong>${nOk} of ${ex.length}</strong> cases (${pct(nOk / ex.length, 0)}). The remaining errors are generic questions where it asks for the vehicle although it does not matter, plus one edge case (“my Golf”: an all-generations manual exists). Off-topic threshold calibrated on real questions: similarity ${dec(meta.ood_similarity_threshold, 3)}.`;
+  document.getElementById("examples").innerHTML = `<thead><tr><th>Question</th><th>Expected</th><th>Decision</th><th></th><th>Question asked, or reason</th></tr></thead><tbody>` +
     ex.map((e) => {
       const ok = e.correct_action === true || e.correct_action === "True";
       const detail = e.predicted === "clarify" ? `${esc(e.question)}<div class="options">${esc(e.options).split(" | ").join(" · ")}</div>`
         : e.predicted === "answer" ? `<span class="mono">${esc(e.top_manual)}</span>, page ${esc(e.top_page)}` : esc(e.reason);
-      return `<tr><td>${esc(e.query)}</td><td><span class="pill ${e.expected}">${act[e.expected]}</span></td><td><span class="pill ${e.predicted}">${act[e.predicted]}</span></td><td>${ok ? '<span class="ok">✓ juste</span>' : '<span class="ko">✗ erreur</span>'}</td><td>${detail}</td></tr>`;
+      return `<tr><td>${esc(e.query)}</td><td><span class="pill ${e.expected}">${act[e.expected]}</span></td><td><span class="pill ${e.predicted}">${act[e.predicted]}</span></td><td>${ok ? '<span class="ok">✓ right</span>' : '<span class="ko">✗ wrong</span>'}</td><td>${detail}</td></tr>`;
     }).join("") + "</tbody>";
 
-  const vfr = { native_plain: "sans véhicule", native_brand: "avec la marque", native_model: "avec le modèle", native_full: "avec le nom complet" };
+  const vfr = { native_plain: "without vehicle", native_brand: "with the brand", native_model: "with the model", native_full: "with the full name" };
   document.getElementById("dialogues").innerHTML = DATA.e4.dialogues.map((d) => `
     <div class="dialogue"><span class="kind">QUESTION ${vfr[d.variant].toUpperCase()}</span>
-      <div class="turn"><span class="who">Utilisateur</span><span class="say">${esc(d.query)}</span></div>
+      <div class="turn"><span class="who">User</span><span class="say">${esc(d.query)}</span></div>
       ${d.turns.map((t) => `<div class="turn bot"><span class="who">Assistant</span><span class="say">${esc(t.q)}</span><div class="chips">${t.options.map((o) => `<span>${esc(o)}</span>`).join("")}</div></div>
-      <div class="turn"><span class="who">Utilisateur</span><span class="say">${esc(t.a)}</span></div>`).join("")}
-      <div class="result">Passage retrouvé : <span class="ref">${esc(d.top_manual)} · page ${esc(d.top_page)}</span>${d.doc_ok ? " — bon manuel" : ""}</div>
+      <div class="turn"><span class="who">User</span><span class="say">${esc(t.a)}</span></div>`).join("")}
+      <div class="result">Retrieved: <span class="ref">${esc(d.top_manual)} · page ${esc(d.top_page)}</span>${d.doc_ok ? " — right manual" : ""}</div>
     </div>`).join("");
 })();
 
@@ -802,20 +822,20 @@ function lineChart(host, { series, xLog = true, yMax = 1, xLabel, yLabel, fmtX =
 (() => {
   const rule = pol("name_rule");
   document.getElementById("recommendations").innerHTML = [
-    `<strong>Filtrer par véhicule plutôt que tout fouiller.</strong> Sur ${maxN} manuels, la précision s'effondre ; dans le bon véhicule, le bon passage est retrouvé dans ${pct(e1v(R.hybrid, "native_plain", "hard", 1, "chunk_hit_5"))} des cas.`,
-    `<strong>Router par le nom du véhicule, puis retirer ce nom de la requête.</strong> Garder « Peugeot 208 (2023) » dans le texte dilue la recherche du passage une fois le filtre appliqué.`,
-    `<strong>Remplacer la fusion RRF actuelle par une fusion pondérée des scores</strong> (0,3 BM25 + 0,7 bge-m3), réglée sur le split dev.`,
-    `<strong>Poser une question directe</strong> (« Quel est votre véhicule ? ») avec les 3 véhicules les plus probables et une saisie libre : le vrai véhicule n'est dans les options que dans ${pct(rule.gold_in_options_3, 0)} des cas.`,
-    `<strong>Utiliser la réponse comme filtre, pas comme mots ajoutés à la requête.</strong>`,
-    `<strong>Corriger les données :</strong> réindexer les manuels Kia avec PyMuPDF, dédoublonner Mazda, normaliser les accents dans BM25.`,
+    `<strong>Filter by vehicle instead of searching everything.</strong> Across ${maxN} manuals accuracy collapses; inside the right vehicle, the right passage is found in ${pct(e1v(R.hybrid, "native_plain", "hard", 1, "chunk_hit_5"))} of cases.`,
+    `<strong>Route on the vehicle name, then strip that name from the query.</strong> Keeping “Peugeot 208 (2023)” in the text dilutes the passage search once the filter is applied.`,
+    `<strong>Replace the current RRF fusion with weighted score fusion</strong> (0.3 BM25 + 0.7 bge-m3), tuned on the dev split.`,
+    `<strong>Ask a direct question</strong> (“Which vehicle do you have?”) offering the 3 most likely vehicles plus free text: the true vehicle is among the options only ${pct(rule.gold_in_options_3, 0)} of the time.`,
+    `<strong>Use the answer as a filter, not as extra query words.</strong>`,
+    `<strong>Fix the data:</strong> re-index the Kia manuals with PyMuPDF, de-duplicate Mazda, fold accents in BM25.`,
   ].map((t) => `<li>${t}</li>`).join("");
   document.getElementById("limits-list").innerHTML = [
-    `<strong>Jeu partiel et synthétique.</strong> ${intf(DATA.dataset.questions)} questions générées sur ${DATA.dataset.manuals} manuels, biaisées vers les premiers manuels par ordre alphabétique. À refaire sur le jeu complet dès que les crédits Gemini seront rechargés.`,
-    `<strong>Recherche Gemini non mesurée.</strong> Les embeddings de production (<code>gemini-embedding-001</code>) exigent l'API pour encoder les questions ; les résultats ci-dessus utilisent des modèles locaux (bge-m3). La mesure du pipeline de production exact (E0) est prête.`,
-    `<strong>Étape LLM non mesurée (E3).</strong> Le LLM cite-t-il la bonne page, s'abstient-il à bon escient ? L'expérience est codée ; elle attend l'API.`,
-    `<strong>Généricité jugée par le générateur.</strong> Le libellé « la réponse dépend du véhicule » vient de Gemini ; pour une question générique, un passage équivalent d'un autre manuel n'est reconnu que s'il est quasi identique.`,
-    `<strong>Utilisateur simulé idéal.</strong> Il connaît toujours son véhicule exact ; un vrai utilisateur peut ignorer l'année ou la génération.`,
+    `<strong>Partial, synthetic dataset.</strong> ${intf(DATA.dataset.questions)} questions generated over ${DATA.dataset.manuals} manuals, skewed toward the first manuals in alphabetical order. To be redone on the full set once the Gemini credits are topped up.`,
+    `<strong>Gemini retrieval not measured.</strong> The production embeddings (<code>gemini-embedding-001</code>) need the API to encode questions; the results above use local models (bge-m3). The measurement of the exact production pipeline (E0) is ready to run.`,
+    `<strong>LLM stage not measured (E3).</strong> Does the LLM cite the right page, does it abstain when it should? The experiment is coded; it is waiting on the API.`,
+    `<strong>Genericity labelled by the generator.</strong> The “the answer depends on the vehicle” label comes from Gemini; for a generic question, an equivalent passage from another manual only counts when it is near-identical.`,
+    `<strong>Idealised simulated user.</strong> They always know their exact vehicle; a real user may not know the year or the generation.`,
   ].map((t) => `<li>${t}</li>`).join("");
-  document.getElementById("footer").innerHTML = `Rapport généré à partir des résultats du dossier <code>research/results</code> · jeu <code>${esc(DATA.dataset.name)}</code> · ${intf(DATA.corpus.chunks)} passages · chiffres provisoires.`;
+  document.getElementById("footer").innerHTML = `Report built from the results in <code>research/results</code> · dataset <code>${esc(DATA.dataset.name)}</code> · ${intf(DATA.corpus.chunks)} passages · provisional figures.`;
 })();
 </script>
