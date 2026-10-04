@@ -1,6 +1,6 @@
 # ragscale — how accurately does a RAG pipeline find the right document as the corpus grows?
 
-Research harness built on the Wallside/Car Chat corpus (car owner's manuals). It measures, with exact
+Research harness of the Wallside project, built on its corpus (car owner's manuals). It measures, with exact
 numbers and confidence intervals, whether a retrieval pipeline (and the LLM on top of it) identifies the
 **right manual** and the **right passage/page** for a question, as a function of how much data it searches.
 

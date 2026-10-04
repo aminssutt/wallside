@@ -54,7 +54,7 @@ export default function ResultsPage() {
   const page = useMemo(() => PAGES.find((p) => p.id === pageId) || PAGES[0], [pageId])
 
   useEffect(() => {
-    document.title = `${page.title} — retrieval research`
+    document.title = `${page.title} — Wallside`
     window.scrollTo({ top: 0, behavior: still ? 'auto' : 'smooth' })
   }, [page, still])
 
@@ -70,7 +70,7 @@ export default function ResultsPage() {
     <div className="research">
       <header className="navbar">
         <a className="brand" href="#/overview" onClick={go('overview')}>
-          <span className="brand-mark">AURIS</span>
+          <span className="brand-mark">WALLSIDE</span>
           <span className="brand-name">Retrieval research</span>
         </a>
         <nav aria-label="Sections">

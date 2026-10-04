@@ -15,19 +15,19 @@ function GarageComingSoon() {
   const lang = (typeof window !== 'undefined' && window.localStorage.getItem('cc_lang')) || 'fr'
   const copy = {
     fr: {
-      badge: 'Auris · Garage',
+      badge: 'Wallside · Garage',
       title: 'Bientôt disponible',
       desc: "L'espace garagistes est en cours de finalisation. Revenez très bientôt.",
       back: "Retour à l'accueil",
     },
     en: {
-      badge: 'Auris · Garage',
+      badge: 'Wallside · Garage',
       title: 'Coming soon',
       desc: 'The workshop dashboard is being finalized. Check back shortly.',
       back: 'Back to home',
     },
     ko: {
-      badge: 'Auris · Garage',
+      badge: 'Wallside · Garage',
       title: '\uACE7 \uACF5\uAC1C',
       desc: '\uC815\uBE44\uC18C \uD3EC\uD138\uC744 \uC900\uBE44 \uC911\uC785\uB2C8\uB2E4.',
       back: '\uD648\uC73C\uB85C',

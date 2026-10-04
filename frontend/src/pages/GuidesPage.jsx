@@ -1009,7 +1009,7 @@ function GuidesPage() {
                 </button>
               </div>
               <div className="guides-exit-foot">
-                <span>SYS.ID: AURIS-V3</span>
+                <span>SYS.ID: WALLSIDE-V3</span>
                 <span>{exitNodeLabel}: {selectedBrand || 'HOME'}</span>
               </div>
             </Motion.div>

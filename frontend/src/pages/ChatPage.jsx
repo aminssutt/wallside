@@ -2709,7 +2709,7 @@ function ChatPage() {
               </div>
 
               <div className="chat-exit-foot">
-                <span>SYS.ID: AURIS-V3</span>
+                <span>SYS.ID: WALLSIDE-V3</span>
                 <span>{exitNodeLabel}: {guide.name}</span>
               </div>
             </Motion.div>
